@@ -1,0 +1,1 @@
+scripts useful for many projects
