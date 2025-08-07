@@ -1,1 +1,1 @@
-scripts useful for many projects
+scripts useful for many projects to get context information online
