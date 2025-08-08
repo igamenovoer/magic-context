@@ -12,11 +12,19 @@ The `context/` directory serves as a centralized knowledge base for AI assistant
 context/
 ├── design/          # Technical specifications and architecture
 ├── hints/           # How-to guides and troubleshooting tips
+├── instructions/    # Reusable prompt snippets and commands
 ├── logs/            # Development session records and outcomes
 ├── plans/           # Implementation roadmaps and strategies
 ├── refcode/         # Reference implementations and examples
+├── roles/           # Role-based system prompts and memory
+│   ├── role1/       # Role-specific subdirectory
+│   └── role2/       # Another role-specific subdirectory
 ├── summaries/       # Knowledge base and analysis documents
 ├── tasks/           # Current and planned work items
+│   ├── features/    # Feature implementation tasks
+│   ├── fixes/       # Bug fix tasks  
+│   ├── refactor/    # Code refactoring tasks
+│   └── tests/       # Testing-related tasks
 └── tools/           # Custom development utilities
 ```
 
@@ -26,15 +34,23 @@ context/
 
 **hints/** - Create "howto-" guides for common development tasks, error solutions, and best practices specific to your project. These help AI assistants avoid known pitfalls.
 
+**instructions/** - Store reusable prompt snippets, command templates, and standardized instruction patterns that can be referenced across the project. Useful for maintaining consistency in AI interactions.
+
 **logs/** - Record development sessions with date prefixes and outcome status. Include both successful implementations and failed attempts with lessons learned.
 
 **plans/** - Document implementation strategies, feature roadmaps, and multi-step development plans. Break down complex features into manageable tasks.
 
 **refcode/** - Store reference implementations, code examples, and third-party integrations that serve as patterns for new development.
 
+**roles/** - Contains role-based system prompts, memory, and context for different AI assistant personas. Each role has its own subdirectory with specialized prompts and accumulated knowledge for that specific role or domain expertise.
+
 **summaries/** - Maintain analysis documents, project knowledge summaries, and consolidated findings from research or implementation work.
 
-**tasks/** - Track current work items, feature requests, and planned improvements. Organize by feature area or priority level.
+**tasks/** - Track current work items organized by type:
+  - **features/** - New feature implementation tasks and requirements
+  - **fixes/** - Bug reports, issue tracking, and fix documentation  
+  - **refactor/** - Code refactoring plans and cleanup tasks
+  - **tests/** - Testing strategies, test cases, and quality assurance tasks
 
 **tools/** - House custom scripts, utilities, and development aids specific to your project workflow.
 
@@ -51,9 +67,23 @@ context/
 - `why-this-error-occurs.md`
 - `troubleshoot-build-failures.md`
 
-**Tasks** - Use clear action descriptions:
-- `task-implement-user-authentication.md`
-- `task-fix-memory-leak.md`
+**Instructions** - Use command or snippet type prefixes:
+- `prompt-code-review-template.md`
+- `command-git-workflow.md`
+- `snippet-error-handling-pattern.md`
+- `template-feature-documentation.md`
+
+**Roles** - Use role-based directory and file structure:
+- `roles/backend-developer/system-prompt.md`
+- `roles/backend-developer/memory.md`
+- `roles/frontend-specialist/context.md`
+- `roles/devops-engineer/knowledge-base.md`
+
+**Tasks** - Organized by type with clear action descriptions:
+- `features/task-implement-user-authentication.md`
+- `fixes/task-fix-memory-leak.md`
+- `refactor/task-modernize-api-endpoints.md`
+- `tests/task-add-integration-tests.md`
 - `goal.md` (for main objective in subdirectories)
 
 **Plans** - Use feature or system names:
