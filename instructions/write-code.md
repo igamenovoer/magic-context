@@ -10,7 +10,7 @@ you are tasked to write or modify source code, follow these guidelines
 ## Python Code Guidelines
 
 - Avoid using relative imports in Python code, prefer to use absolute imports to ensure clarity and avoid import errors.
-
+- place temporary scripts and data in `<workspace>/tmp` directory, better create subdirs for different purposes, do not place them in the main source code directories.
 
 # How to run code
 
@@ -22,3 +22,6 @@ If you want to run something, you should follow these instructions.
 ## Command Line Interface (CLI)
 - for any interactive process that may block the terminal, timeout within 10 seconds
 - for anything you need to wait for timeout, timeout in LESS THAN 15 seconds
+
+## Stubs creation
+- when creating python stubs, throw `NotImplementedError` for methods that are not implemented yet, and use `pass` for methods that are placeholders or do nothing.
