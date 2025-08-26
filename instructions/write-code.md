@@ -25,9 +25,13 @@ your python code should be written in a strongly typed manner, and use `mypy` to
 
 If you want to run something, you should follow these instructions.
 
+**Watch out for pixi usage**
 Look for `pyproject.toml` or `pixi.lock` in the root directory of the project. If you find them, it means the project uses `pixi` as the package manager. Then, you should 
 - run the code using `pixi run -e dev <your command>` for development tasks
 - `pixi run <your command>` for deployment tasks.
+
+**Avoid inline python code**
+If you want to run a small snippet of code, you can create a temporary script in the `tmp` directory under the root of the workspace, and run it using `pixi run -e dev python <your temp script>`. You can reuse the same script (overwrite it) for different tasks if needed, all files in `tmp` directory are considered temporary files and can be deleted at any time.
 
 # CLI tools
 
