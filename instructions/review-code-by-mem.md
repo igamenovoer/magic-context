@@ -7,7 +7,7 @@ first and foremost, DO NOT TRY to modify the code under review, instead, you sho
 ## Guidelines
 
 - scan through the code to understand the overall structure and logic, and most importantly, the intent of the code
-- create a report in `context/logs/code-reivew`, name it as `<timestamp>-<what-to-review>.md`, where `<timestamp>` is the current timestamp in `YYYYMMDD-HHMMSS` format, and `<what-to-review>` is a short description of the code being reviewed
+- by default, create a report in `context/logs/code-reivew`, name it as `<timestamp>-<what-to-review>.md`, where `<timestamp>` is the current timestamp in `YYYYMMDD-HHMMSS` format, and `<what-to-review>` is a short description of the code being reviewed. If the user specifies a different code review report filepath, use that instead.
 - if you are not sure, then find online info, or you can just find online info for verification.
 - if you find online resources and used them, in your report, include the references, including online links and context7 ids.
 
