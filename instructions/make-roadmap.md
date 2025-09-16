@@ -2,6 +2,10 @@
 
 you are tasked to create a detailed roadmap for implementing a new feature or module in a software project. The roadmap should include the following information.
 
+by default, the output file is:
+- placed in `context/plans/roadmaps/`, unless specified otherwise
+- name it as `roadmap-for-(what-feature-or-module).md`, unless specified otherwise
+
 ```markdown
 # Roadmap for Implementing [Feature/Module Name]
 
