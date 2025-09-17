@@ -1,5 +1,5 @@
-import re
 import os
+import re
 
 
 def format_authors(author_line):

@@ -24,10 +24,10 @@ Output:
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
-import re
 import tempfile
 from pathlib import Path
 from typing import List, Optional, Tuple

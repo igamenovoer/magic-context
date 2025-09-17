@@ -79,9 +79,13 @@ import os
 import sys
 from pathlib import Path
 from typing import Any, Optional, Set
-from urllib.parse import urljoin, urlparse, unquote
+from urllib.parse import unquote, urljoin, urlparse
 
-from playwright.async_api import Page, Response, async_playwright  # type: ignore[import-untyped]
+from playwright.async_api import (  # type: ignore[import-untyped]
+    Page,
+    Response,
+    async_playwright,
+)
 
 
 class HTMLDownloader:
