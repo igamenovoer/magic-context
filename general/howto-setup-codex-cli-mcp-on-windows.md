@@ -24,6 +24,24 @@ command = "cmd.exe"
 args = ["/c", "set TAVILY_API_KEY=your_api_key_here && bunx.exe tavily-mcp"]
 ```
 
+If npx/bunx does not work, you can also use Docker to run the MCP servers:
+
+```toml
+
+# note that mcp/context7 does not work in stdio mode, so we cannot use it with codex-cli
+[mcp_servers.context7]
+command = "docker"
+args = ["run", "-i", "--rm", "--read-only", "acuvity/mcp-server-context-7:latest"]
+
+[mcp_servers.tavily]
+command = "docker"
+args = ["run", "-i", "--rm", "-e", "TAVILY_API_KEY", "mcp/tavily"]
+
+[mcp_servers.tavily.env]
+TAVILY_API_KEY = "your_tavily_api_key_here"
+
+```
+
 ### Linux/WSL Configuration
 
 On Linux or the Windows Subsystem for Linux (WSL), the configuration is much simpler and works as expected.
