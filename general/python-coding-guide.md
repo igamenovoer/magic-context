@@ -65,6 +65,37 @@ import json
 - Initialize to `None` by default
 - Use strong typing with type hints
 
+Note on scope
+- The `m_` naming convention applies to generic classes that encapsulate
+  behavior/state (service, helper, controller, algorithm classes, etc.).
+- Do not use `m_` for data model classes built with `attrs` or `pydantic`.
+  These represent structured data and should use regular field names to ensure
+  compatibility with validators, serializers, and schema generation.
+
+Example (pydantic data model)
+```python
+from typing import Optional
+from pydantic import BaseModel
+
+class User(BaseModel):
+    id: int
+    name: str
+    email: Optional[str] = None
+```
+
+Example (`attrs` data model)
+```python
+from typing import Optional
+import attrs
+
+@attrs.define
+class Person:
+    first_name: str
+    last_name: str
+    age: int = 0
+    nickname: Optional[str] = None
+```
+
 ```python
 from typing import Any, Optional
 
