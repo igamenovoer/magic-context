@@ -75,7 +75,6 @@ The context directory serves as a centralized knowledge base containing project 
 - **pixi.toml** - Environment management and development task definitions
 - **mkdocs.yml** - Documentation build configuration
 - **README.md** - Primary project introduction and usage guide
-- **CLAUDE.md** - AI assistant guidance and project context
 - **LICENSE** - Legal terms for code usage and distribution
 - **.gitignore** - Version control exclusion patterns
 

@@ -132,7 +132,7 @@ Example header format:
 3. **Include status indicators** in filenames when relevant (success/failed/complete)
 4. **Start every document with HEADER section** providing essential metadata
 5. **Keep content current** - update summaries and remove outdated information
-6. **Reference from main documentation** - link to context files from your project's main README or CLAUDE.md
+6. **Reference from main documentation** - link to context files from your project's main README
 7. **Make it discoverable** - AI assistants should be directed to use this context for better project understanding
 
 ## Benefits
@@ -149,6 +149,5 @@ Example header format:
 2. Add a main README.md explaining the context system
 3. Start with the most critical directories for your project type
 4. Document as you develop - don't wait until later
-5. Reference the context directory in your project's AI interaction files (like CLAUDE.md)
 
 This structure scales from small projects to large codebases and helps maintain development momentum across multiple AI-assisted sessions.

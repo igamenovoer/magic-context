@@ -57,5 +57,41 @@ python convert-pdf-to-markdown.py -i ./pdfs/ -o ./converted/ --extract-images --
 ### `download-html.py`
 Downloads HTML content from URLs using Playwright for dynamic content rendering.
 
+### `configure-submodule-https-ssh.sh`
+Configures git submodules to use HTTPS for pull/fetch operations and SSH for push operations.
+
+**Features:**
+- Configure individual submodules or all submodules at once
+- Automatic detection of GitHub URLs and conversion to appropriate formats
+- Dry-run mode to preview changes without applying them
+- Global URL rewriting configuration for automatic HTTPS→SSH conversion
+- Validation of SSH key availability and GitHub connectivity
+- Configuration verification
+
+**Usage:**
+```bash
+# Configure a specific submodule
+./configure-submodule-https-ssh.sh magic-context
+
+# Configure all submodules in the repository
+./configure-submodule-https-ssh.sh --all
+
+# Preview changes without applying (dry run)
+./configure-submodule-https-ssh.sh --dry-run magic-context
+
+# Verify current configuration
+./configure-submodule-https-ssh.sh --verify magic-context
+
+# Skip SSH connectivity check
+./configure-submodule-https-ssh.sh --skip-ssh-check magic-context
+```
+
+**Benefits:**
+- Pull/fetch without authentication (uses HTTPS)
+- Secure push operations (uses SSH with key-based authentication)
+- Works behind firewalls and corporate networks
+- Automatic URL rewriting for future repositories
+- No Python dependencies required
+
 ### `extract_references.py`
 Extracts references from academic papers in markdown format.
