@@ -1,11 +1,20 @@
-you are tasked to create a python unit test, there are the guidelines:
-- Use a testing framework like `pytest` or `unittest`
-- By default, test cases are saved to `unittests/(subdir)/test_(pick-a-name).py`, where `(subdir)` is a subdirectory that matches the module or functionality being tested, and `(pick-a-name)` is a descriptive name for the test file. You shall first look at existing test files and subdirs to determine the appropriate location and naming convention for the new test case. If user specifies a different path or naming, use that instead.
-- External resources (file path, url, credentials, etc) are preferrably defined using env variables, defined in `.env`, if not there then define some env variables in `.env` for test use, name them as `TEST_RESOURCE_(XXXX)`, with comments to explain that. Before you create such env variables, first check if there are reusable ones. If user specifies otherwise, follow user's instruction.
-- If you use external resources, print them to console or logs during test, so that we will not accidentally use the wrong resource.
-- Use the correct python environment to run the test:
-    - if user specifies a specific python environment, use that
-    - if `pixi` is used to manage python packages, see if there is `pixi run -e dev`, use that if exists
-    - otherwise, try `pixi run`
-    - otherwise, try system `python`
-- unit tests results should be saved to `<workspace>/tmp/unittests`, unless user specifies otherwise
+you are tasked to create a python unit test. Follow these guidelines:
+
+- Use a testing framework like `pytest` or `unittest`.
+- Location (discovery order and conventions):
+  - Preferred: `tests/unit/(subdir)/test_(pick-a-name).py`
+    - `(subdir)` mirrors the module or feature under test.
+    - Check existing tests/subdirs to choose the right placement and naming.
+  - Legacy (only if project still uses it): `unittests/(subdir)/test_(pick-a-name).py`
+    - Prefer migrating to `tests/unit/`; treat `unittests/` as deprecated.
+  - If the user specifies a path or naming, follow that instruction.
+- External resources (file path, url, credentials, etc.) should be provided via environment variables:
+  - Prefer `.env` entries named like `TEST_RESOURCE_<NAME>` with comments.
+  - Reuse existing variables when possible.
+  - If resources are used, print resolved endpoints/paths in test logs to avoid confusion.
+- Environment execution:
+  - If the user specifies an environment, use it.
+  - If Pixi manages packages, prefer `pixi run -e dev` when available, otherwise `pixi run`.
+  - Only if neither applies, fall back to system `python` (not recommended).
+- Outputs:
+  - Save generated artifacts under `<workspace>/tmp/unittests` unless the user specifies a different location.

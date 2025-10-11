@@ -15,14 +15,20 @@ This structure emphasizes:
 
 ```
 MyPythonLib/
-├── .github/workflows/          # Automation workflows
-├── src/mypythonlib/           # Main package code (src layout)
-├── scripts/                   # Command-line interface tools
-├── tests/                     # Test suite
-├── docs/                      # Documentation source
-├── context/                   # AI assistant workspace (see context-dir-guide.md)
-├── tmp/                      # Temporary working files
-└── [configuration files]     # Project setup and tooling
+├── .github/workflows/           # Automation workflows
+├── src/mypythonlib/            # Main package code (src layout)
+├── scripts/                    # Command-line interface tools
+├── tests/                      # Test suite (see details below)
+│   ├── unit/                   # Fast, deterministic unit tests
+│   │   └── <subdir>/test_*.py
+│   ├── integration/            # I/O, service, or multi-component tests
+│   │   └── <subdir>/test_*.py
+│   └── manual/                 # Manually executed scripts (not CI-collected)
+│       └── manual_*.py
+├── docs/                       # Documentation source
+├── context/                    # AI assistant workspace (see context-dir-guide.md)
+├── tmp/                        # Temporary working files
+└── [configuration files]       # Project setup and tooling
 ```
 
 ## Core Components
@@ -45,9 +51,30 @@ MyPythonLib/
 
 **tests/** - Test Suite
 - Comprehensive testing for all functionality
-- Organized to mirror source code structure
-- Includes unit tests, integration tests, and end-to-end tests
+- Organized by purpose and discovery behavior
+- Includes unit, integration, and manual tests
 - Configured with modern testing frameworks and coverage tools
+
+Testing layout conventions
+
+- `tests/unit/(subdir)/test_*.py`
+  - Pytest/unittest-based, fast and deterministic
+  - Mirrors source structure by module/functionality under `(subdir)`
+  - Discovered by CI (pytest) by default
+
+- `tests/integration/(subdir)/test_*.py`
+  - Exercises external services (e.g., DB, S3/MinIO) or filesystem I/O
+  - May require local service endpoints configured via environment
+  - Discovered by CI if enabled; can be skipped via markers
+
+- `tests/manual/manual_*.py`
+  - Manually executed scripts for heavy or environment-specific checks (e.g., Blender)
+  - Should not be collected by CI (prefixed with `manual_` and placed under `tests/manual/`)
+  - Follow manual-script guidance (see instructions/make-manual-python-script.md)
+
+Notes
+- Prefer `pixi run` for executing tests and scripts; avoid system Python.
+- Keep unit tests hermetic; integration tests should skip gracefully when dependencies are unavailable.
 
 ### Documentation and Communication
 
