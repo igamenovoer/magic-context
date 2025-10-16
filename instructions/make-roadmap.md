@@ -14,10 +14,10 @@ by default, the output file is:
 (for details, see the breakdown of features section below)
 
 ### Tasks
-(just copy from the breakdown of features section below)
+(just copy from the breakdown of features section below, excluding its own "task" header)
+
 (note that, subtasks are only present in the implementing feature, because they are generated during the implementation of the task)
 
-#### Tasks
 - [ ] `task-1`: [Description of task]
     - [ ] `subtask-1`: [current implementation status]
     - [ ] `subtask-2`: [current implementation status]
@@ -32,12 +32,9 @@ note that `subtask-1` and `subtask-2` are placeholders for actual subtask names,
 - they are self-contained, in that they are detailed enough to be understood just by reading the name.
 - they are usually generated during the implementation of the task, so you do not have to plan them in advance.
 
-### feat: [Feature Name]
+---
+## Planned Features
 
-## Overview
-Provide a brief description of the feature/module, its purpose, and its importance to the overall project.
-
-## Features
 List the main features or functionalities that the module will include, like this:
 
 - `feature-1`: Description of feature 1
@@ -50,7 +47,8 @@ note that, `feature-1`, `feature-2`, etc. are placeholders for actual feature na
 
 ### feat: [Feature Name]
 
-Briefly describe what this feature does.
+#### Overview
+Provide a brief description of the feature/module, its purpose, and its importance to the overall project.
 
 #### Requirements
 - `requirement-1`: Description of requirement 1
