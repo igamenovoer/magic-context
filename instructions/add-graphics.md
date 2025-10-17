@@ -4,6 +4,7 @@ you are tasked to add graphics to the given documents, with the following guidel
 # Guidelines for Graphics Insertion
 
 - use `mermaid`, `dot` or `plantuml` to generate graphics
+- for UML diagram, prefer `mermaid` over `plantuml` over `dot`, `mermaid` has UML support
 - if in doubt or encounter errors, consult `context7` about how the markup language works
 - if external files are generated (like .svg), the graphics should appear in the source document (via reference, never copy graphics content like svg content directly into document), and add a link to the graphics source code (like .puml, .dot)
 
@@ -20,6 +21,7 @@ you are tasked to add graphics to the given documents, with the following guidel
 curl -s -H "Content-Type: text/plain" --data-binary @diagram.puml \
   https://www.plantuml.com/plantuml/svg/ -o diagram.svg
 ```
+- do not try to install `plantuml` locally, it is too complicated
 
 ## Using `dot`
 - the generated graphics should be in SVG format if possible, or PNG if SVG is not supported
