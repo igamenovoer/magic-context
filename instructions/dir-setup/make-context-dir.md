@@ -21,10 +21,9 @@ context/
 │   └── role2/       # Another role-specific subdirectory
 ├── summaries/       # Knowledge base and analysis documents
 ├── tasks/           # Current and planned work items
-│   ├── features/    # Feature implementation tasks
-│   ├── fixes/       # Bug fix tasks  
-│   ├── refactor/    # Code refactoring tasks
-│   └── tests/       # Testing-related tasks
+│   ├── working/     # Tasks currently being worked on
+│   ├── done/        # Completed tasks (archived)
+│   └── backlog/     # Planned tasks not yet started
 └── tools/           # Custom development utilities
 ```
 
@@ -46,11 +45,10 @@ context/
 
 **summaries/** - Maintain analysis documents, project knowledge summaries, and consolidated findings from research or implementation work.
 
-**tasks/** - Track current work items organized by type:
-  - **features/** - New feature implementation tasks and requirements
-  - **fixes/** - Bug reports, issue tracking, and fix documentation  
-  - **refactor/** - Code refactoring plans and cleanup tasks
-  - **tests/** - Testing strategies, test cases, and quality assurance tasks
+**tasks/** - Track work items organized by status:
+  - **working/** - Tasks currently in progress with active development
+  - **done/** - Completed tasks moved here for archival and reference
+  - **backlog/** - Planned tasks awaiting prioritization and implementation
 
 **tools/** - House custom scripts, utilities, and development aids specific to your project workflow.
 
@@ -79,12 +77,12 @@ context/
 - `roles/frontend-specialist/context.md`
 - `roles/devops-engineer/knowledge-base.md`
 
-**Tasks** - Organized by type with clear action descriptions:
-- `features/task-implement-user-authentication.md`
-- `fixes/task-fix-memory-leak.md`
-- `refactor/task-modernize-api-endpoints.md`
-- `tests/task-add-integration-tests.md`
-- `goal.md` (for main objective in subdirectories)
+**Tasks** - Organized by status with clear descriptive names:
+- `working/task-implement-user-authentication.md`
+- `working/task-fix-memory-leak.md`
+- `done/task-modernize-api-endpoints.md`
+- `backlog/task-add-integration-tests.md`
+- Task files can include any type of work: features, fixes, refactors, or tests
 
 **Plans** - Use feature or system names:
 - `api-redesign-roadmap.md`
