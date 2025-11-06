@@ -1,0 +1,6 @@
+you are tasked to implement a certain phase `phase-id` according to the tasks defined by speckit, then:
+- before you implement, check the `implementaion-guide` in `context/tasks/<feature-id>/impl-phase-<phase-id>-<what>.md`, where `<feature-id>` should be the git branch name you are working on, and `<what>` describes the content of the guide, the guide contains fine-grained design to help you implement the phase.
+- after implementation, add a summary section to the `implementaion-guide` you checked before, describing what you have done in this phase.
+- remember to check if your code is adhere to the python style guide used in this project, typically in a file named `python-coding-guide.md`
+- how to run test: we typically use `pixi run -e <env>` to run python code, and try that first before using the system-provided `python3` command.
+- temporarary files: you can create temporary files under `tmp/` for testing, and temporary code and results should be there, do not scatter temporary files in the repo.
