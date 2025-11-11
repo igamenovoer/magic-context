@@ -71,6 +71,12 @@ model:
 ### Non‑interactive mode
 - `--yes`: accept defaults, auto-overwrite links, and auto-extract if needed.
 
+### Cleanup mode
+- `--clean`: remove established symlinks without touching source data.
+  - Idempotent: succeeds even if the link does not exist.
+  - Skips discovery/validation/extraction.
+  - If your script also creates internal symlinks (e.g., a dev-copy), clean those as well.
+
 ## Implementation Notes
 - Bash (`set -euo pipefail`).
 - Dependencies: `yq`, `ln`, `mkdir`, `realpath`; datasets may also use `unzip`.
@@ -81,6 +87,7 @@ model:
 - Run all: `./bootstrap.sh --yes`
 - Dataset only: `datasets/omnidocbench/bootstrap.sh --yes`
 - Model only: `models/bootstrap.sh --yes`
+- Cleanup links: add `--clean` (idempotent)
 
 ## Bash Examples
 
@@ -93,8 +100,14 @@ require_cmd() { for c in "$@"; do command -v "$c" >/dev/null || { echo "missing:
 require_cmd yq realpath ln mkdir
 command -v unzip >/dev/null && HAVE_UNZIP=true || HAVE_UNZIP=false
 
-ASSUME_YES=false
-while [[ $# -gt 0 ]]; do case "$1" in -y|--yes) ASSUME_YES=true; shift;; *) echo "unknown arg: $1"; exit 2;; esac; done
+ASSUME_YES=false; CLEAN_ONLY=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -y|--yes) ASSUME_YES=true; shift;;
+    --clean) CLEAN_ONLY=true; shift;;
+    *) echo "unknown arg: $1"; exit 2;;
+  esac
+done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CFG="$SCRIPT_DIR/bootstrap.yaml"
@@ -107,6 +120,12 @@ LINK_NAME=$(yq -r '.dataset.repo_link_name' "$CFG")
 set +u; BASE=${!DATA_ROOT_ENV-}; set -u; BASE="${BASE:-$DEFAULT_DATA_ROOT}"
 TARGET="$BASE/$SRC_SUBDIR"
 LINK_PATH="$SCRIPT_DIR/$LINK_NAME"
+
+if $CLEAN_ONLY; then
+  echo "Cleaning dataset link: $LINK_PATH"
+  if [[ -L "$LINK_PATH" ]]; then rm -f -- "$LINK_PATH"; elif [[ -e "$LINK_PATH" ]]; then echo "exists but not a symlink: $LINK_PATH" >&2; else echo "already clean"; fi
+  exit 0
+fi
 
 echo "Dataset bootstrap: $LINK_PATH -> $TARGET"
 mkdir -p "$(dirname "$LINK_PATH")"
@@ -139,7 +158,14 @@ set -euo pipefail
 require_cmd() { for c in "$@"; do command -v "$c" >/dev/null || { echo "missing: $c" >&2; exit 127; }; done; }
 require_cmd yq realpath ln mkdir
 
-ASSUME_YES=false; while [[ $# -gt 0 ]]; do case "$1" in -y|--yes) ASSUME_YES=true; shift;; *) echo "unknown arg: $1"; exit 2;; esac; done
+ASSUME_YES=false; CLEAN_ONLY=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -y|--yes) ASSUME_YES=true; shift;;
+    --clean) CLEAN_ONLY=true; shift;;
+    *) echo "unknown arg: $1"; exit 2;;
+  esac
+done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CFG="$SCRIPT_DIR/bootstrap.yaml"
 
@@ -150,6 +176,12 @@ LINK=$(yq -r '.model.repo_link_name' "$CFG")
 
 set +u; BASE=${!ROOT_ENV-}; set -u; BASE="${BASE:-$DEF_ROOT}"
 TARGET="$BASE/$SUBDIR"; LINK_PATH="$SCRIPT_DIR/$LINK"
+
+if $CLEAN_ONLY; then
+  echo "Cleaning model link: $LINK_PATH"
+  if [[ -L "$LINK_PATH" ]]; then rm -f -- "$LINK_PATH"; elif [[ -e "$LINK_PATH" ]]; then echo "exists but not a symlink: $LINK_PATH" >&2; else echo "already clean"; fi
+  exit 0
+fi
 
 echo "Model bootstrap: $LINK_PATH -> $TARGET"
 mkdir -p "$(dirname "$LINK_PATH")"
