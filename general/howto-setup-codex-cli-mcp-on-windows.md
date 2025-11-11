@@ -14,14 +14,15 @@ On Windows, you must wrap the server command in `cmd.exe` and set environment va
 # ~/.codex/config.toml
 
 [mcp_servers.context7]
-# Use cmd.exe to ensure the command is executed in a proper shell context.
-command = "cmd.exe"
-args = ["/c", "bunx.exe", "-y", "@upstash/context7-mcp"]
+command = "bunx"
+args = ["@upstash/context7-mcp@latest"]
 
 [mcp_servers.tavily]
-# For servers needing environment variables, set them directly in the command string.
-command = "cmd.exe"
-args = ["/c", "set TAVILY_API_KEY=your_api_key_here && bunx.exe tavily-mcp"]
+command = "bunx"
+args = ["tavily-mcp@latest"]
+
+[mcp_servers.tavily.env]
+TAVILY_API_KEY = "<TAVILY-KEY>"
 ```
 
 If npx/bunx does not work, you can also use Docker to run the MCP servers:
@@ -102,5 +103,6 @@ let mut child = Command::new(program)
     .envs(create_env_for_mcp_server(env)) // This only adds env vars from the config
     .spawn()?;
 ```
+
 
 On Windows, this clean environment prevents tools like `bunx` from finding necessary system paths, leading to the timeout failures.
