@@ -113,11 +113,46 @@ graph LR
 
 ## Testing
 
+### Test Input
+
+Describe the concrete inputs required for testing this phase, including:
+
+- Configuration files or JSON/YAML inputs under a workspace temp directory
+  (for example `<workspace>/tmp/<subdir-created-by-previous-phases>/config.yaml`)
+- Any seed data or fixtures produced by earlier phases and stored under
+  `<workspace>/tmp/<subdir-created-by-previous-phases>/`
+- External resources or environment variables that must exist *before* running tests
+
+Be explicit about paths and assumptions so tests are reproducible.
+
+### Test Procedure
+
+Step-by-step instructions for running the tests for this phase, explicitly
+showing **how the Test Input artifacts are used**. For example, reference the
+paths from the Test Input section when invoking your code or test runner:
+
 ```bash
-# Run phase tests
+# Run unit tests for this phase
 pixi run pytest tests/unit/feature/
+
+# Run integration tests for this phase
 pixi run pytest tests/integration/feature/test_phase_*.py
 ```
+
+Include any additional commands or orchestration needed (e.g., starting local
+services), and clearly map each step to the specific input files or resources
+listed in **Test Input** so the procedure is reproducible end-to-end.
+
+### Test Output
+
+Describe the expected outcomes when tests pass, such as:
+
+- Console output (for example, `N passed, 0 failed`)
+- Generated artifacts (for example, files under
+  `<workspace>/tmp/<subdir-created-by-previous-phases>/<what>/`)
+- Logs or reports (for example, coverage reports or JSON summaries)
+
+If there are known failure modes that indicate partial success, document them here as well.
 
 ## References
 - Spec: `specs/<feature-id>/spec.md`
