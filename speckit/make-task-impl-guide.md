@@ -23,15 +23,9 @@ Example: `context/tasks/001-my-feature/impl-phase-1-setup.md`
 
 **Phase**: [Number] | **Feature**: [Name] | **Tasks**: T[XXX]–T[YYY]
 
-## Files
+## Goal
 
-### Created
-- `path/to/new/file.py`
-- `path/to/test_file.py`
-
-### Modified
-- `path/to/existing.py` (add XYZ functionality)
-- `docs/README.md` (update usage section)
+[what this phase aims to achieve, from tasks.md]
 
 ## Public APIs
 
@@ -158,6 +152,25 @@ If there are known failure modes that indicate partial success, document them he
 - Spec: `specs/<feature-id>/spec.md`
 - Data model: `specs/<feature-id>/data-model.md`
 - Contracts: `specs/<feature-id>/contracts/`
+
+## Implementation Summary
+
+- This should be filled after implementation is done.
+- During planing phase, you can leave it blank with some placeholder text.
+- After implementation, fill it with 2-3 paragraphs about the high-level implementation approach for this phase. And then fill in the sub-sections below.
+
+### What has been implemented
+
+(after implementation)
+- List the created/modified files and their roles.
+- Summarize key classes, functions, or modules introduced.
+
+### How to verify
+
+(after implementation)
+- Describe how to run tests and validate functionality.
+- Must include prerequisites, commands, and expected results.
+
 ~~~
 
 ## Guidelines
