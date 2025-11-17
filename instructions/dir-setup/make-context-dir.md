@@ -39,7 +39,7 @@ context/
 
 **plans/** - Document implementation strategies, feature roadmaps, and multi-step development plans. Break down complex features into manageable tasks.
 
-**refcode/** - Store reference implementations, code examples, and third-party integrations that serve as patterns for new development.
+**refcode/** - **⚠️ REFERENCE-ONLY EXTERNAL SOURCE CODE** - Contains external source code that serves exclusively as documentation and reference material. **DO NOT USE, EXECUTE, OR MODIFY** this code. Treat it as read-only documentation for understanding library internals, design patterns, and API usage. This code is NOT part of the project codebase and should never be imported or integrated into project modules.
 
 **roles/** - Contains role-based system prompts, memory, and context for different AI assistant personas. Each role has its own subdirectory with specialized prompts and accumulated knowledge for that specific role or domain expertise.
 
@@ -89,6 +89,11 @@ context/
 - `database-migration-strategy.md`
 - `v2-implementation-plan.md`
 
+**Refcode** - Organize by source library/project name:
+- `library-name/` - Directory named after the external source
+- Include metadata files with source attribution (URL, commit hash, license)
+- **CRITICAL**: This is REFERENCE-ONLY code - do not modify or execute
+
 **Summaries** - Use descriptive analysis topics:
 - `library-comparison-analysis.md`
 - `architecture-decision-rationale.md`
@@ -132,6 +137,7 @@ Example header format:
 5. **Keep content current** - update summaries and remove outdated information
 6. **Reference from main documentation** - link to context files from your project's main README
 7. **Make it discoverable** - AI assistants should be directed to use this context for better project understanding
+8. **⚠️ NEVER modify refcode/** - External reference code is read-only documentation, not part of the project codebase
 
 ## Benefits
 
