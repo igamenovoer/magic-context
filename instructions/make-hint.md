@@ -9,6 +9,7 @@ you are tasked with creating a hint to deal with a given problem
   - `intro-<some topic>.md`, mainly for introductory information about a tool, library, or framework
 - you shall look for online information about the topic, including the official documentation and examples
 - if this is related to 3rd party software, you shall look for documentation in `context7`
+- DO NOT attempt to break long lines in the text, let line wrapping be handled by the text editor or viewer
 
 ## Code Snippet Guidelines
 - the created guide should contain example code snippets, if applicable
