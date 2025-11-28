@@ -8,11 +8,16 @@ The `context/` directory serves as a centralized knowledge base for AI assistant
 
 ## Directory Structure
 
+A `context/` directory should always be created at the project root. Each top-level subdirectory under `context/` (for example, `context/design`, `context/hints`, `context/issues`, etc.) should contain a `README.md` that briefly explains what that directory is for and how it should be used.
+
 ```
 context/
 ├── design/          # Technical specifications and architecture
 ├── hints/           # How-to guides and troubleshooting tips
 ├── instructions/    # Reusable prompt snippets and commands
+├── issues/          # Known and fixed issues
+│   ├── known/       # Ongoing, unfixed issues and limitations
+│   └── resolved/    # Fixed issues and their resolutions
 ├── logs/            # Development session records and outcomes
 ├── plans/           # Implementation roadmaps and strategies
 ├── refcode/         # Reference implementations and examples
@@ -34,6 +39,10 @@ context/
 **hints/** - Create "howto-" guides for common development tasks, error solutions, and best practices specific to your project. These help AI assistants avoid known pitfalls.
 
 **instructions/** - Store reusable prompt snippets, command templates, and standardized instruction patterns that can be referenced across the project. Useful for maintaining consistency in AI interactions.
+
+**issues/** - Track known and fixed issues for the project:
+  - **known/** - Ongoing, unfixed issues and current limitations
+  - **resolved/** - Issues that have been fixed, with notes on the resolution
 
 **logs/** - Record development sessions with date prefixes and outcome status. Include both successful implementations and failed attempts with lessons learned.
 
@@ -70,6 +79,12 @@ context/
 - `command-git-workflow.md`
 - `snippet-error-handling-pattern.md`
 - `template-feature-documentation.md`
+
+**Issues** - Use status-based organization and descriptive filenames:
+- `known/issue-gpu-oom-large-batch.md`
+- `known/issue-slow-startup-on-windows.md`
+- `resolved/issue-fixed-dataloader-deadlock.md`
+- `resolved/issue-resolved-cuda-version-mismatch.md`
 
 **Roles** - Use role-based directory and file structure:
 - `roles/backend-developer/system-prompt.md`
