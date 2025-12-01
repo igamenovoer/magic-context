@@ -18,7 +18,7 @@ You can adapt it to any project by replacing the placeholders with your own proj
 
 The assistant should:
 - Update the main task file to introduce **milestones** (subsections) under the chosen section, keeping high-level text in the main file and moving detailed TODOs into separate subtask files.
-- Create one subtask file per milestone under `<TASKS_DIR>/subtask-<SECTION_3DIG>-<index>-<slug>.md`.
+- Create one subtask file per milestone under `<TASKS_DIR>/subtask-<SECTION_3DIG>-<SUBTASK_3DIG>-<slug>.md`, where `<SUBTASK_3DIG>` is a 3-digit, zero-padded subtask index (e.g., `001`, `002`).
 - Use the numbering scheme described below for all TODO items.
 
 ---
@@ -49,8 +49,8 @@ These jobs usually correspond to **milestones** or **subtasks** (e.g., “Comple
 For each milestone under section `<MAIN_TASK_SECTION_NUMBER>`, create:
 
 - A subtask file:
-  - `<TASKS_DIR>/subtask-<SECTION_3DIG>-<SUBTASK_INDEX>-<short-slug>.md`
-  - Example: `subtask-002-3-load-scene.md`
+  - `<TASKS_DIR>/subtask-<SECTION_3DIG>-<SUBTASK_3DIG>-<short-slug>.md`
+  - Example: `subtask-002-003-load-scene.md`
 - A human-readable heading in that file:
   - `# Subtask <MAIN_TASK_SECTION_NUMBER>.<SUBTASK_INDEX>: <Title>`
 
@@ -98,7 +98,7 @@ Requirements:
       - A short paragraph heading (e.g., `### <MAIN_TASK_SECTION_NUMBER>.<SUBTASK_INDEX> <Milestone title>`).
       - A one-paragraph "Goal" description (high-level only).
       - A line pointing to the subtask spec file:
-        - `- Subtask spec: <TASKS_DIR>/subtask-<SECTION_3DIG>-<SUBTASK_INDEX>-<slug>.md`
+        - `- Subtask spec: <TASKS_DIR>/subtask-<SECTION_3DIG>-<SUBTASK_3DIG>-<slug>.md`
     - The **detailed TODO items and investigation steps should live in the subtask files**, not in the main task section.
   - Add a new TODO list that uses job IDs at the milestone level:
     - `Job-<SECTION_3DIG>-<SUBTASK_3DIG>`
@@ -106,7 +106,7 @@ Requirements:
 
 2) Subtask files
 - For each milestone created in step (1), create a new subtask file:
-  - Path: `<TASKS_DIR>/subtask-<MAIN_TASK_SECTION_NUMBER>-<SUBTASK_INDEX>-<slug>.md`
+  - Path: `<TASKS_DIR>/subtask-<SECTION_3DIG>-<SUBTASK_3DIG>-<slug>.md`
   - Structure:
     - Title: `# Subtask <MAIN_TASK_SECTION_NUMBER>.<SUBTASK_INDEX>: <Title>`
     - "Scope" section describing the subtask boundaries.
