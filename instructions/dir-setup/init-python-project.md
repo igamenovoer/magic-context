@@ -168,6 +168,34 @@ project-root/
 └── README.md              # Project documentation
 ```
 
+## Git Configuration
+
+### Special Ignores
+
+Add the following to your `.gitignore` file for project-specific exclusions:
+
+```gitignore
+# Codex CLI files
+.codex
+
+# Pixi environments
+.pixi/*
+!.pixi/config.toml
+
+# Project data and models
+data/
+media_files/
+models/
+checkpoints/
+tmp/
+```
+
+**Important notes:**
+- `.codex`: Codex CLI configuration and cache files should not be committed
+- `.pixi/`: Pixi environment directory (except config.toml if needed)
+- `tmp/`: Temporary workspace files and intermediate results
+- Add any project-specific data directories that shouldn't be version controlled
+
 ## Adding Submodules
 
 To add Git submodules (e.g., for shared prompt libraries):
