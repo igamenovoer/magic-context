@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Save original shell options to restore at the end (for sourcing)
+_original_shell_opts=$(set +o)
+
 set -euo pipefail
 
 usage() {
@@ -188,3 +191,7 @@ else
 	echo "  (no proxy variables set)"
 fi
 echo "========================================="
+
+# Restore original shell options (important when sourced)
+eval "$_original_shell_opts"
+unset _original_shell_opts

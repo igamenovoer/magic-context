@@ -14,11 +14,11 @@ echo "Adding SSH keys..."
 for key in ~/.ssh/id_rsa ~/.ssh/id_ed25519 ~/.ssh/id_ecdsa ~/.ssh/id_dsa; do
     if [ -f "$key" ]; then
         echo "Adding key: $key"
-        ssh-add "$key" 2>/dev/null
+        ssh-add "$key" 2>/dev/null || true
     fi
 done
 
 # List currently loaded keys
 echo ""
 echo "Currently loaded keys:"
-ssh-add -l
+ssh-add -l || echo "No SSH keys currently loaded"
