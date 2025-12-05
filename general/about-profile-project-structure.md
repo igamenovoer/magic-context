@@ -15,57 +15,62 @@ Throughout this guide, placeholder names are shown in angle brackets:
 
 ---
 
-# Complete Project Layout
+# Complete Project Layout (aligned with llm-perf-opt)
 
 ```
 <your-project>/
-├── pyproject.toml                 # Pixi env + tasks + project metadata
-├── bootstrap.sh                   # Optional workspace orchestrator (calls component bootstraps)
-├── conf/                          # Hydra config tree (config groups)
-│   ├── config.yaml                # top-level defaults list
-│   ├── hydra/
-│   ├── model/                     # Model configs grouped by arch/infer variants
+├── pyproject.toml                         # Pixi envs + tasks + project metadata
+├── bootstrap.sh                           # Workspace orchestrator (calls component bootstraps)
+├── conf/                                  # Hydra config tree (config groups)
+│   ├── config.yaml                        # Top-level defaults (mounts pipeline.* presets)
+│   ├── dataset/                           # Dataset configs (roots, subsets, sampling)
+│   ├── hardware/                          # Device selection and hardware options
+│   ├── hydra/                             # Optional Hydra docs/notes (settings live in config.yaml)
+│   ├── model/                             # Model configs grouped by arch/infer variants
 │   │   └── <model-name>/
 │   │       ├── arch/
-│   │       └── infer/
-│   ├── dataset/                   # Dataset configs (roots, subsets, sampling)
-│   ├── runtime/                   # Framework/runtime layer
-│   ├── hardware/                  # GPU affinity & caps
-│   └── profiling/                 # Profiler toggles & presets
-├── models/                        # Model weights/tokenizers (symlinks or submodules)
-│   ├── bootstrap.sh               # Model bootstrap (creates <model-name> symlink)
-│   ├── bootstrap.yaml             # Model bootstrap configuration
-│   └── <processed>/               # Optional processed artifacts
-├── datasets/                      # Dataset organization
+│   │       ├── infer/
+│   │       └── output/                    # Stage-specific output config mounts
+│   ├── output/                            # Output presets for pipeline stages
+│   ├── profiling/                         # Profiler presets: torch, nsys, ncu
+│   └── runtime/                           # Framework/runtime layer
+├── models/                                # Model weights/tokenizers (symlinks or submodules)
+│   ├── bootstrap.sh                       # Creates <model-name> symlink(s)
+│   └── bootstrap.yaml                     # Model bootstrap configuration
+├── datasets/                              # Dataset organization
 │   └── <dataset-name>/
-│       ├── bootstrap.sh           # Creates `source-data` symlink (and optional prep)
-│       ├── bootstrap.yaml         # Dataset bootstrap configuration
-│       ├── source-data -> /path/to/<dataset>/   # Symlink to data on host
-│       ├── README.md              # Dataset documentation
-│       ├── metadata.yaml          # (optional) dataset facts
-│       └── <variant-name>/        # (optional) preprocessed/filtered variants
-├── third_party/                   # Reference sources (read-only; symlinks/submodules)
-│   ├── github/
-│   └── hf/
+│       ├── bootstrap.sh                   # Creates source-data symlink and optional prep
+│       ├── bootstrap.yaml                 # Dataset bootstrap configuration
+│       ├── source-data -> /path/to/<dataset>/
+│       ├── README.md
+│       ├── metadata.yaml                  # Optional dataset facts
+│       └── <variant-name>/                # Optional processed/filtered variants
+├── extern/                                # External integrations (e.g., ModelMeter)
 ├── src/
-│   └── <your_project>/            # Python package
-│       ├── profiling/             # harness, exporters, NVTX/NSYS/NCU helpers
-│       │   └── parsers/
-│       ├── runners/               # CLI runners used by Hydra entries
-│       └── data/                  # dataset utilities
-├── scripts/                       # Utility scripts (prep, analysis, small tools)
-├── tests/                         # Unit/integration/manual tests
-├── docs/                          # Documentation and guides
-├── context/                       # Knowledge base, hints, how-tos
-├── magic-context/                 # Templates/snippets (submodule or folder)
-└── .specify/                      # Project constitution/templates (optional)
+│   └── <your_project>/                    # Python package
+│       ├── profiling/                     # Harness, exporters, NVTX/NSYS/NCU helpers
+│       │   └── vendor/
+│       ├── runners/                       # Hydra-driven runners (Stage‑1/2)
+│       ├── data/                          # Dataset/domain models and utilities
+│       ├── visualize/                     # Reporting/visualization helpers
+│       ├── patches/                       # Small targeted patching glue
+│       └── utils/                         # Shared utilities (paths, exports, etc.)
+├── scripts/                               # Tooling and profiling helpers (nsys/ncu, analysis)
+├── tests/                                 # Unit/integration/manual tests (manual_*.py under tests/manual)
+├── docs/                                  # Documentation (MkDocs)
+├── context/                               # Knowledge base, how‑tos, plans
+├── magic-context/                         # Templates/snippets (prompting context)
+├── specs/                                 # Design docs and tasks
+├── reports/                               # Generated reports
+├── tmp/                                   # Run outputs (e.g., tmp/profile-output/<run_id>/)
+└── .specify/                              # Project constitution/templates (optional)
 ```
 
 ## Design Rationale
 
-* **Hydra** grouped configs under `conf/<group>/<option>.yaml` enable composable, swappable configurations with top-level `defaults` list; the templated output/run directory pattern (e.g., `runs/${experiment}/${model.name}/…`) ensures every run is self-contained and reproducible. ([Hydra][1])
+* **Hydra** grouped configs under `conf/<group>/<option>.yaml` enable composable, swappable configurations with a top‑level `defaults` list; in this project the run directory is templated under `tmp/profile-output/${now:…}` so every run is self‑contained and reproducible. ([Hydra][1])
 * **Pixi** can use **`pyproject.toml`** as a single manifest with **tasks** for common operations like `pixi run profile`. ([Prefix Dev][2])
-* **`third_party/`** provides a clear boundary for vendored reference code. It can
+* **`extern/`** provides a clear boundary for vendored reference code. It can
   be a collection of symlinks to local checkouts or Git submodules/subtrees; the
   key is treating it as read-only.
 * **`models/`** can be symlinks to external storage or tracked via Git submodules
@@ -78,27 +83,21 @@ These are example configurations demonstrating the recommended patterns. Customi
 
 ## `pyproject.toml` (what it is and a minimal example)
 
-What it is: single manifest for project metadata, dependencies, Pixi workspace, and convenient tasks (so you can run `pixi run <task>`).
+What it is: single manifest for project metadata, dependencies, Pixi workspace, environments, and convenient tasks (so you can run `pixi run <task>`). In llm‑perf‑opt we provide a `default` environment (CUDA 12.4) and an `rtx5090` environment (CUDA 12.8) with tasks like `stage1-run` and `stage2-profile`.
 
 ```toml
-[project]
-name = "<your-project-name>"
-version = "0.1.0"
-requires-python = ">=3.10"
-dependencies = ["torch", "omegaconf", "hydra-core"]
-
-[tool.pixi.workspace]
-channels  = ["conda-forge"]
-platforms = ["linux-64"]
+[tool.pixi.environments]
+default = { features = ["default-cuda"], solve-group = "default" }
+rtx5090 = { features = ["rtx5090"], solve-group = "rtx5090" }
 
 [tool.pixi.tasks]
-# Replace <your command> with your actual CLI
-profile = "python -m <your_project>.cli experiment=baseline profiling=minimal"
-nsys    = "nsys profile -o runs/nsys <your command>"
-ncu     = "ncu -o runs/ncu <your command>"
+docs-serve = { cmd = "mkdocs serve -a 127.0.0.1:8000" }
+docs-build = { cmd = "mkdocs build" }
+stage1-run = { cmd = "python -m llm_perf_opt.runners.llm_profile_runner 'hydra.run.dir=tmp/profile-output/${now:%Y%m%d-%H%M%S}' ..." }
+stage2-profile = { cmd = "python -m llm_perf_opt.runners.deep_profile_runner 'hydra.run.dir=tmp/profile-output/${now:%Y%m%d-%H%M%S}' pipeline.nsys.enable=true ..." }
 ```
 
-Keep tasks short and descriptive; add more as needed. ([Prefix Dev][2])
+Keep tasks short and descriptive; add more as needed. Use `pixi run -e rtx5090 python ...` when you want to run ad‑hoc Python in the RTX 5090 environment. ([Prefix Dev][2])
 
 ## Hydra Configuration Structure
 
@@ -107,29 +106,59 @@ Keep tasks short and descriptive; add more as needed. ([Prefix Dev][2])
 ```yaml
 # Compose from config groups (swap via CLI)
 defaults:
-  - hydra: default
-  - model/<model-name>/arch: <model-name>.default
-  - model/<model-name>/infer: <model-name>.default
-  - runtime: pytorch
-  - profiling: minimal
+  - dataset: omnidocbench
+  - dataset/sampling@dataset.sampling: default
+  - model/deepseek_ocr/arch@model: deepseek_ocr.default
+  - model/deepseek_ocr/infer@infer: deepseek_ocr.default
+  - profiling/torch@pipeline.torch_profiler: torch-profiler.default
+  - output/torch@pipeline.torch_profiler.output: default
+  - model/deepseek_ocr/output/torch@pipeline.torch_profiler.output.extra.deepseek_ocr: default
+  - output/direct@pipeline.direct_inference.output: default
+  - model/deepseek_ocr/output/direct@pipeline.direct_inference.output.extra.deepseek_ocr: default
+  - profiling/nsys@pipeline.nsys: nsys.default
+  - profiling/ncu@pipeline.ncu: ncu.default
   - _self_
-experiment: baseline
+
+experiment: stage1
+device: cuda:0
+
+hydra:
+  run:
+    dir: ${hydra:runtime.cwd}/tmp/profile-output/${now:%Y%m%d-%H%M%S}
+  output_subdir: null
+  job:
+    chdir: true
+
+pipeline:
+  direct_inference:
+    enable: false
+  static_analysis:
+    enable: true
+    write_reports: true
+  torch_profiler:
+    enable: ${pipeline.torch_profiler.enabled}
+  nsys:
+    enable: false
+    gating_nvtx: true
+  ncu:
+    enable: false
+    gating_nvtx: true
 ```
 
-Hydra's **defaults list** composes configs from groups; you can swap any piece via CLI overrides (e.g., `model=llama3_70b dataset=c4 profiling=full`). ([Hydra][3])
+Hydra's defaults list composes configs from groups; nested mounts under `pipeline.*` let you toggle stage‑specific behavior like Torch Profiler, Nsight Systems, or Nsight Compute via CLI overrides (e.g., `pipeline.nsys.enable=true`). Our project sets the run directory under `tmp/profile-output/${now:…}` so each run is colocated with its artifacts. ([Hydra][3], [Hydra][4])
 
 ### `conf/hydra/default.yaml` (what it is: run directory & job behavior)
 
 ```yaml
 hydra:
   run:
-    dir: runs/${experiment}/${model.name}/${now:%Y-%m-%d_%H-%M-%S}
+    dir: ${hydra:runtime.cwd}/tmp/profile-output/${now:%Y%m%d-%H%M%S}
+  output_subdir: null
   job:
-    name: ${experiment}
     chdir: true
 ```
 
-These fields control where Hydra writes `.hydra/` configs, logs, and where your code runs (CWD). ([Hydra][4])
+These fields control where Hydra writes `.hydra/` configs, logs, and where your code runs (CWD). In llm‑perf‑opt these keys live directly in `conf/config.yaml`, and the `hydra/` folder is informational. ([Hydra][4])
 
 ### `conf/model/<model-name>/arch/<model-name>.<arch-variant>.yaml` (architecture & preprocessing)
 
@@ -244,8 +273,8 @@ Prefer decentralized bootstraps so each component owns its linking logic:
   - Example:
     - `HF_SNAPSHOTS_ROOT=/nvme/hf-cache ./models/bootstrap.sh --yes`
 
-- Workspace orchestrator (optional):
-  - `./bootstrap.sh` can call component bootstraps in sequence (datasets first, then models) for convenience.
+- Workspace orchestrator:
+  - `./bootstrap.sh --yes` calls component bootstraps in sequence (datasets first, then models) for convenience.
   - Keep it thin; the source of truth lives next to each component.
 
 ### Symlink Policy
@@ -520,17 +549,17 @@ if __name__ == "__main__":
     main()
 ```
 
-This keeps your **end-to-end phases NVTX-annotated** for Nsight Systems (`--capture-range=nvtx`) and dumps a **PyTorch Profiler** Chrome trace + `ops.csv` when enabled. ([NVIDIA Docs][6])
+This keeps your end‑to‑end phases NVTX‑annotated for Nsight Systems (`--capture-range=nvtx`) and dumps a PyTorch Profiler Chrome trace + `ops.csv` when enabled. ([NVIDIA Docs][6])
 
 ### `scripts/snapshot_hf.py`
 
 ```python
-# Utility to snapshot HF repos into third_party/hf/ (source files only, no weights)
+# Utility to snapshot HF repos into extern/hf/ (source files only, no weights)
 from huggingface_hub import snapshot_download
 
 snapshot_download(
     repo_id="Qwen/Qwen2.5",
-    local_dir="third_party/hf/Qwen/Qwen2.5",
+    local_dir="extern/hf/Qwen/Qwen2.5",
     allow_patterns=["*.py", "LICENSE*"],  # keep only source, not big weights
     revision="main"                        # or specific commit/revision
 )
@@ -538,36 +567,36 @@ snapshot_download(
 
 # Managing External Dependencies (Reference Source Code)
 
-The `third_party/` directory houses upstream model implementations as read-only reference code. Here are four recommended approaches to manage these dependencies. Choose the approach that best fits your workflow:
+The `extern/` directory houses upstream model implementations as read-only reference code. Here are four recommended approaches to manage these dependencies. Choose the approach that best fits your workflow:
 
 ## Option 1: Git Submodules (Recommended for Pinning)
 
 **Add & pin reference repos:**
 
 ```bash
-git submodule add https://github.com/huggingface/transformers third_party/github/transformers
-git submodule add https://github.com/vllm-project/vllm      third_party/github/vllm
+git submodule add https://github.com/huggingface/transformers extern/github/transformers
+git submodule add https://github.com/vllm-project/vllm      extern/github/vllm
 git submodule update --init --recursive
 
 # Pin to a specific commit for reproducibility
-git -C third_party/github/transformers checkout <commit-sha>
-git -C third_party/github/vllm checkout <commit-sha>
-git add .gitmodules third_party/github
+git -C extern/github/transformers checkout <commit-sha>
+git -C extern/github/vllm checkout <commit-sha>
+git add .gitmodules extern/github
 git commit -m "Add reference sources as submodules"
 ```
 
 **Hide local edits in status (reference-only behavior):**
 
 ```bash
-git config -f .gitmodules submodule.third_party/github/transformers.ignore dirty
-git config -f .gitmodules submodule.third_party/github/vllm.ignore dirty
+git config -f .gitmodules submodule.extern/github/transformers.ignore dirty
+git config -f .gitmodules submodule.extern/github/vllm.ignore dirty
 git add .gitmodules && git commit -m "Ignore dirty submodule worktrees"
 ```
 
 **Shallow/fast clones for large repos:**
 
 ```bash
-git submodule update --init --depth 1 -- third_party/github/transformers
+git submodule update --init --depth 1 -- extern/github/transformers
 ```
 
 ([Git Submodules][1], [Git Documentation][3])
@@ -575,11 +604,11 @@ git submodule update --init --depth 1 -- third_party/github/transformers
 ## Option 2: Git Subtree (Normal Folder, No Submodule UX)
 
 ```bash
-git subtree add --prefix third_party/github/transformers \
+git subtree add --prefix extern/github/transformers \
   https://github.com/huggingface/transformers main --squash
 
 # Later update:
-git subtree pull --prefix third_party/github/transformers \
+git subtree pull --prefix extern/github/transformers \
   https://github.com/huggingface/transformers main --squash
 ```
 
@@ -590,8 +619,8 @@ Subtrees behave like regular directories with no `.gitmodules`, at the cost of l
 If you only need specific paths (e.g., `src/transformers/models/llama/`):
 
 ```bash
-git clone https://github.com/huggingface/transformers third_party/github/transformers
-cd third_party/github/transformers
+git clone https://github.com/huggingface/transformers extern/github/transformers
+cd extern/github/transformers
 git sparse-checkout init --cone
 git sparse-checkout set src/transformers/models/llama
 ```
@@ -601,11 +630,11 @@ This keeps your working tree tiny while the repo remains complete. ([Git Sparse-
 ## Option 0: Symlinks (Fastest Pointer)
 
 If you already have local checkouts or shared code on disk, create simple
-symlinks under `third_party/`:
+symlinks under `extern/`:
 
 ```bash
-ln -s /opt/src/transformers third_party/github/transformers
-ln -s /opt/src/vllm         third_party/github/vllm
+ln -s /opt/src/transformers extern/github/transformers
+ln -s /opt/src/vllm         extern/github/vllm
 ```
 
 Pros: no Git metadata in your repo, very quick to set up. Cons: not portable for
@@ -621,7 +650,7 @@ from huggingface_hub import snapshot_download
 
 snapshot_download(
     repo_id="Qwen/Qwen2.5",
-    local_dir="third_party/hf/Qwen/Qwen2.5",
+    local_dir="extern/hf/Qwen/Qwen2.5",
     allow_patterns=["*.py", "LICENSE*"],  # keep only source, not big weights
     revision="main"                        # or specific commit/revision
 )
@@ -631,7 +660,7 @@ This uses HF's content-addressed cache and avoids Git LFS entirely. ([Hugging Fa
 
 ## Guard Rails (Optional but Handy)
 
-* **Pre-commit**: Add hooks so contributors don't accidentally edit `third_party/**` or add new submodules without review. ([pre-commit.com][8])
+* **Pre-commit**: Add hooks so contributors don't accidentally edit `extern/**` or add new submodules without review. ([pre-commit.com][8])
 * **.gitmodules defaults**: Set `submodule.<name>.update = none` for truly frozen submodules, and `submodule.<name>.ignore = dirty` for quiet status. ([Git gitmodules][9])
 * **Licenses**: Copy upstream `LICENSE` files alongside the referenced code to keep compliance obvious.
 
@@ -644,56 +673,44 @@ This uses HF's content-addressed cache and avoids Git LFS entirely. ([Hugging Fa
 
 # Typical Workflows
 
-These are example workflows using the recommended structure. Adapt commands and patterns to your project's needs.
+These are example workflows aligned with llm‑perf‑opt tasks. Adapt commands and patterns to your project's needs.
 
 ## Profiling Operations
 
-**Plain run (minimal stats):**
+- Stage‑1 profiling run (representative profiling + dataset loop):
 
 ```bash
-pixi run profile
+pixi run stage1-run
 ```
 
-**Nsight Systems timeline** (NVTX-gated):
+- Stage‑2 deep profiling (Nsight Systems/Compute; NVTX gated):
 
 ```bash
-pixi run nsys
+pixi run stage2-profile
 ```
 
-Uses `--capture-range=nvtx` so only your labeled region is captured. ([NVIDIA Docs][6])
-
-**Nsight Compute deep-dive** (kernel metrics for roofline/MFU):
+- Direct inference (no profiling), useful for longer decode checks:
 
 ```bash
-pixi run ncu
+pixi run direct-infer-dev20
 ```
 
-Tweak metrics/filters as you focus on attention/GEMMs. ([NVIDIA Docs][7])
-
-**Swap models/runtimes via Hydra overrides:**
+- Swap behaviors via Hydra overrides; examples:
 
 ```bash
-pixi run profile model=llama3_70b runtime=vllm profiling=full
+pixi run stage1-run pipeline.nsys.enable=false pipeline.ncu.enable=false
+pixi run stage2-profile pipeline.nsys.enable=true pipeline.ncu.enable=false
+pixi run stage1-run 'hydra.run.dir=tmp/profile-output/${now:%Y%m%d-%H%M%S}' device=cuda:0 infer.max_new_tokens=64
 ```
+
+Artifacts land under `tmp/profile-output/<run_id>/` with stage subfolders like `nsys/`, `ncu/`, `torch_profiler/`, and `static_analysis/`.
 
 ## External Dependency Management
 
-**Initialize submodules:**
+- Install vLLM nightly (optional):
 
 ```bash
-pixi run externals:init
-```
-
-**Update submodules:**
-
-```bash
-pixi run externals:update
-```
-
-**Snapshot HF reference code:**
-
-```bash
-pixi run externals:snapshot
+pixi run install-vllm-nightly
 ```
 
 # Key Design Principles
@@ -701,8 +718,8 @@ pixi run externals:snapshot
 These principles are **recommendations** based on common patterns. Adapt them to your project's specific requirements:
 
 * **Config groups** provide composability: patterns like `profiling/{minimal,full,roofline-only}`; `hardware/{single_gpu,multi_gpu}`; `runtime/{pytorch,vllm,tensorrtllm}`; `model/*`; `dataset/*` can be mixed and matched. Hydra's defaults list enables reproducible runs and easy parameter sweeps. ([Hydra][1])
-* **Run directory templates** (via `hydra.run.dir`) can organize all artifacts—NVML CSV, `ops.csv`, TensorBoard traces, NSYS `.qdrep`, NCU reports—under structured paths like `runs/<exp>/<model>/<timestamp>`. ([Hydra][4])
-* **Reference code pinning** via `third_party/` (using submodules/subtrees/snapshots) keeps experiments reproducible and audit-friendly by tracking exact upstream versions.
+* **Run directory templates** (via `hydra.run.dir`) organize NVML CSV, `ops.csv`, TensorBoard traces, NSYS `.qdrep`, and NCU reports under `tmp/profile-output/<timestamp>/` with stage subfolders. ([Hydra][4])
+* **Reference code pinning** via `extern/` (using submodules/subtrees/snapshots) keeps experiments reproducible and audit-friendly by tracking exact upstream versions.
 * **Symlinked external assets**: Both `models/` (weights) and `datasets/` (data) use symlinks to external storage, decoupling the repo from large binary files and enabling flexible storage management.
 * **Dataset variants** provide a structured way to maintain original data alongside preprocessed versions, subsets, and transformations, with metadata tracking provenance.
 * **Optional monitoring**: For continuous node monitoring, tools like **DCGM Exporter** (Prometheus `/metrics`) complement per-run profiling artifacts with fleet-level GPU telemetry. ([NVIDIA Docs][8])
@@ -715,7 +732,7 @@ This guide presents a comprehensive reference structure for LLM profiling projec
 - **Key organizational principles**:
   - Use Hydra for composable, reproducible configurations
   - Symlink external assets (models, datasets) to decouple from large files
-  - Track reference code in `third_party/` for reproducibility
+  - Track reference code in `extern/` for reproducibility
   - Organize datasets with source data + documented variants
   - Structure runs with templated output directories
 - **Flexibility is essential**: Your project may require different tools, different structures, or different workflows—that's expected and encouraged
