@@ -24,6 +24,7 @@ context/
 ├── roles/           # Role-based system prompts and memory
 │   ├── role1/       # Role-specific subdirectory
 │   └── role2/       # Another role-specific subdirectory
+├── rules/           # Task-specific rules for AI coding agents
 ├── summaries/       # Knowledge base and analysis documents
 ├── tasks/           # Current and planned work items
 │   ├── working/     # Tasks currently being worked on
@@ -51,6 +52,8 @@ context/
 **refcode/** - **⚠️ REFERENCE-ONLY EXTERNAL SOURCE CODE** - Contains external source code that serves exclusively as documentation and reference material. **DO NOT USE, EXECUTE, OR MODIFY** this code. Treat it as read-only documentation for understanding library internals, design patterns, and API usage. This code is NOT part of the project codebase and should never be imported or integrated into project modules.
 
 **roles/** - Contains role-based system prompts, memory, and context for different AI assistant personas. Each role has its own subdirectory with specialized prompts and accumulated knowledge for that specific role or domain expertise.
+
+**rules/** - Store task-specific rules and constraints for AI coding agents. Use these files to capture environment limits, behavioral guardrails, validation expectations, or local conventions for a given task. Reference them from the related document in `context/tasks/`.
 
 **summaries/** - Maintain analysis documents, project knowledge summaries, and consolidated findings from research or implementation work.
 
