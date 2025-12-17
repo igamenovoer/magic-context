@@ -11,12 +11,12 @@ Usage: setup-envs.sh [--proxy <proxy_addr|auto|none>]
 
 Options:
 	--proxy    Explicit proxy address, or one of:
-						 auto (default) - detect proxy at http://127.0.0.1:7890
+						 auto (default) - detect HTTP proxy at http://127.0.0.1:7890
 						 none           - do not configure any proxy
 
 	Notes:
 	- When running inside Docker, detection also probes host.docker.internal:7890
-	  (HTTP and SOCKS5) in addition to 127.0.0.1.
+	  in addition to 127.0.0.1.
 	-h, --help Show this help message and exit
 EOF
 }
@@ -132,21 +132,7 @@ detect_local_proxy() {
 		done
 	done
 
-	# Try SOCKS5 proxy protocol as fallback (common for local proxies)
-	for h in "${candidate_hosts[@]}"; do
-		local socks_proxy_candidate="socks5://$h:7890"
-		for url in "${test_urls[@]}"; do
-			[[ "$debug" == "true" ]] && echo "Debug: Testing SOCKS5 proxy $socks_proxy_candidate with $url" >&2
-			if env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy \
-				curl --silent --max-time 8 --output /dev/null --socks5 "$h:7890" "$url" 2>/dev/null; then
-				[[ "$debug" == "true" ]] && echo "Debug: SOCKS5 proxy successful via $socks_proxy_candidate" >&2
-				printf '%s\n' "$socks_proxy_candidate"
-				return 0
-			fi
-		done
-	done
-
-	[[ "$debug" == "true" ]] && echo "Debug: All proxy detection attempts failed" >&2
+	[[ "$debug" == "true" ]] && echo "Debug: HTTP proxy detection failed" >&2
 	return 1
 }
 
