@@ -1,93 +1,116 @@
-# External Reference Collection Directory Setup
+# External-Reference-Heavy Directory Setup
 
-This guide describes a standardized pattern for an "External Reference Collection Directory" used to hold third‑party code, large external checkouts, or symlinked folders that should not be committed directly to the main repository.
+This guide describes a standardized pattern for an external-reference-heavy directory: a workspace directory that *mostly* contains third-party assets or machine-local data (models, datasets, large checkouts, etc.) plus a small amount of committed metadata and bootstrap logic.
 
-Use this pattern in any project where you need to bring external trees into the workspace in a controlled, reproducible way.
+This pattern is designed to work across many projects. In this guide, the primary directory is referred to as `<external-ref-heavy-dir>/` (for example: `models/`, `datasets/`, `extern/`, `third_party/`).
 
 ## Purpose
 
-The external reference directory (e.g., `extern/`, `third_party/`, `vendor/`, or any other name appropriate for your project) is intended to:
+`<external-ref-heavy-dir>/` is intended to:
 
-- Hold **checked‑out** or **symlinked** external code and assets used for development, experiments, or builds.
+- Hold external assets used for development, experiments, evaluation, or builds (often too large or too volatile to commit).
 - Keep external bits out of version control while still documenting exactly what is needed and how to obtain it.
-- Provide a **single bootstrap entry point** so a new developer or CI job can populate the directory with one command.
+- Provide one or more **bootstrap entry points** so a new developer (or CI) can populate the directory with one command.
+- Keep each external reference **self-contained** (docs + bootstrap + derived artifacts live next to the reference).
 
-The directory itself and its small meta‑files are committed; the downloaded or symlinked contents are not.
+The directory itself and its small meta-files are committed; the large or machine-local contents are not.
 
 ## Directory Structure
 
-Pick a dedicated directory name for external references; in this guide we will refer to it as `<external-ref-dir>/`. Common choices:
+Pick a dedicated directory name for external references; in this guide we will refer to it as `<external-ref-heavy-dir>/`.
 
-- `extern/`
-- `third_party/`
-- `vendor/`
-
-Inside `<external-ref-dir>/`, use the following core files:
+Preferred structure (per-reference subdirectories):
 
 ```
-<external-ref-dir>/
-├── README.md          # Explains the purpose and lists managed externals
-├── bootstrap.sh       # Populates / refreshes external checkouts/symlinks
-└── .gitignore         # Ignores downloaded or symlinked entries
+<external-ref-heavy-dir>/
+├── README.md                 # High-level index of managed references
+├── bootstrap.sh              # Optional: bootstraps all references (fan-out)
+├── .gitignore                # Ignores machine-local / large contents
+└── <ref-dir-name>/            # One external reference (dataset/model/checkout/etc.)
+    ├── README.md              # What it is, upstream/source, how it's used
+    ├── source-data -> ...     # Usually a symlink to machine-local storage (ignored)
+    ├── bootstrap.sh           # Creates/repairs source-data and derived artifacts
+    ├── metadata/              # Small, committed metadata (manifests, hashes, splits)
+    ├── derived/               # Optional: derived outputs (often ignored if large)
+    └── ...                    # Small, committed helper files/scripts
 ```
 
-Concrete example (using `extern/` as the directory name):
-
-```
-extern/
-├── README.md
-├── bootstrap.sh
-├── .gitignore
-└── llama.cpp/        # Cloned or symlinked external repo (ignored by Git)
-```
+Key idea: `<external-ref-heavy-dir>/<ref-dir-name>/` is the unit of organization. Keep each reference's docs and automation next to it.
 
 ## README.md Content
 
-`<external-ref-dir>/README.md` should:
+`<external-ref-heavy-dir>/README.md` should:
 
-- State that the directory holds external, non‑authored content.
-- Enumerate each managed external entry with:
-  - Local path under `<external-ref-dir>/`
-  - Upstream URL and/or source (e.g., GitHub repo)
-  - Purpose in the project (e.g., "C++ LLM runtime", "CUDA kernels for profiling")
-- Point to `bootstrap.sh` as the canonical way to populate the directory.
+- State that the directory holds external, non-authored, and/or machine-local content.
+- Enumerate each managed reference with:
+  - Local path under `<external-ref-heavy-dir>/` (usually `<ref-dir-name>/`)
+  - Upstream URL and/or source (paper/dataset page/HF repo/Git repo/etc.)
+  - What files are expected under `source-data` (and how big/where stored)
+  - What derivatives exist (if any), and whether they are committed or ignored
+- Point to the bootstrap entry point(s):
+  - Top-level `<external-ref-heavy-dir>/bootstrap.sh` (if present)
+  - Per-ref `<external-ref-heavy-dir>/<ref-dir-name>/bootstrap.sh`
 
 Example outline:
 
-```markdown
-# External dependencies
+````markdown
+# External references
 
-This directory contains external, third‑party code and assets that are fetched or linked on demand.
+This directory contains external, third-party and/or machine-local assets. Only small metadata and bootstrap scripts are committed.
 
-Managed entries:
+Managed references:
 
-- `llama.cpp` – upstream C/C++ LLM runtime
-  - Upstream: https://github.com/ggml-org/llama.cpp
-  - Local path: <external-ref-dir>/llama.cpp
-  - Usage: GPU‑enabled builds and experiments
+- `<ref-dir-name>` – short description
+  - Source: <upstream-url-or-description>
+  - Local path: <external-ref-heavy-dir>/<ref-dir-name>
+  - `source-data`: expected contents and where it comes from
+  - Derived: list of generated artifacts (if any)
 
-To (re)populate this directory, run:
+To (re)populate everything, run:
 
 ```bash
-bash <external-ref-dir>/bootstrap.sh
+bash <external-ref-heavy-dir>/bootstrap.sh
 ```
-```
+````
 
 Replace names and URLs with values appropriate for your project.
 
+## Per-Reference Layout
+
+Each `<external-ref-heavy-dir>/<ref-dir-name>/` should be understandable in isolation.
+
+Recommended contents:
+
+- `README.md`: what the reference is, how to obtain it, licensing/attribution notes, and how the project uses it.
+- `source-data`: **usually a symlink** to a machine-local location (external disk, shared cache, network mount). Treat it as non-committed.
+  - Some projects may implement `source-data/` as a checkout or downloaded directory instead of a symlink; keep it ignored either way.
+- `bootstrap.sh`: sets up `source-data` (symlink or download/clone) and optionally creates/refreshes derived artifacts.
+- `metadata/`: small committed files such as:
+  - subset file lists for a huge dataset
+  - split definitions
+  - checksums / manifests
+  - small sample items for smoke testing
+- Derived artifacts (examples; project-specific):
+  - a quantized or converted form of a full-precision model
+  - a filtered shard/index built from `source-data`
+  - a precomputed embedding cache for a small validation subset
+
+Where to put derived artifacts depends on size:
+
+- If small and stable: commit them (often in `metadata/`).
+- If large or machine-dependent: generate them into `derived/` and ignore them in Git.
+
 ## bootstrap.sh Responsibilities
 
-`<external-ref-dir>/bootstrap.sh` should be a small, idempotent script that:
+You can have one top-level `bootstrap.sh` (fan-out) and/or a per-reference `bootstrap.sh`.
 
-- Validates required tools (at minimum: `git`, and optionally others like `ln`, `curl`, `wget`).
-- For each external entry:
-  - If it is meant to be a **git clone**:
-    - Check whether `<external-ref-dir>/<entry>/.git` already exists.
-    - If it exists, leave it alone or optionally pull/refresh.
-    - If it does not exist, remove any stale directory and perform a **shallow clone** (e.g., `git clone --depth 1 <url> <target>`).
-  - If it is meant to be a **symlink**:
-    - Remove any non‑symlink path at the target.
-    - Create a symlink using environment‑specific paths (e.g., `$EXTERNAL_ROOT/<entry>`).
+`bootstrap.sh` should be a small, idempotent script that:
+
+- Validates required tools (commonly: `ln`, `readlink`, `git`, `curl`/`wget`).
+- Uses environment variables for machine-local roots (avoid hard-coded absolute paths).
+- Creates or repairs `source-data` (preferably as a symlink) and verifies it points somewhere sensible.
+- Optionally creates/refreshes derived artifacts in a deterministic way.
+- Emits clear status output and fails fast when required inputs are missing.
 
 Minimal pattern:
 
@@ -96,7 +119,7 @@ Minimal pattern:
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-EXTERN_DIR="${SCRIPT_DIR}"
+REF_DIR="${SCRIPT_DIR}"
 
 require_cmd() {
   for c in "$@"; do
@@ -107,53 +130,47 @@ require_cmd() {
   done
 }
 
-require_cmd git
+require_cmd ln
 
-LLAMA_DIR="${EXTERN_DIR}/llama.cpp"
+SRC_LINK="${REF_DIR}/source-data"
+: "${EXTERNAL_REF_ROOT:?set EXTERNAL_REF_ROOT to your machine-local storage root}"
+TARGET="${EXTERNAL_REF_ROOT}/<ref-dir-name>"
 
-echo "Bootstrapping external dependencies in ${EXTERN_DIR} ..."
+echo "Bootstrapping external reference in ${REF_DIR} ..."
 
-if [[ -d "${LLAMA_DIR}/.git" ]]; then
-  echo "  - llama.cpp already present; leaving as‑is."
-else
-  echo "  - cloning llama.cpp (shallow) ..."
-  rm -rf "${LLAMA_DIR}"
-  git clone --depth 1 https://github.com/ggml-org/llama.cpp.git "${LLAMA_DIR}"
-fi
+rm -rf "${SRC_LINK}"
+ln -s "${TARGET}" "${SRC_LINK}"
 
 echo "Done."
 ```
 
-Adapt the list of entries and URLs to your project; the core pattern (check‑or‑clone, check‑or‑symlink) should remain the same.
+Adapt the env var names, target computation, and any derived-artifact steps to your project; keep the core pattern (validate → link/fetch → verify → derive) stable.
 
 ## .gitignore Policy
 
 To keep the parent repository clean while still committing the metadata:
 
-- Place a `.gitignore` inside `<external-ref-dir>/` with rules that ignore the **populated entries**, not the directory itself.
-- Do **not** ignore `<external-ref-dir>/` at the workspace root; you want Git to track:
-  - `<external-ref-dir>/README.md`
-  - `<external-ref-dir>/bootstrap.sh`
-  - `<external-ref-dir>/.gitignore`
+- Place a `.gitignore` inside `<external-ref-heavy-dir>/` with rules that ignore the **machine-local and derived contents**, not the directory itself.
+- Do **not** ignore `<external-ref-heavy-dir>/` at the workspace root; you want Git to track the READMEs and bootstrap scripts.
 
-Example `<external-ref-dir>/.gitignore`:
+Example `<external-ref-heavy-dir>/.gitignore`:
 
 ```gitignore
-llama.cpp/
-some-other-external/
 */source-data
 */source-data/**
+*/derived/
+*/derived/**
 ```
 
-This allows each project to declare exactly which entries are generated or environment‑specific (e.g., large clones, symlinks to host‑local data).
+This makes it hard to accidentally commit large directories if `source-data` stops being a symlink and becomes a real folder.
 
 ## Usage and Best Practices
 
-- **Single entrypoint**: Document in your main `README.md` (or setup docs) that developers should run `<external-ref-dir>/bootstrap.sh` after cloning the repo.
-- **No large binaries in Git**: Keep external code and large artifacts out of version control; only the metadata and bootstrap logic are tracked.
-- **Environment‑specific paths**: For symlinks, read from environment variables (e.g., `$EXTERNAL_ROOT`, `$MODELS_ROOT`) rather than hard‑coding machine‑specific paths.
-- **Idempotent operations**: Running `bootstrap.sh` multiple times should be safe and fast; it should only create or repair missing entries.
-- **Clear attribution**: Always document upstream sources and licenses in `README.md` and/or per‑entry metadata so it is obvious what is third‑party.
+- **One ref, one folder**: Prefer `<external-ref-heavy-dir>/<ref-dir-name>/` as a self-contained unit with its own README + bootstrap.
+- **Shallow and deterministic**: If you must clone/fetch, pin versions (tag/commit) and record them in the per-ref README/metadata.
+- **No large binaries in Git**: Keep large artifacts out of version control; track only small metadata and deterministic bootstrap logic.
+- **Environment-specific paths**: For symlinks, read from environment variables (e.g., `$EXTERNAL_REF_ROOT`) rather than hard-coding machine-specific paths.
+- **Idempotent operations**: Running bootstrap multiple times should be safe and fast; it should only create or repair missing pieces.
+- **Clear attribution**: Document upstream sources and licenses in the per-ref README so it is obvious what is third-party.
 
-By standardizing this pattern across projects, AI assistants and human contributors can quickly recognize how external dependencies are managed and how to reconstruct them on any machine.
-
+By standardizing this pattern across projects, assistants and human contributors can quickly recognize how external references are managed and how to reconstruct them on any machine.
