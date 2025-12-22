@@ -42,6 +42,7 @@
 
 ## Documentation Standards
 - created markdowns should be readable and well-structured, using proper headings and formatting, prefer to have section numbers (x.y.z)
+- do not add hard line breaks in generated Markdown/prose docs; keep paragraphs as single flowing lines (line-length rules like PEP 8 apply to code, not documentation)
 - coding examples should be included in the documentation where applicable
 - in design docs, describe Python interfaces (classes, functions, APIs) using Python code blocks with docstrings to provide clear, concrete illustrations rather than prose-only descriptions
 
