@@ -8,7 +8,7 @@ determine the output path using the following rules:
 - otherwise, if the user indicates this q&a is about files in a specific directory (doc dir, source code dir, etc), save it in that directory using the default filename
 - otherwise, save it in the workspace root using the default filename
 
-`{{WHAT}}` should be a short, filesystem-safe slug (lowercase, hyphen-separated) derived from the referenced doc name or scope label.
+`{{WHAT}}` should be a short, filesystem-safe slug (lowercase, hyphen-separated) derived from the referenced doc name/path basename, or otherwise summarized from the user prompt and relevant context info.
 
 # q&a doc guidelines
 
@@ -29,6 +29,8 @@ determine the output path using the following rules:
 - per-question revision metadata:
   - last revised at (utc): `{{LAST_REVISED_AT}}` (iso-8601, e.g. `2025-01-31T12:34:56Z`)
   - last revised base commit: `{{LAST_REVISED_BASE_COMMIT}}` (the commit hash the answer was verified against)
+  - each question has its own independent revision metadata
+  - do not update a question’s revision metadata unless that specific question/answer content changes (do not auto-update due to unrelated commits or edits elsewhere in the doc)
 
 ## required structure
 
@@ -55,6 +57,7 @@ determine the output path using the following rules:
    - for each question:
      - put the per-question metadata line immediately under the question header as a blockquote:
        - `> Last revised at: \`{{LAST_REVISED_AT}}\` | Last revised base commit: \`{{LAST_REVISED_BASE_COMMIT}}\``
+     - only update that blockquote line when editing that question/answer
      - answer with 3–8 bullets or 1–3 short paragraphs
      - keep answers concrete (commands, defaults, and produced artifacts)
      - reference code/docs using inline paths like `path/to/file.py`
