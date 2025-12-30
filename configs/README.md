@@ -1,0 +1,1 @@
+configs for different ai agents

@@ -1,0 +1,20 @@
+model = "gpt-5.2"
+model_reasoning_effort = "high"
+
+[mcp_servers.tavily]
+command = "bunx"
+args = ["tavily-mcp@latest"]
+env = { TAVILY_API_KEY = "<your key>" }
+
+[mcp_servers.context7]
+command = "bunx"
+args = ["@upstash/context7-mcp@latest"]
+
+[mcp_servers.exa_mcp]
+command = "bunx"
+args = ["-y", "mcp-remote", "https://mcp.exa.ai/mcp"]
+env = { EXA_API_KEY = "<your key>" }
+
+[mcp_servers.fetch_mcp]
+command = "bunx"
+args = ["-y", "fetch-mcp"]
