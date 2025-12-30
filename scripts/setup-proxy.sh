@@ -13,6 +13,17 @@
 # - Missing port -> assumed 7890.
 #
 # If PROXY_CANDIDATE_LIST is unset/empty, probes only 127.0.0.1:7890.
+#
+# Docker behavior:
+# - If PROXY_CANDIDATE_LIST is unset/empty and we detect we're running inside a
+#   container, the default probe list expands to:
+#     - 127.0.0.1:7890
+#     - host.docker.internal:7890
+#     - <container default gateway IP>:7890 (parsed from /proc/net/route)
+#
+# Note: On many Linux Docker setups, host.docker.internal is NOT available by
+# default. You can enable it per-container with:
+#   docker run --add-host host.docker.internal:host-gateway ...
 # If no candidate is reachable, leaves the current environment unchanged.
 
 # If this script is executed (not sourced), instruct the user and exit.
@@ -27,6 +38,16 @@ Behavior:
   - Otherwise uses PROXY_CANDIDATE_LIST (comma-separated).
   - If neither is set, probes only 127.0.0.1:7890.
 
+Docker behavior:
+  - If no candidate list is provided and the script detects it's running inside
+    a container, the default probe list expands to include:
+      - 127.0.0.1:7890
+      - host.docker.internal:7890
+      - <container default gateway IP>:7890
+  - On many Linux Docker setups, host.docker.internal is NOT available by
+    default; you can enable it per-container with:
+      docker run --add-host host.docker.internal:host-gateway ...
+
 Candidate format:
   - Comma-separated entries: URL or host[:port]
   - Supported schemes: http://, socks5://
@@ -40,6 +61,38 @@ _default_proxy_port="7890"
 
 _log() {
   echo "[setup-proxy] $*" >&2
+}
+
+_in_docker() {
+  # Common indicators for Docker/containers.
+  [[ -f "/.dockerenv" ]] && return 0
+  [[ -r "/proc/1/cgroup" ]] && grep -qaE '(docker|containerd|kubepods)' /proc/1/cgroup && return 0
+  return 1
+}
+
+_hex_le_to_ipv4() {
+  # Convert an 8-hex-digit little-endian IPv4 (as in /proc/net/route) to dotted quad.
+  local h="${1}"
+  [[ "${#h}" -ne 8 ]] && return 1
+  local b1="${h:6:2}" b2="${h:4:2}" b3="${h:2:2}" b4="${h:0:2}"
+  printf '%d.%d.%d.%d' "$((16#${b1}))" "$((16#${b2}))" "$((16#${b3}))" "$((16#${b4}))"
+}
+
+_docker_default_gateway_ipv4() {
+  # Best-effort: parse /proc/net/route for the default route gateway.
+  [[ -r /proc/net/route ]] || return 1
+  local line iface dest gw flags rest
+  # Skip header
+  while IFS=$'\t ' read -r iface dest gw flags rest; do
+    [[ -z "${iface}" || "${iface}" == "Iface" ]] && continue
+    [[ "${dest}" != "00000000" ]] && continue
+    local ip
+    ip="$(_hex_le_to_ipv4 "${gw}")" || continue
+    [[ -n "${ip}" ]] || continue
+    printf '%s' "${ip}"
+    return 0
+  done < /proc/net/route
+  return 1
 }
 
 _proxy_candidate_list_arg=""
@@ -75,8 +128,18 @@ _normalize_candidates() {
     raw_list="${_proxy_candidate_list_arg}"
     raw_source="--proxy-candidate-list"
   elif _is_empty_or_unset "${PROXY_CANDIDATE_LIST-}"; then
-    raw_list="127.0.0.1:${_default_proxy_port}"
-    raw_source="default"
+    if _in_docker; then
+      raw_list="127.0.0.1:${_default_proxy_port},host.docker.internal:${_default_proxy_port}"
+      local gw
+      gw="$(_docker_default_gateway_ipv4 2>/dev/null || true)"
+      if [[ -n "${gw}" ]]; then
+        raw_list+="${raw_list:+,}${gw}:${_default_proxy_port}"
+      fi
+      raw_source="default (docker)"
+    else
+      raw_list="127.0.0.1:${_default_proxy_port}"
+      raw_source="default"
+    fi
   else
     raw_list="${PROXY_CANDIDATE_LIST}"
     raw_source="PROXY_CANDIDATE_LIST"
