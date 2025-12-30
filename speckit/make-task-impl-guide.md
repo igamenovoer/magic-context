@@ -10,11 +10,11 @@ Read `specs/<feature-id>/tasks.md` from the current feature (infer from git bran
 
 ## Output Location
 
-Save guides to: `context/tasks/<feature-id>/impl-phase-<id>-<what>.md`
+Save guides to: `context/tasks/working/<feature-id>/impl-phase-<id>-<what>.md`
 
 Note that, according to speckit conventions, `<feature-id>` is the same as git branch name (format: `<feature-index>-<feature-name>`), and you shall be able to find `specs/<feature-id>/` subdir.
 
-Example: `context/tasks/001-my-feature/impl-phase-1-setup.md`
+Example: `context/tasks/working/001-my-feature/impl-phase-1-setup.md`
 
 ## Guide Structure
 
@@ -190,9 +190,9 @@ If there are known failure modes that indicate partial success, document them he
 
 ### Output Location
 
-Save to: `context/tasks/<feature-id>/impl-integrate-phases.md`
+Save to: `context/tasks/working/<feature-id>/impl-integrate-phases.md`
 
-Example: `context/tasks/001-my-feature/impl-integrate-phases.md`
+Example: `context/tasks/working/001-my-feature/impl-integrate-phases.md`
 
 ### Integration Guide Structure
 
@@ -407,7 +407,7 @@ pixi run python scripts/validate_phase_artifacts.py --feature <feature-id>
    - Validation: Data integrity checks pass before Phase 3 starts
 
 ## References
-- Individual phase guides: `context/tasks/<feature-id>/impl-phase-*.md`
+- Individual phase guides: `context/tasks/working/<feature-id>/impl-phase-*.md`
 - Spec: `specs/<feature-id>/spec.md`
 - Tasks breakdown: `specs/<feature-id>/tasks.md`
 - Data model: `specs/<feature-id>/data-model.md`
