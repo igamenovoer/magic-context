@@ -1,158 +1,224 @@
-#!/bin/sh
+#!/usr/bin/env bash
+# Usage:
+#   source ~/setup-proxy.sh
+#
+# Sets HTTP(S) proxy env vars to the first reachable proxy from
+# PROXY_CANDIDATE_LIST (comma-separated URLs).
+# You can override PROXY_CANDIDATE_LIST by passing:
+#   source ~/setup-proxy.sh --proxy-candidate-list "proxy1,proxy2"
+#
+# PROXY_CANDIDATE_LIST format:
+# - Comma-separated list of URLs or host[:port] entries.
+# - Supported schemes: http://, socks5:// (or no scheme -> assumed http://).
+# - Missing port -> assumed 7890.
+#
+# If PROXY_CANDIDATE_LIST is unset/empty, probes only 127.0.0.1:7890.
+# If no candidate is reachable, leaves the current environment unchanged.
 
-# Simple proxy setup helper.
-# Features:
-#   --port <port>        : proxy port (default: 7890)
-#   --base-url <base>    : proxy base URL/host (default: http://127.0.0.1)
-#   --no-check           : skip curl connectivity check
-# Behavior:
-#   - If no CLI options are given but http_proxy/HTTP_PROXY is set, reuse it as-is.
-#   - When constructing a proxy from base/port inside Docker, replace
-#     localhost/127.0.0.1 with host.docker.internal.
+# If this script is executed (not sourced), instruct the user and exit.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  cat >&2 <<'EOF'
+Usage:
+  source ~/setup-proxy.sh [--proxy-candidate-list "a:7890,b:7890"]
 
-case "$0" in
-  *setup-proxy.sh)
-    echo "Warning: setup-proxy.sh is intended to be sourced (e.g. '. setup-proxy.sh'), not executed directly." >&2
-    ;;
-esac
+Behavior:
+  - Picks the first reachable proxy from the candidate list.
+  - If --proxy-candidate-list is provided, it overrides PROXY_CANDIDATE_LIST.
+  - Otherwise uses PROXY_CANDIDATE_LIST (comma-separated).
+  - If neither is set, probes only 127.0.0.1:7890.
 
-DEFAULT_PORT=7890
-DEFAULT_BASE_URL="http://127.0.0.1"
-PORT=""
-BASE_URL=""
-NO_CHECK=0
-BASE_URL_USER_SET=0
-PORT_USER_SET=0
-
-usage() {
-  cat <<EOF
-Usage: setup-proxy.sh [--base-url <url>] [--port <port>] [--no-check]
-
-Options:
-  --base-url <url>   Proxy base URL or host (default: http://127.0.0.1).
-                     If URL has no scheme, "http://" is prepended.
-  --port <port>      Proxy port (default: 7890).
-  --no-check         Skip curl connectivity check after setting proxy.
+Candidate format:
+  - Comma-separated entries: URL or host[:port]
+  - Supported schemes: http://, socks5://
+  - Missing scheme defaults to http://
+  - Missing port defaults to 7890
 EOF
+  exit 2
+fi
+
+_default_proxy_port="7890"
+
+_log() {
+  echo "[setup-proxy] $*" >&2
 }
 
-in_docker() {
-  if [ -f "/.dockerenv" ]; then
-    return 0
-  fi
-  if [ -r /proc/1/cgroup ] && grep -q "docker" /proc/1/cgroup 2>/dev/null; then
-    return 0
-  fi
-  return 1
-}
-
-while [ "$#" -gt 0 ]; do
+_proxy_candidate_list_arg=""
+while [[ $# -gt 0 ]]; do
   case "$1" in
-    --port)
-      if [ "$#" -lt 2 ]; then
-        echo "Error: --port requires a value" >&2
-        usage
-        exit 1
+    --proxy-candidate-list)
+      shift
+      if [[ $# -lt 1 || -z "${1}" ]]; then
+        echo "Missing value for --proxy-candidate-list" >&2
+        return 2
       fi
-      PORT="$2"
-      PORT_USER_SET=1
-      shift 2
-      ;;
-    --base-url|--base_url)
-      if [ "$#" -lt 2 ]; then
-        echo "Error: --base-url requires a value" >&2
-        usage
-        exit 1
-      fi
-      BASE_URL="$2"
-      BASE_URL_USER_SET=1
-      shift 2
-      ;;
-    --no-check)
-      NO_CHECK=1
+      _proxy_candidate_list_arg="$1"
       shift
       ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
     *)
-      echo "Unknown option: $1" >&2
-      usage
-      exit 1
+      echo "Unknown argument: $1" >&2
+      echo "Usage: source ~/setup-proxy.sh [--proxy-candidate-list \"a:7890,b:7890\"]" >&2
+      return 2
       ;;
   esac
 done
 
-# Case 1: no CLI overrides, but http_proxy/HTTP_PROXY already set -> reuse as-is.
-USE_ENV_PROXY=0
-ENV_HTTP_PROXY=""
-ENV_HTTP_SOURCE=""
-if [ -z "$BASE_URL" ] && [ -z "$PORT" ]; then
-  if [ -n "${http_proxy:-}" ]; then
-    ENV_HTTP_PROXY=$http_proxy
-    ENV_HTTP_SOURCE="http_proxy"
-    USE_ENV_PROXY=1
-  elif [ -n "${HTTP_PROXY:-}" ]; then
-    ENV_HTTP_PROXY=$HTTP_PROXY
-    ENV_HTTP_SOURCE="HTTP_PROXY"
-    USE_ENV_PROXY=1
-  fi
-fi
+_is_empty_or_unset() {
+  [[ -z "${1-}" ]]
+}
 
-if [ "$USE_ENV_PROXY" -eq 1 ]; then
-  PROXY="$ENV_HTTP_PROXY"
-else
-  # Build proxy from base_url/port
-  [ -n "$BASE_URL" ] || BASE_URL="$DEFAULT_BASE_URL"
-  [ -n "$PORT" ] || PORT="$DEFAULT_PORT"
-
-  # Ensure scheme present; if missing, prepend http://
-  case "$BASE_URL" in
-    http://*|https://*)
-      ;;
-    *)
-      BASE_URL="http://$BASE_URL"
-      ;;
-  esac
-
-  # If inside Docker, translate localhost/127.0.0.1 to host.docker.internal
-  if in_docker; then
-    BASE_URL=$(printf '%s\n' "$BASE_URL" | sed 's#127\.0\.0\.1#host.docker.internal#g; s#localhost#host.docker.internal#g')
-  fi
-
-  # Strip trailing slash before appending port
-  BASE_STRIPPED=${BASE_URL%/}
-  PROXY="${BASE_STRIPPED}:$PORT"
-fi
-
-SOURCE_DESC="default"
-if [ "$USE_ENV_PROXY" -eq 1 ]; then
-  if [ -n "$ENV_HTTP_SOURCE" ]; then
-    SOURCE_DESC="env:$ENV_HTTP_SOURCE"
+_normalize_candidates() {
+  # Emits one normalized proxy URL per line.
+  # Normalized form: http://host:port or socks5://host:port
+  local raw_list
+  local raw_source
+  if ! _is_empty_or_unset "${_proxy_candidate_list_arg-}"; then
+    raw_list="${_proxy_candidate_list_arg}"
+    raw_source="--proxy-candidate-list"
+  elif _is_empty_or_unset "${PROXY_CANDIDATE_LIST-}"; then
+    raw_list="127.0.0.1:${_default_proxy_port}"
+    raw_source="default"
   else
-    SOURCE_DESC="env"
+    raw_list="${PROXY_CANDIDATE_LIST}"
+    raw_source="PROXY_CANDIDATE_LIST"
   fi
-elif [ "$BASE_URL_USER_SET" -eq 1 ] || [ "$PORT_USER_SET" -eq 1 ]; then
-  SOURCE_DESC="cli"
-else
-  SOURCE_DESC="default"
-fi
 
-export http_proxy="$PROXY"
-export https_proxy="$PROXY"
-export HTTP_PROXY="$PROXY"
-export HTTPS_PROXY="$PROXY"
+  _log "[INFO] Candidate source: ${raw_source}"
+  _log "[INFO] Raw candidates: ${raw_list}"
 
-echo "Proxy set to: $PROXY (source: $SOURCE_DESC)"
+  # Pure-bash normalization.
+  local IFS=','
+  local item
+  local -A _seen
+  for item in ${raw_list}; do
+    item="${item#${item%%[![:space:]]*}}" # ltrim
+    item="${item%${item##*[![:space:]]}}" # rtrim
+    [[ -z "${item}" ]] && continue
 
-if [ "$NO_CHECK" -eq 0 ]; then
-  if command -v curl >/dev/null 2>&1; then
-    # Use a simple HTTPS endpoint to verify outbound connectivity via proxy.
-    if ! curl --max-time 5 --silent --head https://www.google.com >/dev/null 2>&1; then
-      echo "Warning: proxy check via curl failed; proxy may not be running yet." >&2
+    local scheme="http"
+    local rest="${item}"
+    if [[ "${item}" == *"://"* ]]; then
+      scheme="${item%%://*}"
+      rest="${item#*://}"
+      scheme="${scheme,,}"
     fi
-  else
-    echo "curl not found; skipping proxy connectivity check." >&2
+    [[ "${scheme}" != "http" && "${scheme}" != "socks5" ]] && continue
+
+    # Strip path/query/fragment.
+    rest="${rest%%/*}"
+    rest="${rest%%\?*}"
+    rest="${rest%%#*}"
+
+    # Strip userinfo.
+    rest="${rest#*@}"
+
+    rest="${rest#${rest%%[![:space:]]*}}" # ltrim
+    rest="${rest%${rest##*[![:space:]]}}" # rtrim
+    [[ -z "${rest}" ]] && continue
+
+    local host=""
+    local port="${_default_proxy_port}"
+    # Support bracketed IPv6: [::1]:7890 (optional port)
+    if [[ "${rest}" == \[*\]* ]]; then
+      # rest like: [host] or [host]:port
+      host="${rest#\[}"
+      host="${host%%\]*}"
+      if [[ "${rest}" == \[*\]:* ]]; then
+        local maybe_port="${rest##*:}"
+        [[ "${maybe_port}" =~ ^[0-9]+$ ]] && port="${maybe_port}"
+      fi
+      [[ -z "${host}" ]] && continue
+      local normalized="${scheme}://[${host}]:${port}"
+      if [[ -z "${_seen[${normalized}]+x}" ]]; then
+        _seen["${normalized}"]=1
+        printf '%s\n' "${normalized}"
+      fi
+      continue
+    fi
+
+    host="${rest}"
+    if [[ "${rest}" == *":"* ]]; then
+      local maybe_port="${rest##*:}"
+      local maybe_host="${rest%:*}"
+      if [[ -n "${maybe_host}" && "${maybe_port}" =~ ^[0-9]+$ ]]; then
+        host="${maybe_host}"
+        port="${maybe_port}"
+      fi
+    fi
+    [[ -z "${host}" ]] && continue
+    local normalized="${scheme}://${host}:${port}"
+    if [[ -z "${_seen[${normalized}]+x}" ]]; then
+      _seen["${normalized}"]=1
+      printf '%s\n' "${normalized}"
+    fi
+  done
+}
+
+_extract_host_port() {
+  # Input: normalized URL (http://host:port or socks5://host:port)
+  # Output: host<space>port
+  local url="${1}"
+  local rest="${url#*://}"
+  local hostport="${rest%%/*}"
+  if [[ "${hostport}" == \[*\]::* ]]; then
+    # [::1]:7890
+    local host="${hostport%%]*}"
+    host="${host#[}"
+    local port="${hostport##*:}"
+    printf '%s %s\n' "${host}" "${port}"
+    return 0
   fi
+  local host="${hostport%:*}"
+  local port="${hostport##*:}"
+  printf '%s %s\n' "${host}" "${port}"
+}
+
+# Return success (0) if we can open a TCP connection to host:port quickly.
+_proxy_reachable_host_port() {
+  local host="${1}"
+  local port="${2}"
+
+  # Fallback (requires bash with /dev/tcp support).
+  if command -v timeout >/dev/null 2>&1; then
+    timeout 2 bash -lc "cat < /dev/null > /dev/tcp/${host}/${port}" >/dev/null 2>&1
+    return $?
+  fi
+
+  # Last-resort attempt without timeout.
+  bash -lc "cat < /dev/null > /dev/tcp/${host}/${port}" >/dev/null 2>&1
+}
+
+_selected_proxy_url=""
+
+while IFS= read -r candidate_url; do
+  [[ -z "${candidate_url}" ]] && continue
+  _log "[TRY] ${candidate_url}"
+  read -r _host _port < <(_extract_host_port "${candidate_url}")
+  if _proxy_reachable_host_port "${_host}" "${_port}"; then
+    _selected_proxy_url="${candidate_url}"
+    _log "[OK] ${candidate_url}"
+    break
+  fi
+  _log "[FAILED] ${candidate_url}"
+done < <(_normalize_candidates)
+
+if [[ -z "${_selected_proxy_url}" ]]; then
+  echo "No reachable proxy found; leaving environment unchanged." >&2
+  unset _proxy_candidate_list_arg
+  return 0
 fi
+
+_log "[SELECTED] ${_selected_proxy_url}"
+
+# Set both lowercase and uppercase variants used by many tools.
+export http_proxy="${_selected_proxy_url}"
+export https_proxy="${_selected_proxy_url}"
+export HTTP_PROXY="${_selected_proxy_url}"
+export HTTPS_PROXY="${_selected_proxy_url}"
+
+# (Optional) some tools honor this as well.
+export all_proxy="${_selected_proxy_url}"
+export ALL_PROXY="${_selected_proxy_url}"
+
+echo "Proxy enabled: ${_selected_proxy_url}" >&2
+
+unset _proxy_candidate_list_arg
