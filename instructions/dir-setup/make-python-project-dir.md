@@ -17,6 +17,11 @@ This structure emphasizes:
 MyPythonLib/
 ├── .github/workflows/           # Automation workflows
 ├── src/mypythonlib/            # Main package code (src layout)
+├── extern/                     # Third-party code (see extern structure below)
+│   ├── tracked/                # Git submodules pinned via .gitmodules
+│   │   └── <repo>/             # e.g. simulators, third-party libs
+│   └── orphan/                 # Local clones/checkouts (git-ignored), keep README.md
+│       └── <repo>/             # e.g. shallow clone for quick grepping/patching
 ├── scripts/                    # Command-line interface tools
 ├── tests/                      # Test suite (see details below)
 │   ├── unit/                   # Fast, deterministic unit tests
@@ -46,6 +51,13 @@ MyPythonLib/
 - Provides CLI interface to library functionality
 - Designed for both user convenience and automation
 - Configured as console scripts in packaging
+
+### External Dependencies
+
+**extern/** - Third-Party Code
+- Prefer `extern/tracked/<repo>/` for dependencies you want reproducible and pinned (git submodules recorded in `.gitmodules`).
+- Use `extern/orphan/<repo>/` for local-only clones/checkouts you do not want to commit (add `extern/.gitignore` rules to ignore all subdirectories under `extern/orphan/` while keeping `extern/orphan/README.md` tracked).
+- Avoid editing code inside `extern/tracked/*` unless you intend to carry a fork or upstream a change; treat submodule updates as explicit, reviewed changes.
 
 ### Quality and Testing
 
@@ -104,6 +116,7 @@ The context directory serves as a centralized knowledge base containing project 
 - **README.md** - Primary project introduction and usage guide
 - **LICENSE** - Legal terms for code usage and distribution
 - **.gitignore** - Version control exclusion patterns
+- **.gitmodules** - Submodule pins (if using `extern/tracked/` or other submodules)
 
 ### Automation and Deployment
 
