@@ -86,10 +86,10 @@ determine the output path using the following rules:
 - `{{CODE_FILE_1}}`
 - `{{CODE_FILE_2}}`
 
-## <question title>
+## [question title]
 > Last revised at: `{{LAST_REVISED_AT}}` | Last revised base commit: `{{LAST_REVISED_BASE_COMMIT}}`
 
-- <answer/code>
+- [answer/code]
 
 ...
 ```
