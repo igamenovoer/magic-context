@@ -17,7 +17,7 @@ determine the output path using the following rules:
 - do not automatically add questions to the q&a doc
 - by default, only add a question/answer when the developer explicitly tells you to add it (typically by referencing a previous chat segment in the current dialog session)
 - if the developer explicitly asks to record all questions, then include all relevant questions from the provided context
-- if the user asks you to create the q&a doc but does not provide questions (and does not explicitly instruct you to extract them), create the doc with placeholder question sections only (use `TBD` for the question headings and answers)
+- if the user asks you to create the q&a doc but does not provide questions (and does not explicitly instruct you to extract them), create the doc with placeholder question sections only (use `[question title]` for the question headings and `[answer/code]` for the answers)
 
 ## inputs (placeholders)
 
