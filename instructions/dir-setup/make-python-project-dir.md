@@ -107,6 +107,13 @@ This directory enables effective collaboration with AI coding assistants. For de
 
 The context directory serves as a centralized knowledge base containing project design documents, implementation plans, development history, and reference materials organized for effective human-AI collaboration.
 
+**context/archived/** - Archived Material
+This subdirectory contains documentation and notes from past development work (completed features, old plans, historical task breakdowns, and similar artifacts).
+
+Do not rely on archived files to understand the current status of the workspace; they may be outdated, incomplete, or superseded by newer design docs and implementation.
+
+The `archived/` directory does not have a standardized internal layout; rely on `context/archived/README.md` and any subdirectory `README.md` files to understand what each archive contains.
+
 ### Project Configuration
 
 **Root Level Files:**
