@@ -194,6 +194,40 @@ If there are known failure modes that indicate partial success, document them he
 5. **Concrete**: Real file paths, class names, function signatures. Prefer repo-relative paths (e.g., `src/...`, `tests/...`); if you need a workspace root placeholder, follow surrounding docs (this repo commonly uses `<workspace>/...`, but use `<workspace-root-placeholder>/...` if that’s the established style); use absolute paths only when surrounding docs use absolute paths.
 6. **Testable**: Include test commands and validation steps
 
+### Mermaid troubleshooting: `Parse error ... Expecting 'SQE' ...`
+
+This shows up frequently in Mermaid `graph` / `flowchart` diagrams, often with messages like:
+
+```text
+Error: Parse error on line 3:
+...GatewaySettings.cloud_providers()]        P2A3[MDX
+-----------------------^
+Expecting 'SQE', ...
+```
+
+Common triggers (and fixes):
+
+- **Function-call labels in nodes**: avoid `()` in `[...]` node labels. Prefer `GatewaySettings.cloud_providers` (describe the call in surrounding text instead).
+- **Wildcards in labels**: avoid `*` in node labels (write `MDX env vars` instead of `MDX_* env vars`).
+- **Edge “dotted label” syntax**: avoid `-.label.->`; use `-.->|label|` instead (works across more Mermaid versions).
+- **Line separators**: add `;` at the end of each edge line to avoid issues when renderers collapse newlines.
+
+Bad (often triggers parse errors):
+
+```mermaid
+graph TD
+  A[GatewaySettings.cloud_providers()] --> B[ModelGateway cloud backends]
+  B -.configures.-> C[extract_text]
+```
+
+Good (more robust):
+
+```mermaid
+graph TD
+  A[GatewaySettings.cloud_providers] --> B[ModelGateway cloud backends];
+  B -.->|configures| C[extract_text];
+```
+
 ---
 
 ## Phase Integration Guide
