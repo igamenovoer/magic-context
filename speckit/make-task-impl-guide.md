@@ -16,6 +16,16 @@ Note that, according to speckit conventions, `<feature-id>` is the same as git b
 
 Example: `context/tasks/working/001-my-feature/impl-phase-1-setup.md`
 
+## Backlink in `tasks.md` (if provided)
+
+If the user provides `specs/<feature-id>/tasks.md` as input (or asks you to generate guides for an existing `tasks.md`), also revise that `tasks.md` file to add references to the generated implementation guides so readers can find them.
+
+Recommended approach: add a short `## Implementation Guides` section near the top of `specs/<feature-id>/tasks.md` (before Phase 1), listing:
+- `context/tasks/working/<feature-id>/impl-phase-<id>-<what>.md` (per phase)
+- `context/tasks/working/<feature-id>/impl-integrate-phases.md` (integration guide)
+
+Keep the existing task checklist format intact (do not change task IDs or checkbox lines when adding the reference section).
+
 ## Guide Structure
 
 ~~~markdown
@@ -61,6 +71,8 @@ class ComponentName:
 ```
 
 **Usage Flow**:
+
+Mermaid `sequenceDiagram` figures MUST follow `magic-context/instructions/mermaid-seq-styling.md`.
 
 ```mermaid
 sequenceDiagram
@@ -177,9 +189,9 @@ If there are known failure modes that indicate partial success, document them he
 
 1. **APIs First**: Show public interfaces with typed signatures and docstrings
 2. **Language Match**: Use Python/TypeScript/Go/etc. based on project language
-3. **Diagrams**: Use Mermaid sequence/graph diagrams for flows and dependencies
+3. **Diagrams**: Use Mermaid sequence/graph diagrams for flows and dependencies; `sequenceDiagram` MUST follow `magic-context/instructions/mermaid-seq-styling.md`
 4. **Concise**: Focus on *what* and *how*, skip verbose explanations
-5. **Concrete**: Real file paths, class names, function signatures
+5. **Concrete**: Real file paths, class names, function signatures. Prefer repo-relative paths (e.g., `src/...`, `tests/...`); if you need a workspace root placeholder, follow surrounding docs (this repo commonly uses `<workspace>/...`, but use `<workspace-root-placeholder>/...` if that’s the established style); use absolute paths only when surrounding docs use absolute paths.
 6. **Testable**: Include test commands and validation steps
 
 ---
