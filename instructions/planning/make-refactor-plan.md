@@ -12,6 +12,8 @@ you are tasked to create a refactor plan for the given source code, and there is
   - **Expected Outcome**: Describe what you expect to achieve after the refactoring is complete.
   - **References**: Include links to relevant documentation, code files, or discussions that support the refactoring plan.
 
+- must include a **TODO** checklist section using unchecked Markdown task items (e.g. `- [ ] ...`) so the refactor can be tracked during implementation.
+
 - must given some example code snippets to illustrate the refactoring idea, the code should contain essential parts in before-and-after refactoring.
 
 - if 3rd-party libraries are used, include the `context7` library id as a reference in the `References` section (if found).
