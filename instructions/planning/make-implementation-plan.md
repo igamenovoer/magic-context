@@ -71,6 +71,22 @@ When the user asks **“make a plan about `<what>`”**, follow these steps:
    - Place the diagram under `## 2. Implementation Approach`, in a subsection like `### 2.2 Sequence diagram (steady-state usage)`.  
    - Use simple, self-explanatory participant labels (e.g., `Dev`, `API`, `Runner`, `Client`, `Blender`).  
    - Focus on how the new feature is *used*, not on every internal detail.  
+   - **Styling and readability rules (self-contained):**
+     - Keep the diagram roughly “square” (avoid very wide diagrams that require horizontal scrolling).
+     - Declare all participants at the top using **short IDs** and **wrapped labels**:
+       - ✅ `participant GW as ModelGateway<br/>(in-process)`
+       - ❌ `participant ModelGatewayInProcess as ...` (ID too long)
+     - Wrap long participant labels with HTML line breaks (`<br/>`); Mermaid `sequenceDiagram` does not support raw `\n`.
+     - Do **not** split important function/class names across lines; if a name is long, wrap around separators and keep the name intact:
+       - ✅ `participant LC as llama.cpp<br/>llama-server`
+       - ✅ `participant TO as torch.ops<br/>spqr_cuda`
+       - ❌ `participant F as spqr_quan<br/>tized_matvec` (breaks the name)
+     - Keep arrow labels concise (ideally < ~40 chars). If you need to show a function call, keep the function name intact and wrap the arguments:
+       - ✅ `GW->>LL: completion<br/>(model openai/<id>,<br/>api_base .../v1)`
+       - ❌ `GW->>LL: comple<br/>tion(model=..., api_base=...)`
+     - Prefer a single arrow for a “setup step” rather than multiple micro-steps; omit return arrows unless they add meaning.
+     - Use `alt/else/end`, `opt`, `loop`, `par` for control-flow; keep block titles short and wrap them with `<br/>` if needed.
+     - Avoid deep nesting (>2 levels). If the flow is complex, split into multiple diagrams rather than cramming everything into one.
 
 5. **Line-wrapping and formatting rules**  
    - Do **not** hard-wrap standard paragraphs; let the editor wrap lines.  
@@ -90,4 +106,3 @@ For each of these, the assistant should:
 - Inspect any referenced context/docs.  
 - Create a new plan file under `context/plans/` (unless told otherwise).  
 - Populate it with: HEADER, purpose, implementation approach (with sequence diagram), files to touch, and a TODO checklist.
-
