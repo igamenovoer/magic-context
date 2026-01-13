@@ -22,93 +22,87 @@ How do I [perform a specific action/solve a specific problem] using [Specific Pr
     2.  [Step 2: e.g., Construct the request payload]
     3.  [Step 3: e.g., Parse the response]
 
-## Critical Example Code
+## Step-by-Step with Code
 
-[Provide clear, self-contained, and copy-pasteable code snippets. **Write rich comments in the code examples to explain what each part does step-by-step**, as this is intended to be a tutorial for users who might be new to this specific API or SDK.]
+[Provide a step-by-step breakdown of the code, mapping directly to the steps outlined in the **Implementation Idea**. **Select the primary programming language (Python, TypeScript, C++, etc.) based on the project context and user request.** If the project supports multiple interfaces (e.g., Python SDK vs HTTP API), provide the most relevant one or both if requested.]
 
-### Python SDK Implementation
+### Step 1: [Name of Step 1, e.g., Client Initialization]
 
-```python
-import os
-# Import necessary modules
-from specific_library import Client, models
+[Elaborate on the concept. Explain strictly why this step is necessary, any configuration nuances, security considerations (like API key handling), or architectural choices.]
 
-def run_example():
-    """
-    Demonstrates how to [perform task].
-    """
-    # 1. Configuration / Initialization
-    api_key = os.getenv("SERVICE_API_KEY")
-    if not api_key:
-        raise ValueError("Please set SERVICE_API_KEY")
-        
-    client = Client(api_key=api_key)
-
-    # 2. Prepare Data
-    payload = {
-        "input": "example data",
-        "options": {"verbose": True}
-    }
-
-    # 3. Execute Request
-    try:
-        response = client.resource.create(**payload)
-        
-        # 4. Process Response
-        print(f"Success! ID: {response.id}")
-        return response
-        
-    except Exception as e:
-        print(f"Error occurred: {e}")
-        return None
-
-if __name__ == "__main__":
-    run_example()
+```[language]
+# [Example code in the chosen primary language]
+# [Initialize client / setup connection]
+# [Handle authentication securely (e.g., env vars)]
 ```
 
-### RESTful API Equivalent (cURL)
+### Step 2: [Name of Step 2, e.g., Request Construction]
+
+[Discuss the data model or payload structure. Explain specific parameters, why certain options might be enabled or disabled (trade-offs), and data validation considerations.]
+
+```[language]
+# [Construct payload / request object]
+# [Set options and parameters]
+```
+
+### Step 3: [Name of Step 3, e.g., Execution and Handling]
+
+[Explain the execution flow. Discuss synchronous vs. asynchronous behavior, network timeouts, and the importance of robust error handling.]
+
+```[language]
+# [Execute request / call function]
+# [Handle success and error cases]
+```
+
+### Complete Runnable Script
+
+[Below is the consolidated, copy-pasteable script combining all steps. It is self-contained and ready to run.]
+
+```[language]
+# [Insert complete runnable script here]
+```
+
+### [Optional] Alternative Interface (e.g., REST API / CLI)
+
+[If applicable to the project context (e.g., a web service), provide the equivalent using standard tools like cURL or a secondary language requested by the user.]
 
 ```bash
-# Ensure API_KEY is set in your environment
-curl -X POST "https://api.provider.com/v1/resource" \
-     -H "Authorization: Bearer $API_KEY" \
-     -H "Content-Type: application/json" \
-     -d 
-{
-           "input": "example data",
-           "options": {
-             "verbose": true
-           }
-         }
+# [Example cURL command or alternative language snippet]
 ```
 
 ## Input and Output
 
 ### Input
-[Describe the input parameters, data types, or provide a sample JSON object representing the input.]
+[Describe the input parameters, data types, or provide a sample data structure (e.g., object, dictionary, or payload) representing the input.]
 
-*   `input` (str): The main data to process.
-*   `options` (dict): Optional configuration flags.
+*   `input` (type): Description of the main data to process.
+*   `options` (type): Description of optional configuration flags.
 
 > **Image Handling (Input):**
 > *   If **≤ 5 images**: Display them directly using `![alt text](path/to/image.png)`.
 > *   If **> 5 images**: Provide an itemized list of image paths/descriptions.
 
 ### Output
-[Show the expected output, console logs, or a sample JSON response body.]
+[Show the expected output, console logs, or a sample response body/object.]
 
 > **Image Handling (Output):**
 > *   If **≤ 5 images**: Display the resulting images directly.
 > *   If **> 5 images**: Provide an itemized list of output image paths.
 
-```json
-{
-  "id": "res_123456789",
-  "status": "completed",
-  "data": {
-    "processed_result": "..."
-  },
-  "created_at": "2023-10-27T10:00:00Z"
-}
+```[format]
+# [Insert sample output, console logs, or object representation here]
 ```
 
+## References
+
+### Relevant Source Code
+[Include links to the most relevant files in the codebase, such as client definitions, model schemas, or existing integration tests that serve as a reference.]
+
+*   `path/to/relevant_file.py`: [Brief description of what is in this file]
+*   `path/to/api_definition.ts`: [Brief description]
+
+### Online Resources
+[Provide links to official documentation, third-party libraries, or external articles used or referenced in this tutorial.]
+
+*   [Official API Documentation](https://example.com/docs)
+*   [Provider SDK Repository](https://github.com/provider/sdk)
