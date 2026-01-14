@@ -27,6 +27,7 @@ from .helpers import validate_data
 ### 2. Documentation Style
 - Use NumPy documentation style for all docstrings
 - Document all modules, classes, methods, and functions
+- Private functions/classes (single leading underscore) MUST still have a brief docstring explaining intent (one line is fine)
 - Include parameter types, return types, and examples
 
 ### 3. Module Documentation
