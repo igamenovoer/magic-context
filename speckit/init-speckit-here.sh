@@ -101,6 +101,10 @@ add_to_gitignore() {
 
         # Check if already ignored (matching exactly 'dir' or 'dir/')
         if ! grep -Fxq "${dir}" "$GITIGNORE" && ! grep -Fxq "${dir}/" "$GITIGNORE"; then
+            # If file is not empty and doesn't end with newline, add one first
+            if [ -s "$GITIGNORE" ] && [ -n "$(tail -c 1 "$GITIGNORE")" ]; then
+                echo "" >> "$GITIGNORE"
+            fi
             echo "${dir}/" >> "$GITIGNORE"
             echo "Added ${dir}/ to $GITIGNORE"
         fi
