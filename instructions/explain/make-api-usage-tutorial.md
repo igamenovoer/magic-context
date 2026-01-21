@@ -93,6 +93,32 @@ How do I [perform a specific action/solve a specific problem] using [Specific Pr
 # [Insert sample output, console logs, or object representation here]
 ```
 
+## Appendix: Key Parameters and Files
+
+At the end of the tutorial, add an appendix that makes the tutorial easy to audit, rerun, and debug.
+
+### Key Parameters (Table)
+
+List **all key parameters set or assumed by the tutorial** (environment variables, CLI flags, endpoints, model names, file paths, timeouts, etc.) as a table:
+
+| Name | Value | Explanation |
+|------|-------|-------------|
+| `SERVICE_API_KEY` | `$SERVICE_API_KEY` | API key used for authentication |
+| `BASE_URL` | `http://localhost:11800` | Service endpoint used in examples |
+| `timeout_s` | `30` | Client timeout for requests |
+
+### Input Files
+
+List all input files used by the tutorial (with repo-relative paths). If there are none, state “None”.
+
+*   `path/to/input_1.ext`: [What it is / why it’s needed]
+
+### Output Files
+
+List all output files produced by the tutorial (with repo-relative paths, or clearly indicated temp paths if outputs are not tracked). If there are none, state “None”.
+
+*   `path/to/output_1.ext`: [What it is / how to verify it]
+
 ## References
 
 ### Relevant Source Code

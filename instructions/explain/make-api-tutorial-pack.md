@@ -96,6 +96,7 @@ The README is the entry point. It should be a **step-by-step usage tutorial**, n
 *   **Keep examples minimal but complete**: Code blocks should include imports, env var names, and fully specified request payloads.
 *   **Prefer deterministic docs**: Avoid embedding timestamps/absolute paths; when unavoidable, explain how they are sanitized.
 *   **Add troubleshooting** (optional): Common failures and fixes (service not running, missing env vars, auth, ports).
+*   **End with an appendix**: Summarize all key parameters set by the tutorial in a table (name, value, explanation), and list all input and output files produced/used by the tutorial.
 
 At minimum, the README should include:
 
@@ -108,6 +109,9 @@ At minimum, the README should include:
     - How to run `run_demo.sh` end-to-end.
     - How to compare outputs with `expected_report/`.
     - How to refresh `expected_report/` using the snapshot flag (e.g., `--snapshot-report`) when behavior changes intentionally.
+7.  **Appendix**:
+    - A table of key parameters configured/assumed by the tutorial (**name**, **value**, **explanation**).
+    - A complete list of tutorial **input files** (tracked inputs) and **output files** (generated artifacts and/or tracked expected outputs), with paths.
 
 ### 6. Verify
 Run the script yourself. Ensure it passes. Check that `expected_report/` contains clean, readable files.
