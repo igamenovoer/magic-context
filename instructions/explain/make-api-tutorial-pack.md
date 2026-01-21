@@ -83,11 +83,19 @@ Outputs often contain non-deterministic data (timestamps, absolute paths, run ID
 *   **Tool**: Python is usually best for this.
 
 ### 5. Write the README (`README.md`)
-The README should answer:
-1.  **What** does this demonstrate?
-2.  **How** do I run it? (Link to `run_demo.sh`).
-3.  **What** are the prerequisites?
-4.  **How** do I compare my results to the `expected_report/`?
+The README should be a **step-by-step usage tutorial**, not just a description. Use the structure from `context/instructions/make-api-usage-tutorial.md` as the baseline, adapted to the Tutorial Pack pattern.
+
+At minimum, the README should include:
+
+1.  **Title + Question**: “How to `<task>` with `<API/SDK/service>`” + a clear problem statement.
+2.  **Prerequisites (checklist)**: service running, env ready, required env vars, sample data assumptions.
+3.  **Implementation Idea**: a high-level approach, as an ordered list of steps.
+4.  **Critical Example Code**: copy/pasteable examples (Python and/or cURL) with **rich inline comments** explaining each step.
+5.  **Input and Output**: show concrete example payloads and expected outputs (include sample JSON; keep it minimal and readable).
+6.  **Run + Verify**:
+    - How to run `run_demo.sh` end-to-end.
+    - How to compare outputs with `expected_report/`.
+    - How to refresh `expected_report/` using the snapshot flag (e.g., `--snapshot-report`) when behavior changes intentionally.
 
 ### 6. Verify
 Run the script yourself. Ensure it passes. Check that `expected_report/` contains clean, readable files.
