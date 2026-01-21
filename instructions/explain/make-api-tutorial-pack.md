@@ -90,8 +90,8 @@ At minimum, the README should include:
 1.  **Title + Question**: “How to `<task>` with `<API/SDK/service>`” + a clear problem statement.
 2.  **Prerequisites (checklist)**: service running, env ready, required env vars, sample data assumptions.
 3.  **Implementation Idea**: a high-level approach, as an ordered list of steps.
-4.  **Critical Example Code**: copy/pasteable examples (Python and/or cURL) with **rich inline comments** explaining each step.
-5.  **Input and Output**: show concrete example payloads and expected outputs (include sample JSON; keep it minimal and readable).
+4.  **Critical Example Code**: copy/pasteable examples (Python SDK and/or REST cURL) with **rich inline comments** explaining each step.
+5.  **Input and Output**: show concrete example payloads and expected outputs (include sample JSON; keep it minimal and readable). If the tutorial involves images: embed ≤5 images directly; otherwise list image paths.
 6.  **Run + Verify**:
     - How to run `run_demo.sh` end-to-end.
     - How to compare outputs with `expected_report/`.
