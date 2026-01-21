@@ -83,7 +83,19 @@ Outputs often contain non-deterministic data (timestamps, absolute paths, run ID
 *   **Tool**: Python is usually best for this.
 
 ### 5. Write the README (`README.md`)
-The README should be a **step-by-step usage tutorial**, not just a description. Use the structure from `context/instructions/make-api-usage-tutorial.md` as the baseline, adapted to the Tutorial Pack pattern.
+The README is the entry point. It should be a **step-by-step usage tutorial**, not just a description, and it should let a reader run the pack end-to-end and verify the results.
+
+#### How to write tutorials effectively
+
+*   **Start with a goal**: State the “question”/problem this tutorial answers and what success looks like.
+*   **Make it runnable**: Provide copy/paste commands in the exact order to run the demo (`run_demo.sh`).
+*   **No hidden state**: Do not assume prior workspace artifacts; every dependency should be called out in prerequisites or packaged in `inputs/`.
+*   **Explain the steps**: Use numbered steps and brief explanations so a reader knows *why* each command exists.
+*   **Show expected outputs**: Include representative snippets (or paths to generated artifacts) so users can sanity-check quickly.
+*   **Include “verify” instructions**: Explain how to compare current outputs to `expected_report/`.
+*   **Keep examples minimal but complete**: Code blocks should include imports, env var names, and fully specified request payloads.
+*   **Prefer deterministic docs**: Avoid embedding timestamps/absolute paths; when unavoidable, explain how they are sanitized.
+*   **Add troubleshooting** (optional): Common failures and fixes (service not running, missing env vars, auth, ports).
 
 At minimum, the README should include:
 
