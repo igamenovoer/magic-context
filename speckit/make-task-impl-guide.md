@@ -10,18 +10,18 @@ Read `specs/<feature-id>/tasks.md` from the current feature (infer from git bran
 
 ## Output Location
 
-Save guides to: `context/tasks/working/<feature-id>/impl-phase-<id>-<what>.md`
+Save guides to: `context/tasks/working/<feature-id>/impl-guide-ph<id>-<what>.md`
 
 Note that, according to speckit conventions, `<feature-id>` is the same as git branch name (format: `<feature-index>-<feature-name>`), and you shall be able to find `specs/<feature-id>/` subdir.
 
-Example: `context/tasks/working/001-my-feature/impl-phase-1-setup.md`
+Example: `context/tasks/working/001-my-feature/impl-guide-ph1-setup.md`
 
 ## Backlink in `tasks.md` (if provided)
 
 If the user provides `specs/<feature-id>/tasks.md` as input (or asks you to generate guides for an existing `tasks.md`), also revise that `tasks.md` file to add references to the generated implementation guides so readers can find them.
 
 Recommended approach: add a short `## Implementation Guides` section near the top of `specs/<feature-id>/tasks.md` (before Phase 1), listing:
-- `context/tasks/working/<feature-id>/impl-phase-<id>-<what>.md` (per phase)
+- `context/tasks/working/<feature-id>/impl-guide-ph<id>-<what>.md` (per phase)
 - `context/tasks/working/<feature-id>/impl-integrate-phases.md` (integration guide)
 
 Keep the existing task checklist format intact (do not change task IDs or checkbox lines when adding the reference section).
@@ -453,7 +453,7 @@ pixi run python scripts/validate_phase_artifacts.py --feature <feature-id>
    - Validation: Data integrity checks pass before Phase 3 starts
 
 ## References
-- Individual phase guides: `context/tasks/working/<feature-id>/impl-phase-*.md`
+- Individual phase guides: `context/tasks/working/<feature-id>/impl-guide-ph*.md`
 - Spec: `specs/<feature-id>/spec.md`
 - Tasks breakdown: `specs/<feature-id>/tasks.md`
 - Data model: `specs/<feature-id>/data-model.md`
