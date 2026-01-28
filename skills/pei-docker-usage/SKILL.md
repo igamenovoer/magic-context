@@ -126,8 +126,8 @@ stage_1:
 
 *   **[guidelines.md](references/guidelines.md)**: Best practices for project structure, data safety, and customization.
 *   **[user-config-reference.md](references/user-config-reference.md)**: Full reference for `user_config.yml` options.
+*   **[installation-scripts.md](references/installation-scripts.md)**: Usage guide for system installation scripts (Pixi, uv, Node.js, Bun).
 *   **[user_config.yml](templates/user_config.yml)**: Template for a full `user_config.yml` file.
-*   **[install-pixi-usage.md](references/install-pixi-usage.md)**: Usage guide for the `install-pixi.bash` script.
 *   **[basic-examples.md](references/basic-examples.md)**: Basic configurations (SSH, GPU, Volumes).
 *   **[advanced-examples.md](references/advanced-examples.md)**: Advanced scenarios (Env Vars, OpenGL, Complex Apps).
 *   **[cli-reference.md](references/cli-reference.md)**: Detailed CLI command reference.

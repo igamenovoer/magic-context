@@ -91,3 +91,18 @@ Maps arbitrary host paths or volumes to arbitrary container paths.
           dst_path: /home/developer
     ```
 *   **Why:** This persists user-specific settings (like `.bashrc`, `.gitconfig`, shell history, VS Code server data) independently of the container lifecycle. You avoid the need to "commit" the image just to save a shell alias or git setting.
+
+## 7. Mirror Configuration
+
+**Rule:** When using system installation scripts (e.g., for Pixi, Node.js, Bun) in China or other regions with slow connectivity to official upstreams, check the script's help options for mirror support.
+
+*   **Capabilities:** Many built-in scripts (like `install-pixi.bash`, `install-uv.sh`, `install-nvm.sh`) include specific flags (e.g., `--pypi-repo`, `--with-cn-mirror`) to configure domestic mirrors automatically.
+*   **Workflow:**
+    1.  Inspect the script usage (e.g., run `./script --help` or check [installation-scripts.md](installation-scripts.md)).
+    2.  Add the appropriate flags in your `user_config.yml`:
+        ```yaml
+        custom:
+          on_build:
+            - 'stage-2/system/pixi/install-pixi.bash --pypi-repo=tuna'
+        ```
+*   **Why:** Significantly faster build times and improved reliability.
