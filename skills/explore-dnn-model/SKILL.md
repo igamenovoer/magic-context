@@ -92,14 +92,16 @@ Notes:
 
 - Use online search to find the canonical implementation:
   - Official GitHub repo, paper, model card, or vendor docs.
-- Download the relevant source code (pin a tag/commit when possible) and identify:
+- If the model is provided as a local model file + model name (and no source is checked out yet) and you need upstream code:
+  - Check out the upstream repo under `tmp/<experiment-dir>/refs/<repo-name>` using a shallow clone (`--depth=1`).
+- Download/check out the relevant source code (pin a tag/commit when possible) and identify:
   - The exact inference entrypoints (scripts/modules), model class, preprocessing, postprocessing, and label mapping.
   - Any config files required to construct the model (YAML/JSON/TOML).
 - Do not “guess” preprocessing/postprocessing: confirm from code and/or reference examples.
 
 ### 2) Derive required dependencies
 
-Before downloading the checkpoint or changing the environment, determine the minimal dependencies required to run the model by using (in priority order):
+Before running the model or changing the environment, determine the minimal dependencies required to run the model by using (in priority order):
 - Upstream source code (setup files, `requirements*.txt`, `pyproject.toml`, import graph).
 - Upstream docs/model card (pinned versions, known-good combos).
 - Checkpoint type (e.g., `.onnx` implies ONNX Runtime; `.pt/.pth` implies PyTorch; `.engine` implies TensorRT).
@@ -143,11 +145,19 @@ Create the standard directory layout:
 
 ```
 tmp/<experiment-dir>/
+  README.md     # experiment intent + directory guide (keep updated)
+  refs/         # checked-out upstream repos (use shallow clone for online checkouts)
+    README.md
   scripts/      # throwaway but reproducible scripts (committed if useful)
+    README.md
   inputs/       # downloaded/synthesized test inputs
+    README.md
   outputs/      # artifacts + machine-readable stats (e.g., `stats.json`)
+    README.md
   logs/         # logs (stdout/stderr, profiling traces, command transcripts)
+    README.md
   reports/      # markdown notes: what was tried, params, results
+    README.md
     figures/    # images embedded in reports
     experiment-report.md
     stakeholder-report.md
@@ -159,6 +169,15 @@ Conventions:
 - Run Python via the selected environment manager:
   - Pixi: `pixi run python ...`
   - Venv: use the venv’s Python (avoid system Python)
+
+README requirements:
+- Create `tmp/<experiment-dir>/README.md` to describe:
+  - The intention of the experiment (what model, what checkpoint, what question you’re answering)
+  - How to reproduce (one-line pointer to the primary script(s))
+  - A brief map of what each top-level subdir contains
+- Each top-level subdir must have its own `README.md` that:
+  - Describes what belongs in the folder
+  - Notes any important changes (append a short “Changes” section as you iterate)
 
 ### 6) Collect or synthesize inputs
 
