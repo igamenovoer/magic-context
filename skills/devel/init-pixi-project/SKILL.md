@@ -5,6 +5,9 @@ description: Initialize and scaffold a new Pixi-managed Python project, or upgra
 
 # Initialize Pixi Project
 
+## References
+- **Usage & Commands**: See [references/pixi-usage.md](references/pixi-usage.md) for details on `pixi search`, `add`, and `run`.
+
 ## Workflow
 
 ### 1. Safety Check & Parameters
@@ -27,24 +30,31 @@ Attempt to initialize Pixi.
     - If it exists, skip to the next step.
     - If `pyproject.toml` exists but lacks Pixi config, the agent should try to append the default Pixi configuration or ask the user if `pixi init` didn't do it automatically.
 
-### 3. Scaffolding (Idempotent)
+### 3. Post-Initialization Configuration
 
-Run the scaffolding script. It checks for existence before creating, so it is safe to run on existing projects.
+#### A. Handle Custom Project Name
+If the user specified a project name different from the current directory name:
+1.  **Rename Source**: `mv src/<dir_name> src/<project_name>`
+2.  **Update Manifest**: Edit `pyproject.toml` to replace the old name with the new one in:
+    - `[project] name = "..."`
+    - `[tool.pixi.pypi-dependencies]` section (rename the key).
+
+#### B. Scaffolding (Idempotent)
+Run the scaffolding script. Pass the project name if custom.
 
 ```bash
-python <path_to_skill>/scripts/scaffold_structure.py [PATH]
+python <path_to_skill>/scripts/scaffold_structure.py [PATH] --package-name <project_name>
 ```
 
-### 4. Post-Initialization Configuration
-
-#### A. Gitignore
+#### C. Gitignore
 Check `.gitignore`. Append the following if not present:
 ```gitignore
 .pixi/
 tmp/
+.git/
 ```
 
-#### B. Install Python and Dependencies (Smart Merge)
+#### D. Install Python and Dependencies (Smart Merge)
 
 1.  **Check Python**: Check if `python` is already a dependency.
     - If yes, respect the existing version (or ask user if they want to override).
@@ -59,7 +69,7 @@ tmp/
         - Reporting specific conflicts to the user and asking for guidance.
 3.  **Finalize**: Run `pixi install`.
 
-### 5. Verification
+### 4. Verification
 
 - Verify the environment is usable (`pixi shell` works).
 - Verify directory structure.
