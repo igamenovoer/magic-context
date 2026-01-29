@@ -1,6 +1,6 @@
 ---
 name: make-program-tutorial
-description: Create a clear, reproducible, step-by-step tutorial for using a specific API/SDK/library or an arbitrary set of functions/classes. Use when the user asks for a “how-to”, “tutorial”, or “guide” that includes runnable examples, expected outputs, and basic troubleshooting.
+description: Manual invocation only; use only when the user explicitly requests `make-program-tutorial` by exact name, OR when the user asks to use a skill to create an SDK/API/library tutorial. Create a clear, reproducible, step-by-step tutorial for a specific API/SDK/library (or a set of functions/classes), with runnable examples, expected outputs, and basic troubleshooting.
 ---
 
 # Make Program Tutorial
@@ -71,4 +71,3 @@ Follow the template in `templates/step-by-step.md`:
 - Do not include secrets/tokens or require users to paste credentials into the tutorial.
 - Avoid “works on my machine” ambiguity: always include the exact commands and expected outputs/paths.
 - Prefer stable, minimal dependencies; if multiple installation methods exist, pick one and mention alternatives briefly.
-
