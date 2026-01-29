@@ -8,13 +8,12 @@ description: Manual invocation only; use only when the user explicitly requests 
 ## Minimum Required Inputs (Hard Requirement)
 
 To use this skill, the user must provide:
-- A model checkpoint / model file(s) as a **local** file or directory path in the workspace, **and**
-- At least one of:
-  - Model name, or
-  - Upstream repository link, or
-  - A checked-out source code path in the workspace
+- A model checkpoint / model file(s) as a **local** file or directory path (it may be outside the workspace).
 
-This is required so there are enough keywords and artifacts to identify the canonical implementation and infer the correct preprocessing/postprocessing.
+If the user provides only the checkpoint path (no model name, repo link, or source code), proceed by:
+1) Attempting to identify the model name/family from the checkpoint file/dir itself (filenames, adjacent configs/README, embedded metadata, `state_dict` key patterns, etc.).
+2) Searching for the implementation in the workspace and/or alongside the checkpoint directory (e.g., nearby Python packages, inference scripts, config files).
+3) If still not found, using the best-guess model name/family to search online for the canonical implementation, then cloning the upstream source into `tmp/<experiment-dir>/refs/` for investigation (prefer shallow clone; record URL + commit/tag used).
 
 ## Goals
 
@@ -65,6 +64,7 @@ Ask the user to choose one:
 
 ## Inputs to Collect (ask if missing)
 
+- Model name and/or upstream repo link and/or source code path (optional but speeds up identification)
 - Model task/modality if unclear (classification/detection/segmentation/embedding/audio/video/etc.)
 - Checkpoint path (file/dir) and format (`.pt`, `.pth`, `.onnx`, `.engine`, etc.)
 - Any known I/O contract details (expected resolution, channel order, normalization, label mapping), if the user has them
@@ -81,8 +81,8 @@ Notes:
 ### 0) Confirm artifacts and pick the target environment
 
 - Confirm the minimum required inputs are present:
-  - Checkpoint/model path is accessible locally (file/dir exists).
-  - Model name/repo/source path is provided so you can derive keywords and locate canonical docs/code.
+  - Checkpoint/model path is accessible locally (file/dir exists). It may be outside the workspace.
+  - If model name/repo/source path is not provided, start by inferring it from the checkpoint and nearby files; if needed, locate it online and clone into `tmp/<experiment-dir>/refs/`.
 - Detect environment type:
   - If both Pixi and `.venv` exist, ask the user which one should be treated as the “current” environment for this exploration.
 - Device default:
@@ -90,10 +90,12 @@ Notes:
 
 ### 1) Locate and read the upstream source code/docs
 
-- Use online search to find the canonical implementation:
+- First try to find the implementation locally:
+  - Search the workspace and the checkpoint directory for source code, inference scripts, configs, and docs.
+  - Prefer local source if it appears to be the canonical/official implementation for the checkpoint.
+- If local source is not available or is clearly incomplete, use online search to find the canonical implementation:
   - Official GitHub repo, paper, model card, or vendor docs.
-- If the model is provided as a local model file + model name (and no source is checked out yet) and you need upstream code:
-  - Check out the upstream repo under `tmp/<experiment-dir>/refs/<repo-name>` using a shallow clone (`--depth=1`).
+  - Check out the upstream repo under `tmp/<experiment-dir>/refs/<repo-name>` using a shallow clone (`--depth=1`), pinning a tag/commit when possible.
 - Download/check out the relevant source code (pin a tag/commit when possible) and identify:
   - The exact inference entrypoints (scripts/modules), model class, preprocessing, postprocessing, and label mapping.
   - Any config files required to construct the model (YAML/JSON/TOML).
@@ -137,7 +139,7 @@ Make a concise dependency list covering:
 
 Default experiment directory:
 
-`{{workspace}}/tmp/{{experiment-slug}}-<time>`
+`<workspace>/tmp/<experiment-slug>-<time>`
 
 If the user specifies a different location/name, use the user-provided one instead.
 
@@ -162,6 +164,18 @@ tmp/<experiment-dir>/
     experiment-report.md
     stakeholder-report.md
 ```
+
+Shell safety note (avoid accidental directory names):
+- Do **not** use bash brace expansion to create these folders (e.g., `mkdir -p "$exp"/{refs,scripts,...}`), because quoting/spacing mistakes can create literal directories like `{refs,scripts,...}`.
+- Prefer a simple loop or explicit `mkdir -p` calls, for example:
+
+  ```
+  exp="tmp/<experiment-dir>"
+  mkdir -p "$exp"
+  for d in refs scripts inputs outputs logs reports reports/figures; do
+    mkdir -p "$exp/$d"
+  done
+  ```
 
 Conventions:
 - Use relative paths from `tmp/<experiment-dir>` in scripts so the folder is movable.
