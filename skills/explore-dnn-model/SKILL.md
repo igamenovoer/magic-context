@@ -210,7 +210,7 @@ Also include:
 
 ### 9) Produce a tutorial
 
-Create `tmp/<experiment-dir>/tutorial/step-by-step.md` as the final deliverable:
+Create `tmp/<experiment-dir>/tutorial/tut-<what>.md` as the final deliverable:
 - Step-by-step setup (env, deps, checkpoint placement)
 - How to run the scripts (exact commands)
 - How to reproduce at least one end-to-end run

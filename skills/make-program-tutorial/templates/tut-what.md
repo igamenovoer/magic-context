@@ -17,7 +17,7 @@
 
 ```
 tutorial/
-  step-by-step.md
+  tut-<what>.md
   inputs/
   outputs/
 ```

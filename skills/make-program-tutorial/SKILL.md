@@ -19,7 +19,7 @@ description: Manual invocation only; use only when the user explicitly requests 
 
 Create a tutorial folder with:
 
-- `tutorial/step-by-step.md`
+- `tutorial/tut-<what>.md`
 - `tutorial/inputs/` (small tutorial-specific inputs, if applicable)
 - `tutorial/outputs/` (tutorial-specific outputs, if applicable)
 
@@ -42,9 +42,11 @@ Prefer referencing the real scripts/commands that actually run, rather than past
 - Prefer real inputs if available; otherwise synthesize minimal inputs that satisfy the API contract.
 - Record the exact commands used to run the example and the resulting artifacts.
 
-### 3) Write `tutorial/step-by-step.md`
+### 3) Write `tutorial/tut-<what>.md`
 
-Follow the template in `templates/step-by-step.md`:
+Choose a short, specific `<what>` (e.g., `tut-httpx-basics.md`, `tut-onnxruntime-infer.md`).
+
+Follow the template in `templates/tut-what.md`:
 - Start with prerequisites and “what you’ll build/run”.
 - Use numbered steps with exact commands.
 - For each step, state:
