@@ -218,6 +218,8 @@ Create `tmp/<experiment-dir>/tutorial/step-by-step.md` as the final deliverable:
   - `tutorial/inputs/*` and `tutorial/outputs/*` (keep them minimal and redistributable)
 - Prefer referencing `scripts/` as the canonical implementation; the tutorial should explain the “why” and “how”, not duplicate code.
 
+If you need more structure for authoring the tutorial, use the `make-program-tutorial` skill and its template.
+
 ## Guardrails
 
 - Do not commit large checkpoints or huge outputs; keep them under gitignored paths (`checkpoints/`, `tmp/`).
