@@ -1,13 +1,9 @@
 ---
 name: explore-dnn-model
-description: Explore how to run a given DNN model checkpoint in the current Python environment by locating weights + upstream source code, verifying/adding dependencies with explicit user confirmation, running small reproducible experiments under `tmp/`, and producing a step-by-step tutorial with inputs/outputs.
+description: Manual invocation only; use only when the user explicitly requests `explore-dnn-model` by name. Explore how to run a given DNN model checkpoint in the current Python environment by locating weights + upstream source code, resolving dependencies with user confirmation, running reproducible experiments under `tmp/`, and producing reports + a step-by-step tutorial with inputs/outputs.
 ---
 
 # Explore DNN Model
-
-## Trigger
-
-Manual invocation only. Use this skill only when the user explicitly asks to use `explore-dnn-model` (by name).
 
 ## Minimum Required Inputs (Hard Requirement)
 
