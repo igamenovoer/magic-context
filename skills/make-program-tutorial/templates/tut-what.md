@@ -1,90 +1,139 @@
-# {{Tutorial Title}}
+---
+tutorial_name: {{tutorial-name}}
+created_at: {{yyyy-mm-ddThh:mm:ssZ}}
+base_commit: {{git_commit_hash}}
+topic: {{Service/Library Name}} - {{Task Name}}
+runtime:
+  os: {{os}}
+  python: {{python_version}}
+  device: {{cpu|cuda|rocm|mps}}
+  notes: {{optional}}
+---
 
-## What you will do
+# Template: How to {{Task Name}} with {{Service/Library Name}}
 
-- Use: `{{library_or_api_name}}` (version: {{version_or_commit}})
-- Goal: {{one-sentence goal}}
-- Output: `tutorial/outputs/{{...}}`
+> Note: Replace placeholders (`{{...}}`) with real values. Keep this tutorial runnable and reproducible.
+
+## Question
+
+How do I {{perform a specific action / solve a specific problem}} using {{Service/Library Name}}?
 
 ## Prerequisites
 
-- Runtime: {{python/node/etc}} {{version}}
-- OS/hardware: {{cpu/gpu/etc}}
-- Dependencies: {{how_to_install_or_where_it_is_declared}}
-- Optional: {{services, model checkpoints, datasets}}
+This tutorial assumes prerequisites are already met; it does not walk through full setup.
 
-## Project layout (for this tutorial)
+- **Service status:** {{e.g., local service is running (if applicable)}}
+- **Environment:** {{e.g., pixi/venv ready; how to run commands in this repo}}
+- **Configuration:** {{e.g., required env vars / config files; no secrets in the doc}}
+- **Data:** {{e.g., sample inputs available under `inputs/`}}
 
+## Implementation Idea
+
+Briefly describe the high-level flow.
+
+- **Approach:**
+  1. {{Initialize client / load model / import modules}}
+  2. {{Construct input / request payload}}
+  3. {{Execute call}}
+  4. {{Parse output / write artifacts to `outputs/`}}
+
+## Critical Example Code
+
+Provide a clear, self-contained, copy/pasteable example. Use rich comments to explain each step.
+
+### {{Primary Implementation}} (e.g., Python)
+
+```python
+import os
+
+# 1) Configuration / initialization
+# - Keep configuration explicit.
+# - Do not embed secrets; read from env vars or config files.
+
+def run_example() -> None:
+    """
+    Demonstrate how to {{task}} with {{Service/Library Name}}.
+    """
+
+    # 2) Prepare inputs
+    # - Read from `inputs/` (prefer real files).
+    # - If you must synthesize inputs, explain why and keep it minimal.
+
+    # 3) Execute the call
+    # - Show the exact API calls needed.
+    # - Include basic error handling so users can diagnose failures.
+    try:
+        result = None  # replace with actual call
+    except Exception as exc:
+        raise RuntimeError(f"Request failed: {exc}") from exc
+
+    # 4) Process outputs
+    # - Write outputs under `outputs/` so users can inspect artifacts.
+    print(result)
+
+if __name__ == "__main__":
+    run_example()
 ```
-tutorial/
-  tut-<what>.md
-  inputs/
-  outputs/
-```
 
-## Step-by-step
-
-### 1) Verify environment
-
-Run:
+### Optional equivalent (e.g., REST/cURL)
 
 ```bash
-{{command_to_print_versions}}
+# Replace placeholders and keep the request copy/pasteable.
+# Avoid printing secrets (use env vars).
+curl -X POST "{{endpoint_url}}" \
+  -H "Authorization: Bearer ${{API_KEY_ENV_VAR}}" \
+  -H "Content-Type: application/json" \
+  -d '{{json_payload}}'
 ```
 
-Expected:
-- {{expected output}}
+## Input and Output
 
-### 2) Prepare inputs
+### Input
 
-- Source: {{workspace_path_or_synthesized}}
-- Files:
-  - `tutorial/inputs/{{file}}`
+Describe the input contract and show a concrete example.
 
-Run:
+- {{param}} ({{type}}): {{description}}
+- {{param}} ({{type}}): {{description}}
 
-```bash
-{{command_to_prepare_inputs}}
+If the tutorial involves images:
+- If ≤ 5 images: embed directly using `![alt](inputs/<file>)`.
+- If > 5 images: list the image paths/descriptions instead.
+
+### Output
+
+Describe the output contract and show representative output (logs / JSON / file artifacts).
+
+If the tutorial produces images:
+- If ≤ 5 images: embed directly using `![alt](outputs/<file>)`.
+- If > 5 images: list the output image paths instead.
+
+```json
+{{example_output_json}}
 ```
-
-Expected:
-- `tutorial/inputs/{{file}}` exists
-
-### 3) Run the minimal “happy path”
-
-Run:
-
-```bash
-{{command_to_run_example}}
-```
-
-Expected outputs:
-- `tutorial/outputs/{{artifact}}`
-- Console output contains: {{key log line / shape / count}}
-
-### 4) Interpret results
-
-- Output contract:
-  - {{shape/type/meaning}}
-- Quick sanity checks:
-  - {{e.g., non-empty result, value ranges, image renders}}
-
-## Troubleshooting
-
-- `ModuleNotFoundError: {{pkg}}`: {{how to install / where to add deps}}
-- `{{common error}}`: {{fix}}
-- Device selection issues (GPU/CPU): {{how to force device}}
 
 ## Verification
 
-- Re-run command: `{{command_to_run_example}}`
+- Run: `{{command_to_run_example}}`
 - Confirm:
-  - Output file(s) exist under `tutorial/outputs/`
-  - Output shapes/values match the contract
+  - Expected output files exist under `outputs/`
+  - Output matches the documented contract (shapes/counts/keys)
+
+## Appendix
+
+### Troubleshooting
+
+- `ModuleNotFoundError: {{pkg}}`: {{how to add/install deps in this environment}}
+- `{{common error}}`: {{likely cause and fix}}
+- Device selection issues (GPU/CPU): {{how to force device selection}}
+
+### Key parameters
+
+| Name | Meaning | Value used by this tutorial |
+|---|---|---|
+| {{param_name}} | {{what it controls}} | {{value}} |
 
 ## References
 
 - Docs: {{url}}
 - Source: {{url}}
-- Version pin: {{tag_or_commit}}
-
+- Version pin (optional): {{tag_or_commit}}

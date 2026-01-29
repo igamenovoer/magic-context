@@ -2,160 +2,78 @@
 
 Date: {{yyyy-mm-dd}}
 
-## Summary
+> Generated programmatically from `{{experiment_dir}}/outputs/`. Do not edit manually.
 
-- Goal: Verify the model runs end-to-end (default: inference) in the current Python environment, document how to use it, and capture input/output + timing/benchmark results.
-- Status: {{success|partial|failed}}
-- What worked: {{one-liner}}
-- What failed / missing: {{one-liner}}
+Status: {{success|partial|failed}}
 
-## Artifacts
+Verified: {{inference_end_to_end|training_sanity|both|neither}}
 
-- Experiment directory: `{{experiment_dir}}`
-- Plan: `{{experiment_dir}}/plan.md`
-- Checkpoint: `{{checkpoint_path}}` (type: `{{pt|pth|onnx|engine|...}}`, size: {{bytes_or_human}}, sha256: {{optional}})
-- Upstream source/docs:
-  - Repo: {{url_or_path}}
-  - Version pin: {{tag_or_commit_or_release}}
-  - License notes: {{if_applicable}}
+## Pointers
+
+- Experiment dir: `{{experiment_dir}}`
+- Checkpoint/model path (local): `{{checkpoint_path}}` (type: `{{pt|pth|onnx|engine|...}}`, sha256: {{optional}})
+- Upstream repo/docs (used for canonical behavior): {{url_or_path}}
+- Logs: `{{experiment_dir}}/logs/`
+- Outputs: `{{experiment_dir}}/outputs/`
+- Reports: `{{experiment_dir}}/reports/`
+- Figures (for this report): `{{markdown_dir}}/figures/`
 
 ## Environment
 
-- Environment manager: {{pixi|venv}}
+- Env manager: {{pixi|venv}}
 - Python: {{version}}
 - OS: {{os}}
-- Device used: {{cuda|rocm|mps|cpu}} (details: {{gpu_model_or_cpu_model}})
-- Key runtime libs:
-  - {{torch|onnxruntime|tensorrt|opencv}}: {{version}}
-  - numpy: {{version}}
-  - opencv-python: {{version}}
-  - pillow: {{version}}
+- Device: {{cuda|rocm|mps|cpu}} ({{gpu_or_cpu_model}})
+- Key libs: {{torch/onnxruntime/opencv/etc}}={{version}}, numpy={{version}}
 
-## Dependency Resolution
+## Key parameters
 
-### Required dependencies (derived)
+List every non-default parameter you set for this experiment (preprocess, postprocess, runtime, thresholds, etc.).
 
-- Runtime/framework: {{deps}}
-- Model-specific libs: {{deps}}
-- Utilities: {{deps}}
-- Optional acceleration: {{deps}}
-
-### Missing deps and chosen strategy
-
-- Missing: {{deps}}
-- User choice:
-  - Pixi: {{modify_current_manifest|new_pixi_env}}
-  - Venv: {{install_into_current_venv|new_venv}}
-- Version strategy used:
-  - First attempt: latest-resolved via {{pixi|pip|uv}}
-  - Fallback: pinned to upstream constraints (if needed): {{constraints}}
-
-### Notes / gotchas
-
-- {{e.g., CUDA version mismatch, ABI, wheels unavailable, conflicts}}
-
-## Model Contract (I/O)
-
-### Inputs
-
-- Modality: {{image|video|audio|text|tensor}}
-- Accepted formats: {{jpg/png/mp4/wav/npy/...}}
-- Expected shape/dtype: {{e.g., (1,3,640,640) float32}}
-- Color space / channel order: {{RGB/BGR, CHW/HWC}}
-- Preprocessing:
-  - Resize/letterbox: {{details}}
-  - Normalize: {{mean/std or scale}}
-  - Other: {{tokenizer, sampling rate, etc.}}
-
-### Outputs
-
-- Raw outputs: {{tensor shapes / logits / boxes / masks / embeddings}}
-- Postprocessing:
-  - {{e.g., NMS thresholds, decode steps}}
-- Output artifacts produced in this experiment:
-  - `{{experiment_dir}}/outputs/{{...}}`
-
-## How to Run (Repro Commands)
-
-All commands are run from `{{experiment_dir}}`.
-
-- Smoke test (imports + load model): `{{cmd}}`
-- Inference run: `{{cmd}}`
-- Visualization / decoding: `{{cmd}}`
-
-## Inputs Used
-
-### Inputs discovery
-
-- Workspace search paths checked: {{e.g., datasets/, downloads/, ...}}
-- Real inputs found: {{yes/no}}
-- Synthetic inputs used: {{yes/no}} (why: {{reason}})
-
-### Input inventory
-
-| Input | Source | Notes |
+| Name | Meaning | Value |
 |---|---|---|
-| `inputs/{{file}}` | {{workspace_path|synthesized}} | {{resolution/duration/etc}} |
+| {{param_name}} | {{what it controls}} | {{value}} |
 
-## Experiment Runs
+## I/O Contract
 
-### Run matrix
+### Input
 
-| Run ID | Script/Command | Device | Params | Inputs | Outputs |
-|---|---|---|---|---|---|
-| {{run_01}} | `scripts/{{script}}` | {{device}} | {{batch/precision/etc}} | `inputs/{{...}}` | `outputs/{{...}}` |
+- Modality/formats: {{image: jpg/png | video: mp4 | audio: wav | tensor: npy | ...}}
+- Shape/dtype/color: {{e.g., 1x3x640x640 float32, RGB, CHW}}
+- Preprocess: {{resize/letterbox + normalization + other}}
+- Example input(s): `{{experiment_dir}}/inputs/{{...}}`
 
-### Input → Output mapping (key examples)
+### Output
 
-| Input | Output(s) | Notes |
-|---|---|---|
-| `inputs/{{file}}` | `outputs/{{file_or_dir}}` | {{e.g., top-1 label, boxes count}} |
+- Raw output(s): {{logits/boxes/masks/embeddings + shapes}}
+- Postprocess: {{nms/thresholds/decode}}
+- Example output(s): `{{experiment_dir}}/outputs/{{...}}`
 
-## Timing / Benchmark
+## Results
 
-### End-to-end timing (default)
+- Timing method: {{cold + warm runs}}
+- End-to-end latency (ms): mean={{mean_ms}}, median={{median_ms}}
+- Throughput (optional): {{items_per_s}}
+- Peak memory (optional): RAM={{ram_peak}}, VRAM={{vram_peak}}
 
-- Method: {{cold run + warm runs}}
-- Batch size: {{n}}
-- Precision: {{fp32|fp16|int8|...}}
+### Figures (if inputs/outputs include images)
 
-| Stage | Mean (ms) | Median (ms) | Notes |
-|---|---:|---:|---|
-| Total end-to-end | {{}} | {{}} | {{includes preprocess+model+postprocess}} |
-| Preprocess | {{}} | {{}} | {{optional}} |
-| Model | {{}} | {{}} | {{optional}} |
-| Postprocess | {{}} | {{}} | {{optional}} |
+If the experiment involves images, copy the key input/output images into `{{markdown_dir}}/figures/` and embed them here using relative paths:
 
-### Throughput / memory (if measured)
+**Input images**
 
-- Throughput: {{items/s}}
-- Peak RAM: {{MB/GB}}
-- Peak VRAM: {{MB/GB}}
-- Profiling notes: {{torch profiler / onnxruntime profiling / nsys / etc.}}
+![{{caption}}](figures/{{input_image_filename}})
 
-## User Metrics (Optional)
+**Output images**
 
-If the user provided metrics/targets, capture:
+![{{caption}}](figures/{{output_image_filename}})
 
-- Metric(s): {{mAP@0.5, IoU, F1, accuracy, latency budget, etc.}}
-- Evaluation set: {{what inputs were used}}
-- Result: {{value}}
-- Target: {{value}}
-- Notes: {{why met/not met, next steps}}
+## User Metrics (optional)
 
-## Issues / Pitfalls
+- Metric(s): {{...}}
+- Result vs target: {{...}}
 
-- {{issue_1}} (symptom: {{...}}, fix/workaround: {{...}})
-- {{issue_2}}
+## Issues / Notes
 
-## Conclusions
-
-- Can the model run end-to-end here? {{yes/no/partially}}
-- Recommended “known-good” invocation: {{script/command}}
-- Next steps: {{e.g., add more real inputs, tune preprocessing, evaluate accuracy, quantize, etc.}}
-
-## Appendix
-
-- Logs: `{{experiment_dir}}/outputs/{{logs}}`
-- Reports: `{{experiment_dir}}/reports/{{...}}`
-- Tutorial: `{{experiment_dir}}/tutorial/step-by-step.md`
+- {{issue_or_gotcha_1}}
+- {{issue_or_gotcha_2}}
