@@ -85,6 +85,7 @@ Run the script using the configured environment. Ensure you run it from the `bui
 ```bash
 pixi run --manifest-path <MANIFEST_FILE> [--feature <ENV_NAME>] bash -c "cd build-check && ./build-and-run.sh"
 ```
+*   **Note**: If the host has no GPU or an incompatible driver, the **build step** should still succeed, but the binary execution will fail. In this case, verify that `build-check/build/check_app` exists to confirm the compilation setup.
 
 ## Troubleshooting
 
