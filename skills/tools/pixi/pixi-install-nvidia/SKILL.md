@@ -30,10 +30,10 @@ This skill provides workflows for setting up **No-Sudo**, **User-Space** GPU env
 ### 1. Channel Configuration
 Ensure the correct channels are present in `pyproject.toml`. The order determines priority.
 *   **Command**: `pixi project channel add nvidia` (and `pytorch` if needed).
-*   **Priority**: `nvidia` and `pytorch` should generally be prioritized over `conda-forge` for GPU builds.
+*   **Priority**: `nvidia` **MUST** be prioritized over `conda-forge` for all NVIDIA tools and libraries (CUDA, cuDNN, NCCL, etc.), unless the user explicitly requests otherwise.
 
 ### 2. Adding GPU Packages
-Use specific versions to ensure compatibility between CUDA and the framework.
+Use specific versions to ensure compatibility between CUDA and the framework. **Always** prefer the `nvidia` channel for these packages.
 
 #### PyTorch (Recommended)
 ```bash

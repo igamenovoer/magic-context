@@ -20,9 +20,9 @@ The primary advantage of using Pixi for NVIDIA development is **User-Space Manag
 
 ---
 
-## CUDA Toolkit and Compilers (Conda-Forge & NVIDIA Channels)
+## CUDA Toolkit and Compilers (Prefer NVIDIA Channel)
 
-When using the `nvidia` channel or `conda-forge`, you can install specific components of the CUDA toolkit.
+Always install components from the `nvidia` channel unless you have a specific reason to use `conda-forge` repackaging.
 
 > **Tip:** Always pin your CUDA version (e.g., `cuda-toolkit=12.1`) to ensure compatibility with your host driver and other libraries.
 
@@ -99,12 +99,12 @@ Use this table to translate system-level `apt` requirements into their user-spac
 
 ## Channel Management
 
-For the best compatibility with NVIDIA packages, prioritize the `nvidia` channel or `rapidsai`.
+For the best compatibility and latest features, **ALWAYS** prioritize the `nvidia` channel.
 
 Recommended channel order in `pyproject.toml` or `pixi.toml`:
-1.  `nvidia` (Official NVIDIA packages)
+1.  `nvidia` (Official NVIDIA packages) - **REQUIRED** for CUDA tools.
 2.  `rapidsai` (If using RAPIDS)
-3.  `conda-forge` (Community maintained, often has good CUDA repackaging)
+3.  `conda-forge` (Community maintained)
 
 ## Environment Variables
 
