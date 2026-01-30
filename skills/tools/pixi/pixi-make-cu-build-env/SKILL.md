@@ -26,40 +26,63 @@ Use this skill when the user asks to:
     *   *Action*: Run `cmake --version`, `ninja --version`, and check for `gcc`/`clang` (Linux) or `cl` (Windows).
     *   *Decision*: If missing or old, include them in the Pixi environment.
 
-**Note**: Do not ask for extra libraries or tools. Only install `cuda-toolkit` unless the user explicitly requests extras (like `cudnn`, `nsight`).
+6.  **Tools**: "Do you need profiling/debugging tools like `nsight-compute`?"
 
-### 2. Adding Dependencies
-Add the core build tools and the CUDA toolchain to the **existing project**.
+### 2. Conflict Detection & Resolution
+Before modifying the project, verify the current state of `<MANIFEST_FILE>`.
+*   **Check**: Are there existing CUDA libs (`cuda-toolkit`, `cudnn`)? Is the `nvidia` channel prioritized? Are versions conflicting?
+*   **Conflict Logic**: If the target environment already has conflicting CUDA versions or strict channel priorities (e.g., `conda-forge` first):
+    *   **STOP** and present options:
+        1.  **Create New Environment (Recommended)**: Create a separate environment (e.g., `cu<VERSION>-build`) with its own `solve-group` to isolate dependencies.
+        2.  **Force Adjust (Risky)**: Reorder channels and overwrite pins in the target environment. **Warn**: This may break existing code.
+        3.  **Cancel**: Abort the operation.
 
-**Best Practice**: Always add the `nvidia` channel to the project configuration *before* installing packages. This avoids flag ordering issues and ensures consistent dependency resolution.
+### 3. Adding Dependencies (Based on Selection)
+Execute the workflow corresponding to the user's choice.
+
+#### Option 1: New Isolated Environment (Recommended)
+Create a new feature and environment with a dedicated `solve-group`.
+
+```bash
+# 1. Add Feature with Dependencies (Pin channel to nvidia)
+pixi add --manifest-path <MANIFEST_FILE> --feature <NEW_ENV_NAME> --channel nvidia \
+    cmake ninja cxx-compiler make pkg-config \
+    cuda-toolkit=<VERSION> cuda-nvcc=<VERSION> \
+    [cudnn nccl nsight-compute]
+
+# 2. Create Environment with Dedicated Solve-Group
+# (Use 'pixi workspace environment add' or edit manifest manually if CLI lacks support)
+# TOML equivalent:
+# [tool.pixi.environments]
+# <NEW_ENV_NAME> = { features = ["<NEW_ENV_NAME>"], solve-group = "<NEW_ENV_NAME>" }
+```
+
+#### Option 2: Force Adjust Existing
+**Best Practice**: Always add the `nvidia` channel to the project configuration *before* installing packages.
 
 **Command Logic**:
 *   **Default Environment**: Do NOT use `--feature`.
-*   **Named Environment**: Use `--feature <ENV_NAME>` (this will create the feature/environment if it doesn't exist).
+*   **Named Environment**: Use `--feature <ENV_NAME>`.
 
 ```bash
-# 1. Setup Channels
-pixi project channel add nvidia --manifest-path <PROJECT_PATH>/<MANIFEST_FILE>
+# 1. Setup Channels (Prioritize NVIDIA)
+pixi project channel add nvidia --prepend --manifest-path <PROJECT_PATH>/<MANIFEST_FILE>
 
-# 2. Core Build Tools (Install if missing/unsuitable on host)
+# 2. Core Build Tools
 pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> [--feature <ENV_NAME>] cmake ninja cxx-compiler make pkg-config
 
-# 3. CUDA Toolchain (Standard libs + Compiler)
+# 3. CUDA Toolchain
 pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> [--feature <ENV_NAME>] cuda-toolkit=<VERSION> cuda-nvcc=<VERSION>
 ```
 
-*Optional Extras (Only if requested):*
+*Optional Extras/Tools (Only if requested):*
 ```bash
-pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> [--feature <ENV_NAME>] cudnn=<VERSION> nccl=<VERSION>
+pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> [--feature <ENV_NAME>] cudnn=<VERSION> nccl=<VERSION> nsight-compute
 ```
 
-*Optional Tools (Only if requested):*
-```bash
-pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> [--feature <ENV_NAME>] nsight-compute
-```
-
-### 3. Configuring Build Tasks
-Add a standard CMake build task to `<MANIFEST_FILE>` that properly points to the user-space compilers. This avoids conflicts with system-installed CUDA.
+### 4. Configuring Build Tasks
+Add a standard CMake build task to `<MANIFEST_FILE>`.
+*   **Note**: Tasks typically run in the activated environment. Ensure `CMAKE_CUDA_COMPILER` points to the *Pixi-managed* `nvcc` ($CONDA_PREFIX/bin/nvcc).
 
 **Task Definition:**
 ```toml
@@ -69,7 +92,7 @@ build = "cmake --build build"
 test = "ctest --test-dir build"
 ```
 
-### 4. Verification (Automated)
+### 5. Verification (Automated)
 To verify the setup, deploy the self-contained test suite from the skill's resource directory.
 
 **1. Deploy Test Suite:**
