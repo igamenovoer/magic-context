@@ -17,30 +17,32 @@ Use this skill when the user asks to:
 ### 1. Requirements Gathering
 **Mandatory**: You MUST identify:
 1.  **Project Context**: The existing Pixi project path. (Default to current working directory if valid).
-2.  **Target Environment Name**: "Which Pixi environment (or feature) should this be set up in?" (e.g., `default`, `cuda-12`, `dev`).
-3.  **CUDA Version**: "Which CUDA version do you need?" (e.g., 11.8, 12.1).
-4.  **Libraries**: "Do you need extra libraries like `cudnn`, `nccl`?" (Default: `cuda-toolkit` only).
+2.  **Manifest File**: Identify if the project uses `pixi.toml` or `pyproject.toml`.
+3.  **Target Environment Name**: "Which Pixi environment (or feature) should this be set up in?" (e.g., `default`, `cuda-12`, `dev`).
+4.  **CUDA Version**: "Which CUDA version do you need?" (e.g., 11.8, 12.1).
+5.  **Libraries**: "Do you need extra libraries like `cudnn`, `nccl`?" (Default: `cuda-toolkit` only).
 
 ### 2. Adding Dependencies
 Add the core build tools and the CUDA toolchain to the **existing project**. Use the `nvidia` channel and **explicitly pin** the requested version.
 *   **Note**: Use `--feature <ENV_NAME>` if targeting a non-default environment.
+*   **Note**: Point `--manifest-path` to the correct file (`pixi.toml` or `pyproject.toml`).
 
 ```bash
 # Core Build Tools
-pixi add --manifest-path <PROJECT_PATH>/pixi.toml --feature <ENV_NAME> cmake ninja cxx-compiler make pkg-config
+pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> --feature <ENV_NAME> cmake ninja cxx-compiler make pkg-config
 
 # CUDA Toolchain (Standard libs + Compiler)
-pixi project channel add nvidia --manifest-path <PROJECT_PATH>/pixi.toml
-pixi add --manifest-path <PROJECT_PATH>/pixi.toml --feature <ENV_NAME> cuda-toolkit=<VERSION> cuda-nvcc=<VERSION> -c nvidia
+pixi project channel add nvidia --manifest-path <PROJECT_PATH>/<MANIFEST_FILE>
+pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> --feature <ENV_NAME> cuda-toolkit=<VERSION> cuda-nvcc=<VERSION> -c nvidia
 ```
 
 *Optional Extras (Only if requested):*
 ```bash
-pixi add --manifest-path <PROJECT_PATH>/pixi.toml --feature <ENV_NAME> cudnn=<VERSION> nccl=<VERSION> -c nvidia
+pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> --feature <ENV_NAME> cudnn=<VERSION> nccl=<VERSION> -c nvidia
 ```
 
-### 4. Configuring Build Tasks
-Add a standard CMake build task to `pixi.toml` (or `pyproject.toml`) that properly points to the user-space compilers. This avoids conflicts with system-installed CUDA.
+### 3. Configuring Build Tasks
+Add a standard CMake build task to `<MANIFEST_FILE>` that properly points to the user-space compilers. This avoids conflicts with system-installed CUDA.
 
 **Task Definition:**
 ```toml
