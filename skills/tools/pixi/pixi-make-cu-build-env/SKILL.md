@@ -99,24 +99,29 @@ test = "ctest --test-dir build"
 To verify the setup, deploy the self-contained test suite from the skill's resource directory.
 
 **1. Deploy Test Suite:**
-Copy the demo code from the magic-context repository to the project:
+Check if the project has a `tmp/` directory. If so, place the verification project there to keep the root clean.
 ```bash
-mkdir -p build-check
-cp -r magic-context/skills/tools/pixi/pixi-make-cu-build-env/demo-code/* build-check/
-chmod +x build-check/build-and-run.sh
+# Determine verification path
+TARGET_DIR="build-check"
+if [ -d "tmp" ]; then TARGET_DIR="tmp/build-check"; fi
+
+# Deploy
+mkdir -p "$TARGET_DIR"
+cp -r magic-context/skills/tools/pixi/pixi-make-cu-build-env/demo-code/* "$TARGET_DIR"/
+chmod +x "$TARGET_DIR/build-and-run.sh"
 ```
 
 **2. Execute:**
 Run the script using the configured environment. The script automatically handles source path detection.
 ```bash
-pixi run --manifest-path <MANIFEST_FILE> [--feature <ENV_NAME>] ./build-check/build-and-run.sh
+pixi run --manifest-path <MANIFEST_FILE> [--feature <ENV_NAME>] "$TARGET_DIR/build-and-run.sh"
 ```
-*   **Note**: If the host has no GPU or an incompatible driver, the **build step** should still succeed, but the binary execution will fail. In this case, verify that `build-check/build/check_app` exists to confirm the compilation setup.
+*   **Note**: If the host has no GPU or an incompatible driver, the **build step** should still succeed, but the binary execution will fail. In this case, verify that `$TARGET_DIR/build/check_app` exists to confirm the compilation setup.
 
 ## Troubleshooting
 
 ### CMake Errors
-*   **Source Directory**: The provided `build-and-run.sh` handles directory context automatically. If you see errors about missing `CMakeLists.txt`, ensure you haven't moved the script out of the `build-check` directory.
+*   **Source Directory**: The provided `build-and-run.sh` handles directory context automatically. If you see errors about missing `CMakeLists.txt`, ensure you haven't moved the script out of the verification directory.
 *   **Pthread Failure**: `Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed` is often normal; CMake usually finds `pthread` in the next step.
 *   **Architecture Warnings**: `nvcc warning : Support for offline compilation...` indicates the default architecture might be older. You can safely ignore this warning for verification purposes.
 
