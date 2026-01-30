@@ -31,11 +31,14 @@ Use this skill when the user asks to:
 ### 2. Conflict Detection & Resolution
 Before modifying the project, verify the current state of `<MANIFEST_FILE>`.
 *   **Check**: Are there existing CUDA libs (`cuda-toolkit`, `cudnn`)? Is the `nvidia` channel prioritized? Are versions conflicting?
-*   **Conflict Logic**: If the target environment already has conflicting CUDA versions or strict channel priorities (e.g., `conda-forge` first):
-    *   **STOP** and present options:
+*   **Conflict Logic**: If conflicts are detected (e.g., `conda-forge` prioritized, incompatible pins):
+    *   **Autonomous Check**: Did the user say "adjust settings", "proceed without asking", or "do what you have to"?
+        *   *Yes*: **Automatically proceed** with **Option 1** (New Env) for safety, or **Option 2** (Force) if the user explicitly asked to fix *this* environment.
+    *   **Manual Resolution**: If no authorization, **STOP** and offer:
         1.  **Create New Environment (Recommended)**: Create a separate environment (e.g., `cu<VERSION>-build`) with its own `solve-group` to isolate dependencies.
         2.  **Force Adjust (Risky)**: Reorder channels and overwrite pins in the target environment. **Warn**: This may break existing code.
         3.  **Cancel**: Abort the operation.
+        4.  **Custom**: Ask the user for specific instructions on how to handle the conflict.
 
 ### 3. Adding Dependencies (Based on Selection)
 Execute the workflow corresponding to the user's choice.
