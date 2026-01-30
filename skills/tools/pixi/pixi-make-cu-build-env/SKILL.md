@@ -22,6 +22,9 @@ Use this skill when the user asks to:
     *   *Default*: If not specified, assume the `default` environment.
     *   *Named*: If the user provides a name (e.g., `cuda-12`), use that feature.
 4.  **CUDA Version**: "Which CUDA version do you need?" (e.g., 11.8, 12.1).
+5.  **Host Tools**: Check if `cmake`, `ninja`, and a C++ compiler are available and suitable.
+    *   *Action*: Run `cmake --version`, `ninja --version`, and check for `gcc`/`clang` (Linux) or `cl` (Windows).
+    *   *Decision*: If missing or old, include them in the Pixi environment.
 
 **Note**: Do not ask for extra libraries or tools. Only install `cuda-toolkit` unless the user explicitly requests extras (like `cudnn`, `nsight`).
 
@@ -33,7 +36,7 @@ Add the core build tools and the CUDA toolchain to the **existing project**. Use
 *   **Named Environment**: Use `--feature <ENV_NAME>` (this will create the feature/environment if it doesn't exist).
 
 ```bash
-# Core Build Tools
+# Core Build Tools (Install if missing/unsuitable on host)
 pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> [--feature <ENV_NAME>] cmake ninja cxx-compiler make pkg-config
 
 # CUDA Toolchain (Standard libs + Compiler)
