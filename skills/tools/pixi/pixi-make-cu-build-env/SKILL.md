@@ -81,16 +81,16 @@ chmod +x build-check/build-and-run.sh
 ```
 
 **2. Execute:**
-Run the script using the configured environment. Ensure you run it from the `build-check` directory so CMake finds the source.
+Run the script using the configured environment. The script automatically handles source path detection.
 ```bash
-pixi run --manifest-path <MANIFEST_FILE> [--feature <ENV_NAME>] bash -c "cd build-check && ./build-and-run.sh"
+pixi run --manifest-path <MANIFEST_FILE> [--feature <ENV_NAME>] ./build-check/build-and-run.sh
 ```
 *   **Note**: If the host has no GPU or an incompatible driver, the **build step** should still succeed, but the binary execution will fail. In this case, verify that `build-check/build/check_app` exists to confirm the compilation setup.
 
 ## Troubleshooting
 
 ### CMake Errors
-*   **Source Directory**: If CMake complains "does not appear to contain CMakeLists.txt", ensure you are running the build script from inside the `build-check` directory (see Execution step above).
+*   **Source Directory**: The provided `build-and-run.sh` handles directory context automatically. If you see errors about missing `CMakeLists.txt`, ensure you haven't moved the script out of the `build-check` directory.
 *   **Pthread Failure**: `Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed` is often normal; CMake usually finds `pthread` in the next step.
 *   **Architecture Warnings**: `nvcc warning : Support for offline compilation...` indicates the default architecture might be older. You can safely ignore this warning for verification purposes.
 
