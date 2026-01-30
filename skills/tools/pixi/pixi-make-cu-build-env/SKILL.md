@@ -22,8 +22,8 @@ Use this skill when the user asks to:
     *   *Default*: If not specified, assume the `default` environment.
     *   *Named*: If the user provides a name (e.g., `cuda-12`), use that feature.
 4.  **CUDA Version**: "Which CUDA version do you need?" (e.g., 11.8, 12.1).
-5.  **Libraries**: "Do you need extra libraries like `cudnn`, `nccl`?" (Default: `cuda-toolkit` only).
-6.  **Tools**: "Do you need profiling/debugging tools like `nsight-compute`?"
+
+**Note**: Do not ask for extra libraries or tools. Only install `cuda-toolkit` unless the user explicitly requests extras (like `cudnn`, `nsight`).
 
 ### 2. Adding Dependencies
 Add the core build tools and the CUDA toolchain to the **existing project**. Use the `nvidia` channel and **explicitly pin** the requested version.
