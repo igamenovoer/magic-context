@@ -77,10 +77,27 @@ chmod +x build-check/build-and-run.sh
 ```
 
 **2. Execute:**
-Run the script using the configured environment. The CMake configuration in `build-check` will automatically detect and test enabled libraries (cuBLAS, cuDNN, NCCL).
+Run the script using the configured environment. Ensure you run it from the `build-check` directory so CMake finds the source.
 ```bash
-pixi run --manifest-path <MANIFEST_FILE> [--feature <ENV_NAME>] ./build-check/build-and-run.sh
+pixi run --manifest-path <MANIFEST_FILE> [--feature <ENV_NAME>] bash -c "cd build-check && ./build-and-run.sh"
 ```
+
+## Troubleshooting
+
+### `pixi add` Errors
+*   **Channel Flags**: `pixi add` can be strict about flag order. If `pixi add ... -c nvidia` fails, try adding the channel to the project first:
+    ```bash
+    pixi project channel add nvidia --manifest-path ...
+    pixi add ...
+    ```
+
+### CMake Errors
+*   **Source Directory**: If CMake complains "does not appear to contain CMakeLists.txt", ensure you are running the build script from inside the `build-check` directory (see Execution step above).
+*   **Pthread Failure**: `Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed` is often normal; CMake usually finds `pthread` in the next step.
+*   **Architecture Warnings**: `nvcc warning : Support for offline compilation...` indicates the default architecture might be older. You can ignore this for testing or set `-arch=sm_80` (or your GPU arch) in CMake.
+
+### Runtime Errors
+*   **Driver Mismatch**: If the kernel fails to launch, check `nvidia-smi`. The host driver must support the installed CUDA Toolkit version.
 
 ## Best Practices
 *   **Never mix channels** for CUDA: Stick to `nvidia` for `cuda-*` packages.
