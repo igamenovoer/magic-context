@@ -21,6 +21,7 @@ Use this skill when the user asks to:
 3.  **Target Environment Name**: "Which Pixi environment (or feature) should this be set up in?" (e.g., `default`, `cuda-12`, `dev`).
 4.  **CUDA Version**: "Which CUDA version do you need?" (e.g., 11.8, 12.1).
 5.  **Libraries**: "Do you need extra libraries like `cudnn`, `nccl`?" (Default: `cuda-toolkit` only).
+6.  **Tools**: "Do you need profiling/debugging tools like `nsight-compute`?"
 
 ### 2. Adding Dependencies
 Add the core build tools and the CUDA toolchain to the **existing project**. Use the `nvidia` channel and **explicitly pin** the requested version.
@@ -39,6 +40,11 @@ pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> --feature <ENV_NAME> cud
 *Optional Extras (Only if requested):*
 ```bash
 pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> --feature <ENV_NAME> cudnn=<VERSION> nccl=<VERSION> -c nvidia
+```
+
+*Optional Tools (Only if requested):*
+```bash
+pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> --feature <ENV_NAME> nsight-compute -c nvidia
 ```
 
 ### 3. Configuring Build Tasks
