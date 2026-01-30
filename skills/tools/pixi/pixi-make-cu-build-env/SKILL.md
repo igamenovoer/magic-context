@@ -29,29 +29,33 @@ Use this skill when the user asks to:
 **Note**: Do not ask for extra libraries or tools. Only install `cuda-toolkit` unless the user explicitly requests extras (like `cudnn`, `nsight`).
 
 ### 2. Adding Dependencies
-Add the core build tools and the CUDA toolchain to the **existing project**. Use the `nvidia` channel and **explicitly pin** the requested version.
+Add the core build tools and the CUDA toolchain to the **existing project**.
+
+**Best Practice**: Always add the `nvidia` channel to the project configuration *before* installing packages. This avoids flag ordering issues and ensures consistent dependency resolution.
 
 **Command Logic**:
 *   **Default Environment**: Do NOT use `--feature`.
 *   **Named Environment**: Use `--feature <ENV_NAME>` (this will create the feature/environment if it doesn't exist).
 
 ```bash
-# Core Build Tools (Install if missing/unsuitable on host)
+# 1. Setup Channels
+pixi project channel add nvidia --manifest-path <PROJECT_PATH>/<MANIFEST_FILE>
+
+# 2. Core Build Tools (Install if missing/unsuitable on host)
 pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> [--feature <ENV_NAME>] cmake ninja cxx-compiler make pkg-config
 
-# CUDA Toolchain (Standard libs + Compiler)
-pixi project channel add nvidia --manifest-path <PROJECT_PATH>/<MANIFEST_FILE>
-pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> [--feature <ENV_NAME>] cuda-toolkit=<VERSION> cuda-nvcc=<VERSION> -c nvidia
+# 3. CUDA Toolchain (Standard libs + Compiler)
+pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> [--feature <ENV_NAME>] cuda-toolkit=<VERSION> cuda-nvcc=<VERSION>
 ```
 
 *Optional Extras (Only if requested):*
 ```bash
-pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> [--feature <ENV_NAME>] cudnn=<VERSION> nccl=<VERSION> -c nvidia
+pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> [--feature <ENV_NAME>] cudnn=<VERSION> nccl=<VERSION>
 ```
 
 *Optional Tools (Only if requested):*
 ```bash
-pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> [--feature <ENV_NAME>] nsight-compute -c nvidia
+pixi add --manifest-path <PROJECT_PATH>/<MANIFEST_FILE> [--feature <ENV_NAME>] nsight-compute
 ```
 
 ### 3. Configuring Build Tasks
@@ -83,13 +87,6 @@ pixi run --manifest-path <MANIFEST_FILE> [--feature <ENV_NAME>] bash -c "cd buil
 ```
 
 ## Troubleshooting
-
-### `pixi add` Errors
-*   **Channel Flags**: `pixi add` can be strict about flag order. If `pixi add ... -c nvidia` fails, try adding the channel to the project first:
-    ```bash
-    pixi project channel add nvidia --manifest-path ...
-    pixi add ...
-    ```
 
 ### CMake Errors
 *   **Source Directory**: If CMake complains "does not appear to contain CMakeLists.txt", ensure you are running the build script from inside the `build-check` directory (see Execution step above).
