@@ -65,14 +65,54 @@ build = "cmake --build build"
 test = "ctest --test-dir build"
 ```
 
-### 5. Verification
-Create a minimal `hello.cu` and `CMakeLists.txt` to verify the setup if requested.
+### 4. Verification (Automated)
+To verify the setup, create a self-contained test in `<project-dir>/build-check`.
 
-**Minimal CMakeLists.txt:**
-```cmake
-cmake_minimum_required(VERSION 3.18)
-project(SanityCheck LANGUAGES CXX CUDA)
-add_executable(hello hello.cu)
+**1. Create Directory Structure:**
+```bash
+mkdir -p build-check
+```
+
+**2. Create Source Files:**
+*   `build-check/hello.cu`:
+    ```cpp
+    #include <stdio.h>
+    __global__ void cuda_hello(){ printf("Hello from GPU!\n"); }
+    void run_cuda_hello() { cuda_hello<<<1,1>>>(); cudaDeviceSynchronize(); }
+    ```
+*   `build-check/hello.cpp`:
+    ```cpp
+    #include <iostream>
+    void run_cuda_hello();
+    int main() { std::cout << "Hello from C++!" << std::endl; run_cuda_hello(); return 0; }
+    ```
+*   `build-check/CMakeLists.txt`:
+    ```cmake
+    cmake_minimum_required(VERSION 3.18)
+    project(BuildCheck LANGUAGES CXX CUDA)
+    add_executable(check_app hello.cpp hello.cu)
+    set_target_properties(check_app PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+    ```
+
+**3. Create Build Script (`build-check/build-and-run.sh`):**
+```bash
+#!/bin/bash
+set -e
+# Ensure we use the Pixi environment's nvcc
+export CUDACXX=$CONDA_PREFIX/bin/nvcc
+cmake -G Ninja -S . -B build \
+    -DCMAKE_CUDA_COMPILER=$CONDA_PREFIX/bin/nvcc \
+    -DCUDAToolkit_ROOT=$CONDA_PREFIX
+cmake --build build
+./build/check_app
+```
+*(Create `.bat` equivalent for Windows)*
+
+**4. Execute:**
+Run the script using the configured environment:
+```bash
+chmod +x build-check/build-and-run.sh
+pixi run --manifest-path <MANIFEST_FILE> [--feature <ENV_NAME>] ./build-check/build-and-run.sh
 ```
 
 ## Best Practices
