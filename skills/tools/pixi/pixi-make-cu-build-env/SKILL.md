@@ -66,52 +66,19 @@ test = "ctest --test-dir build"
 ```
 
 ### 4. Verification (Automated)
-To verify the setup, create a self-contained test in `<project-dir>/build-check`.
+To verify the setup, deploy the self-contained test suite from the skill's resource directory.
 
-**1. Create Directory Structure:**
+**1. Deploy Test Suite:**
+Copy the demo code from the magic-context repository to the project:
 ```bash
 mkdir -p build-check
-```
-
-**2. Create Source Files:**
-*   `build-check/hello.cu`:
-    ```cpp
-    #include <stdio.h>
-    __global__ void cuda_hello(){ printf("Hello from GPU!\n"); }
-    void run_cuda_hello() { cuda_hello<<<1,1>>>(); cudaDeviceSynchronize(); }
-    ```
-*   `build-check/hello.cpp`:
-    ```cpp
-    #include <iostream>
-    void run_cuda_hello();
-    int main() { std::cout << "Hello from C++!" << std::endl; run_cuda_hello(); return 0; }
-    ```
-*   `build-check/CMakeLists.txt`:
-    ```cmake
-    cmake_minimum_required(VERSION 3.18)
-    project(BuildCheck LANGUAGES CXX CUDA)
-    add_executable(check_app hello.cpp hello.cu)
-    set_target_properties(check_app PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-    ```
-
-**3. Create Build Script (`build-check/build-and-run.sh`):**
-```bash
-#!/bin/bash
-set -e
-# Ensure we use the Pixi environment's nvcc
-export CUDACXX=$CONDA_PREFIX/bin/nvcc
-cmake -G Ninja -S . -B build \
-    -DCMAKE_CUDA_COMPILER=$CONDA_PREFIX/bin/nvcc \
-    -DCUDAToolkit_ROOT=$CONDA_PREFIX
-cmake --build build
-./build/check_app
-```
-*(Create `.bat` equivalent for Windows)*
-
-**4. Execute:**
-Run the script using the configured environment:
-```bash
+cp -r magic-context/skills/tools/pixi/pixi-make-cu-build-env/demo-code/* build-check/
 chmod +x build-check/build-and-run.sh
+```
+
+**2. Execute:**
+Run the script using the configured environment. The CMake configuration in `build-check` will automatically detect and test enabled libraries (cuBLAS, cuDNN, NCCL).
+```bash
 pixi run --manifest-path <MANIFEST_FILE> [--feature <ENV_NAME>] ./build-check/build-and-run.sh
 ```
 
