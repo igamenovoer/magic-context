@@ -91,7 +91,7 @@ pixi run --manifest-path <MANIFEST_FILE> [--feature <ENV_NAME>] bash -c "cd buil
 ### CMake Errors
 *   **Source Directory**: If CMake complains "does not appear to contain CMakeLists.txt", ensure you are running the build script from inside the `build-check` directory (see Execution step above).
 *   **Pthread Failure**: `Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed` is often normal; CMake usually finds `pthread` in the next step.
-*   **Architecture Warnings**: `nvcc warning : Support for offline compilation...` indicates the default architecture might be older. You can ignore this for testing or set `-arch=sm_80` (or your GPU arch) in CMake.
+*   **Architecture Warnings**: `nvcc warning : Support for offline compilation...` indicates the default architecture might be older. You can safely ignore this warning for verification purposes.
 
 ### Runtime Errors
 *   **Driver Mismatch**: If the kernel fails to launch, check `nvidia-smi`. The host driver must support the installed CUDA Toolkit version.
