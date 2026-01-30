@@ -15,9 +15,9 @@ Use this skill when the user asks to:
 ## Workflow
 
 ### 1. Requirements Gathering
-Identify the target CUDA version and necessary libraries.
-*   **Default**: CUDA 12.1 (stable, widely supported).
-*   **Libraries**: Does the user need `cudnn`, `nccl`, `cutlass`?
+**Mandatory**: You MUST ask the user for the specific CUDA version (e.g., 11.8, 12.1, 12.4).
+*   **Version**: "Which CUDA version do you need?" (Do not assume a default).
+*   **Libraries**: Ask if they need `cudnn`, `nccl`, `cutlass`, etc.
 
 ### 2. Environment Initialization
 If the project doesn't exist:
@@ -27,20 +27,20 @@ cd <project_name>
 ```
 
 ### 3. Adding Dependencies
-Add the core build tools and the CUDA toolchain. **Crucially**, use the `nvidia` channel for CUDA components.
+Add the core build tools and the CUDA toolchain. **Crucially**, use the `nvidia` channel for CUDA components and **explicitly pin** the requested version.
 
 ```bash
 # Core Build Tools
 pixi add cmake ninja cxx-compiler make pkg-config
 
-# CUDA Toolchain (Example for 12.1)
+# CUDA Toolchain (Replace <VERSION> with user input, e.g., 12.1)
 pixi project channel add nvidia
-pixi add cuda-toolkit=12.1 cuda-nvcc=12.1 -c nvidia
+pixi add cuda-toolkit=<VERSION> cuda-nvcc=<VERSION> -c nvidia
 ```
 
 *Optional Libraries:*
 ```bash
-pixi add cudnn=8.9 libcublas-dev libcurand-dev -c nvidia
+pixi add cudnn=<VERSION> libcublas-dev=<VERSION> libcurand-dev=<VERSION> -c nvidia
 ```
 
 ### 4. Configuring Build Tasks
