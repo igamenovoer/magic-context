@@ -18,7 +18,8 @@ Use this skill when the user asks to:
 **Mandatory**: You MUST ask for:
 1.  **Target Environment Name**: "Which Pixi environment (or feature) should this be set up in?" (e.g., `default`, `cuda-12`, `dev`).
 2.  **CUDA Version**: "Which CUDA version do you need?" (e.g., 11.8, 12.1).
-3.  **Libraries**: "Do you need `cudnn`, `nccl`, `cutlass`?"
+3.  **Libraries**: "Do you need extra libraries like `cudnn`, `nccl`?"
+    *   *Note*: If the user does not specify libraries, the standard `cuda-toolkit` (which includes cuBLAS, cuFFT, etc.) is the default.
 
 ### 2. Environment Initialization
 If the project doesn't exist:
@@ -29,20 +30,20 @@ cd <project_name>
 
 ### 3. Adding Dependencies
 Add the core build tools and the CUDA toolchain. Use the `nvidia` channel and **explicitly pin** the requested version.
-*   **Note**: Use `--feature <ENV_NAME>` if targeting a non-default environment.
+*   **Note**: `cuda-toolkit` includes standard libraries (cuBLAS, cuFFT, cuRAND). Only add extras if requested.
 
 ```bash
 # Core Build Tools
 pixi add --feature <ENV_NAME> cmake ninja cxx-compiler make pkg-config
 
-# CUDA Toolchain (Replace <VERSION> and <ENV_NAME>)
+# CUDA Toolchain (Standard libs + Compiler)
 pixi project channel add nvidia
 pixi add --feature <ENV_NAME> cuda-toolkit=<VERSION> cuda-nvcc=<VERSION> -c nvidia
 ```
 
-*Optional Libraries:*
+*Optional Extras (Only if requested):*
 ```bash
-pixi add --feature <ENV_NAME> cudnn=<VERSION> libcublas-dev=<VERSION> libcurand-dev=<VERSION> -c nvidia
+pixi add --feature <ENV_NAME> cudnn=<VERSION> nccl=<VERSION> -c nvidia
 ```
 
 ### 4. Configuring Build Tasks
