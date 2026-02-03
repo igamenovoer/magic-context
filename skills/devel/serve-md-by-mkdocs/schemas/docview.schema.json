@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "serve-md-by-mkdocs/docview.schema.json",
+  "title": "DocView manifest (docview.yml)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "staging", "mkdocs", "scan", "assets"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Manifest version."
+    },
+    "staging": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dir"],
+      "properties": {
+        "dir": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Work-dir-relative staging subdirectory (symlinks/copies), used as MkDocs docs_dir."
+        }
+      }
+    },
+    "mkdocs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["site_name", "dev_addr"],
+      "properties": {
+        "site_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "MkDocs site_name."
+        },
+        "dev_addr": {
+          "type": ["string", "null"],
+          "description": "Optional MkDocs dev_addr (e.g. \"127.0.0.1:8000\" or \"0.0.0.0:<port>\"). Null means omit dev_addr from mkdocs.yml.",
+          "pattern": "^[^\\s:]+:\\d+$"
+        }
+      }
+    },
+    "scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "respect_gitignore",
+        "include_hidden",
+        "include_globs",
+        "exclude_globs",
+        "force_globs"
+      ],
+      "properties": {
+        "respect_gitignore": {
+          "type": "boolean",
+          "description": "If true, Markdown discovery respects .gitignore (default recommended)."
+        },
+        "include_hidden": {
+          "type": "boolean",
+          "description": "If true, include dot-directories in Markdown discovery."
+        },
+        "include_globs": {
+          "type": "array",
+          "description": "Glob patterns (repo-relative) used to discover Markdown source files (e.g. \"**/*.md\").",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "exclude_globs": {
+          "type": "array",
+          "description": "Glob patterns excluded from Markdown discovery (not applied to referenced assets).",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "force_globs": {
+          "type": "array",
+          "description": "Glob patterns that should be scanned even if gitignored (explicit user intent).",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true,
+          "default": []
+        }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["include_images", "image_extensions"],
+      "properties": {
+        "include_images": {
+          "type": "boolean",
+          "description": "If true, stage local image assets referenced by staged Markdown pages."
+        },
+        "image_extensions": {
+          "type": "array",
+          "description": "Image extensions to treat as stageable assets (lowercase recommended).",
+          "items": {
+            "type": "string",
+            "pattern": "^\\.[A-Za-z0-9]+$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}
