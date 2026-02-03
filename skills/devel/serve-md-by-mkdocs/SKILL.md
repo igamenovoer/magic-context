@@ -17,6 +17,7 @@ Interpretation:
 This skill’s default approach is:
 - generate a staged tree under `<work_dir>/_staged/` (typically symlinks; can be adapted to copying)
 - generate `<work_dir>/mkdocs.yml` only if missing (existing config is preserved)
+- enable Mermaid + KaTeX by default (via `pymdown-extensions` + KaTeX/Mermaid JS/CSS includes)
 - run `<mkdocs_cmd> serve` (use MkDocs defaults unless you specify otherwise)
 
 ## Dependency Resolution (MkDocs)
@@ -87,6 +88,9 @@ Guidance:
 
 - Preferred verification step: run `<mkdocs_cmd> build -f <work_dir>/mkdocs.yml` (or `<mkdocs_cmd> serve -f <work_dir>/mkdocs.yml`) and look for missing-module errors (for example: `No module named ...`, missing `mkdocs-material`, missing `pymdown-extensions`, missing `mkdocs-extrafiles`, etc).
 - Install only what’s needed to satisfy the config (theme/plugins/markdown_extensions). Do not install `mkdocs` itself automatically.
+
+Notes:
+- Mermaid and KaTeX support in this skill’s scaffolded config does **not** require an MkDocs plugin; it uses built-in `extra_javascript`/`extra_css` plus `pymdown-extensions` (`pymdownx.superfences` and `pymdownx.arithmatex`).
 
 Environment-specific install strategy:
 
@@ -212,6 +216,7 @@ Key fields:
 - `scan.include_globs`: glob patterns used to discover Markdown (repo-relative)
 - `scan.exclude_globs`: glob patterns excluded from Markdown discovery
 - `scan.force_globs`: glob patterns to scan even if gitignored (explicit user intent)
+- `scan.auto_exclude_generated`: if true (default), avoid scanning DocView/MDView workdirs and their generated trees
 - `scan.respect_gitignore`: default `true` (do not scan gitignored dirs/files for Markdown discovery)
 - `assets.include_images`: default `true` (stage local images referenced by selected Markdown)
 
@@ -220,6 +225,7 @@ Example (abridged):
 ```yaml
 version: 1
 scan:
+  auto_exclude_generated: true
   respect_gitignore: true
   include_globs: ["**/*.md"]
   exclude_globs: ["<big_dir>/**"]
@@ -231,6 +237,8 @@ assets:
 Rules:
 
 - By default, Markdown discovery respects `.gitignore` and uses `scan.include_globs` from the manifest.
+- By default, discovery excludes any directories that start with `.` (controlled by `scan.include_hidden: false`).
+- By default, discovery also auto-excludes DocView/MDView workdirs (including their staged trees like `_staged/` or `docs/`, and `site/`) using file/dir-structure heuristics, to avoid self-indexing loops and duplicate pages.
 - If you explicitly want to scan a gitignored location, add it under `scan.force_globs` (or pass it as an explicit arg to `refresh-docs-tree.sh`, which is treated as strong intent).
 - Referenced image assets are still staged even if gitignored, as long as the file exists.
 
@@ -270,9 +278,12 @@ Also verify that the work dir contains the scanner script which decides what get
 
 ## Notes / Gotchas
 
-- **Git hygiene**: by default, `<work_dir>/.gitignore` ignores the staging subdir (like `_staged/`), `site/`, and `repo-root.txt`. Keep or change this based on whether you want staged symlinks tracked.
+- **Git hygiene**: by default, `<work_dir>/.gitignore` ignores the staging subdir (like `_staged/`), `site/`, `mkdocs.yml`, and `repo-root.txt`. Keep or change this based on whether you want staged symlinks tracked.
 - **Gitignore-aware scanning**: by default, file discovery respects `.gitignore` (gitignored files/dirs won’t be scanned). However, if a selected Markdown page references a gitignored image file, it will still be staged (symlinked) as long as the file exists.
+- **Auto-excluding generated workdirs**: by default, the scanner avoids scanning DocView/MDView workdirs (including this one) to prevent recursion/duplication. Set `scan.auto_exclude_generated: false` in `<work_dir>/docview.yml` if you intentionally want to index those directories.
 - **Manifest is required**: `<work_dir>/docview.yml` is always created by this skill, and `<work_dir>/scan-files-to-stage.py` treats a missing manifest as an error.
 - **No-symlink alternative**: if you prefer not to stage via symlinks/copies, consider using the `mkdocs-extrafiles` plugin to map external `src` paths into virtual `dest` paths under `docs_dir`.
 - **Symlinks**: the default implementation uses symlinks. On Windows, symlink creation may require elevated permissions or Developer Mode; if this is a blocker, reimplement the refresh step by *copying* files instead of linking.
 - **Mermaid**: enable `pymdownx.superfences` with a `mermaid` fence + Material integration (the scaffolder emits this).
+- **KaTeX (math)**: the scaffolder also emits `pymdownx.arithmatex` + KaTeX auto-render via `extra_javascript`/`extra_css` (you can swap to MathJax if preferred).
+- **Mermaid/KaTeX init scripts**: the scaffolder writes `<work_dir>/javascripts/mermaid-init.js` and `<work_dir>/javascripts/katex-init.js`, and `refresh-docs-tree.sh` stages them into `docs_dir` so MkDocs can serve them.

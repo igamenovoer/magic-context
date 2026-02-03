@@ -59,6 +59,11 @@
           "type": "boolean",
           "description": "If true, include dot-directories in Markdown discovery."
         },
+        "auto_exclude_generated": {
+          "type": "boolean",
+          "description": "If true, avoid scanning DocView/MDView workdirs and their generated trees (recommended).",
+          "default": true
+        },
         "include_globs": {
           "type": "array",
           "description": "Glob patterns (repo-relative) used to discover Markdown source files (e.g. \"**/*.md\").",
