@@ -40,6 +40,9 @@ This skill assumes Microsoft VS Code + Remote-SSH (not Coder "code-server").
 - **VS Code "version" is not enough**: Remote-SSH must match the **client `COMMIT`** (build hash).
 - **Remote-SSH extension is mandatory on the client**: air-gapped remote development over SSH requires `ms-vscode-remote.remote-ssh` to be installed locally from a `.vsix`.
 - **Remote-SSH offline requires cache placement** on the remote server:
+  > Remote-SSH boots a VS Code Server on the remote host.
+  > If the server for this exact `COMMIT` is missing, it normally downloads and extracts it during the first connection.
+  > In an air-gapped environment that download fails, so you must pre-place the tarballs/marker files and extracted server under `~/.vscode-server/` for the target user (the provided `scripts/server/install-vscode-server-cache.sh` does this).
   - `~/.vscode-server/vscode-cli-<COMMIT>.tar.gz.done`
   - `~/.vscode-server/vscode-server.tar.gz`
   - `~/.vscode-server/cli/servers/Stable-<COMMIT>/server/` extracted contents
@@ -53,23 +56,24 @@ Create a single folder you can copy via USB/NAS:
 
 ```
 vscode-airgap-kit/
-  manifest/
-    vscode.json                     # version+commit+platforms+sha256
+  README.md                         # installation instructions for the selected client/server platforms (generated)
+  manifest/                         # metadata + inventories (what this kit contains)
+    vscode.json                     # commit/channel + downloaded artifacts + sha256
     vscode.local.json               # optional: discovery export from a host (channel/version/commit)
-    extensions.local.txt            # id@version list
-    extensions.remote.txt           # id@version list
-  clients/
-    windows/
-    macos/
-    linux/
-  server/
-    linux-x64/
-    linux-arm64/
-    cli/
-  extensions/
-    local/
-    remote/
-  scripts/
+    extensions.local.txt            # local-side extension id@version pins
+    extensions.remote.txt           # remote-side extension id@version pins
+  clients/                          # VS Code desktop installers/archives per OS
+    windows/                        # e.g., VSCodeUserSetup-*.exe
+    macos/                          # e.g., VSCode-*.zip
+    linux/                          # e.g., .deb/.rpm/.tar.gz
+  server/                           # VS Code Server + CLI artifacts for air-gapped Remote-SSH
+    linux-x64/                      # vscode-server-linux-x64-<COMMIT>.tar.gz
+    linux-arm64/                    # vscode-server-linux-arm64-<COMMIT>.tar.gz
+    cli/                            # vscode-cli-alpine-<arch>-<COMMIT>.tar.gz
+  extensions/                       # offline extension bundles (.vsix)
+    local/                          # install on the client (UI side): `code --install-extension`
+    remote/                         # install on the server (extension host): `code-server --install-extension`
+  scripts/                          # helper install/config scripts to run in each environment
     wan/                            # run on WAN-connected prep host
     client/                         # run on air-gapped desktop client
     server/                         # copy+run on air-gapped headless Linux server
@@ -84,21 +88,30 @@ Manifest example: `references/vscode-airgap-manifest.example.json`
 This skill ships scripts in 3 groups:
 
 1) WAN prep host (internet-connected):
-- `scripts/wan/discover-local-vscode.ps1`
-- `scripts/wan/download-vscode-artifacts.ps1`
-- `scripts/wan/download-vsix-bundle.ps1`
+- `scripts/wan/discover-local-vscode.ps1` — detect installed VS Code `channel`/`version`/`commit` and export the local extension inventory.
+- `scripts/wan/download-vscode-artifacts.ps1` — download commit-pinned VS Code client installers/archives and the matching server+CLI tarballs into the kit, plus SHA256s.
+- `scripts/wan/download-vsix-bundle.ps1` — download pinned extension `.vsix` files for offline install (Open VSX first, Marketplace fallback) and write a report.
+- `scripts/wan/write-kit-readme.ps1` — write `README.md` into the kit output directory with installation instructions for the selected client/server platforms (stages `scripts/client/` + `scripts/server/` into the kit by default; disable via `-NoStageScripts`).
 
 2) Air-gapped client (desktop):
-- Install VS Code: `scripts/client/install-vscode-client.ps1`
-- Install local extensions: `scripts/client/install-vscode-client-extensions.ps1`
-- Configure VS Code: `scripts/client/configure-vscode-client.ps1`
-- Cleanup packages (optional): `scripts/client/cleanup-vscode-client.ps1`
+- Install VS Code:
+  - Windows: `scripts/client/install-vscode-client.ps1` — launch the offline installer (interactive by default; `-Silent` best-effort).
+  - Linux (Ubuntu Desktop): `scripts/client/install-vscode-client.sh` — install the offline `.deb` via `dpkg` (recommended client artifact: `linux-deb-<arch>`).
+- Install local extensions (client/UI side):
+  - PowerShell: `scripts/client/install-vscode-client-extensions.ps1`
+  - Bash: `scripts/client/install-vscode-client-extensions.sh`
+- Configure VS Code (disable auto-updates + set `remote.SSH.localServerDownload`):
+  - PowerShell: `scripts/client/configure-vscode-client.ps1`
+  - Bash: `scripts/client/configure-vscode-client.sh`
+- Cleanup packages (optional):
+  - PowerShell: `scripts/client/cleanup-vscode-client.ps1`
+  - Bash: `scripts/client/cleanup-vscode-client.sh`
 
 3) Air-gapped headless Linux server:
-- Install server cache + extract: `scripts/server/install-vscode-server-cache.sh`
-- Configure server state: `scripts/server/configure-vscode-server.sh`
-- Install remote extensions: `scripts/server/install-vscode-server-extensions.sh`
-- Cleanup old versions/cache (optional): `scripts/server/cleanup-vscode-server.sh`
+- Install server cache + extract: `scripts/server/install-vscode-server-cache.sh` — pre-place the server/CLI cache files and extract the server for the target `COMMIT`.
+- Configure server state: `scripts/server/configure-vscode-server.sh` — create `data/Machine/settings.json` (optional override) and touch the `.ready` marker.
+- Install remote extensions: `scripts/server/install-vscode-server-extensions.sh` — install all `.vsix` in a folder into the remote extension host via `code-server`.
+- Cleanup old versions/cache (optional): `scripts/server/cleanup-vscode-server.sh` — remove cache tarballs and/or old extracted servers once you’ve verified Remote-SSH works.
 
 Installation, configuration, and cleanup are intentionally split because they have different purposes and options.
 
@@ -220,8 +233,10 @@ Downloading `.vsix` (preferred order):
 - 1) Open VSX (https://open-vsx.org/) (preferred when available):
   - `ovsx get publisher.extension@<version> -o <file>.vsix`
 - 2) Marketplace fallback:
-  - Use the "vspackage" download endpoint described in `quick-tools/install-vscode-offline/howto-download-vscode-extensions.md`
+  - Use the Marketplace "vspackage" endpoint (as implemented by `scripts/wan/download-vsix-bundle.ps1`):
+    - `https://marketplace.visualstudio.com/_apis/public/gallery/publishers/<publisher>/vsextensions/<name>/<version>/vspackage`
 - 3) If neither source has the extension, skip it and record it in your manifest/logs.
+  - If you expected it to exist but the links/endpoints look broken (404/redirect loops), try a quick web search for the extension ID + version + “vsix” and update the download URL/source notes you store in the manifest.
 
 Optional helper (Windows-friendly) to download pinned VSIX in bulk:
 
@@ -238,18 +253,32 @@ Validate every `.vsix` is a ZIP (fast corruption check):
 - `unzip -t file.vsix` (Linux/macOS) or
 - `python -c "import zipfile; zipfile.ZipFile('file.vsix').testzip()"` (any)
 
-### 5) Install VS Code on air-gapped clients (desktop)
+Generate an install README in the kit output directory (recommended):
+
+```powershell
+# Agent
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\write-kit-readme.ps1 -KitDir .\\vscode-airgap-kit
+
+# User (double-click friendly)
+scripts\\wan\\write-kit-readme.bat -KitDir .\\vscode-airgap-kit
+```
+
+### 5) README content: install VS Code on air-gapped clients (desktop)
+
+> Agent note: you typically cannot run client-side steps on an air-gapped desktop. Instead, generate a `README.md` in the kit output dir that contains these instructions (use `scripts/wan/write-kit-readme.ps1`).
 
 On each client OS:
 1. Install VS Code from the offline installer/archive.
 2. Disable update checks + extension auto-updates (required for air-gapped stability):
    - Run the post-install config script:
-     - `pwsh -NoProfile -File scripts\\client\\configure-vscode-client.ps1 -Channel auto`
+      - `pwsh -NoProfile -File scripts\\client\\configure-vscode-client.ps1 -Channel auto`
+      - `bash scripts/client/configure-vscode-client.sh --channel auto`
 3. Install local extensions:
    - `code --install-extension /path/to/extensions/local/<x>.vsix --force`
 
 Recommended split scripts on the air-gapped client:
 
+Windows (PowerShell):
 ```powershell
 # 1) Install VS Code (best-effort automation; Windows supported)
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\client\\install-vscode-client.ps1 -InstallerPath .\\clients\\windows\\VSCodeUserSetup-x64-*.exe
@@ -261,11 +290,25 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\client\\configure
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\client\\install-vscode-client-extensions.ps1 -ExtensionsDir .\\extensions\\local -Channel auto
 ```
 
+Linux (Ubuntu Desktop) / macOS (Bash):
+```bash
+# 1) Install VS Code from an offline package (Ubuntu: .deb)
+bash scripts/client/install-vscode-client.sh --installer-path ./clients/linux/*.deb
+
+# 2) Configure VS Code settings (disable updates, set Remote-SSH behavior)
+bash scripts/client/configure-vscode-client.sh --channel stable
+
+# 3) Install local extensions from VSIX (includes required Remote-SSH)
+bash scripts/client/install-vscode-client-extensions.sh --extensions-dir ./extensions/local --channel stable
+```
+
 Remote-SSH settings guidance:
 - Fully air-gapped (server already has cache files): set `"remote.SSH.localServerDownload": "off"`
 - Client online but server offline (rare): set `"remote.SSH.localServerDownload": "always"`
 
-### 6) Install VS Code Server on headless Linux (air-gapped)
+### 6) README content: install VS Code Server on headless Linux (air-gapped)
+
+> Agent note: you typically cannot run server-side steps on the air-gapped host. Instead, generate a `README.md` in the kit output dir that contains these instructions (use `scripts/wan/write-kit-readme.ps1`).
 
 Prefer the cache-based method so Remote-SSH never attempts downloads.
 
@@ -329,9 +372,9 @@ When you need to update VS Code (new `COMMIT`) and/or extension versions:
    - Re-run `scripts/wan/download-vsix-bundle.ps1` for updated pinned extension lists.
 
 2) On the air-gapped client:
-   - Re-run `scripts/client/install-vscode-client.ps1` with the new installer/archive (updates in-place on most platforms).
-   - Re-run `scripts/client/configure-vscode-client.ps1` (idempotent).
-   - Re-run `scripts/client/install-vscode-client-extensions.ps1` with updated VSIX (forces install).
+   - Re-run `scripts/client/install-vscode-client.ps1` (Windows) or `scripts/client/install-vscode-client.sh` (Linux) with the new installer/package.
+   - Re-run `scripts/client/configure-vscode-client.ps1` or `scripts/client/configure-vscode-client.sh` (idempotent).
+   - Re-run `scripts/client/install-vscode-client-extensions.ps1` or `scripts/client/install-vscode-client-extensions.sh` with updated VSIX (forces install).
 
 3) On the headless server:
    - Run `scripts/server/install-vscode-server-cache.sh --commit <NEW_COMMIT> ...` (keeps old extracted servers unless you later clean up).
