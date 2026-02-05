@@ -1,0 +1,3 @@
+interface:
+  display_name: "VS Code Air-gapped Offline Kit"
+  short_description: "Prepare VS Code client+server+extensions for air-gapped Remote-SSH"
