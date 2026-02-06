@@ -86,10 +86,10 @@ function Download-UrlToFile {
 
     $fileName = $null
     if ($contentDisposition) {
-        if ($contentDisposition -match "filename\\*=UTF-8''([^;]+)") {
+        if ($contentDisposition -match 'filename\*=UTF-8''''([^;]+)') {
             $fileName = [System.Uri]::UnescapeDataString($Matches[1])
         }
-        elseif ($contentDisposition -match "filename=\"?([^\";]+)\"?") {
+        elseif ($contentDisposition -match 'filename="?([^";]+)"?') {
             $fileName = $Matches[1]
         }
     }

@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-  Write an installation README.md into a VS Code air-gapped kit output directory.
+  Export kit README fill context for a VS Code air-gapped kit output directory (does NOT generate the final README.md).
 
 .DESCRIPTION
   This script is meant to run on the WAN-connected prep host after building the kit.
-  It generates a README.md that can be copied along with the kit to air-gapped client(s) and server(s).
+  It exports a JSON context file that the agent can use to fill the README template manually.
 
   It also (optionally) stages the required install scripts into the kit under ./scripts/.
 
@@ -12,7 +12,10 @@
   Root directory of the kit (contains clients/, server/, extensions/, manifest/).
 
 .PARAMETER ReadmeName
-  README filename to write at the kit root. Default: README.md
+  Deprecated (kept for compatibility). This script does not generate README.md.
+
+.PARAMETER ContextName
+  Context JSON filename to write under <KitDir>/manifest/. Default: readme.context.json
 
 .PARAMETER NoStageScripts
   Do not copy the skill's client/server scripts into <KitDir>/scripts/.
@@ -25,6 +28,9 @@ param(
 
     [Parameter(Mandatory = $false)]
     [string]$ReadmeName = "README.md",
+
+    [Parameter(Mandatory = $false)]
+    [string]$ContextName = "readme.context.json",
 
     [Parameter(Mandatory = $false)]
     [switch]$NoStageScripts
@@ -150,8 +156,6 @@ function Maybe-StageScripts {
 if (-not $NoStageScripts) {
     Maybe-StageScripts -KitRoot $KitDir
 }
-
-$readmePath = Join-Path $KitDir $ReadmeName
 
 function Format-List {
     param(
@@ -309,109 +313,64 @@ if ($localExtHelpers.Count -eq 0) {
 
 $serverHasEnough = ($hasServerX64 -or $hasServerArm) -and $hasCli
 
-$readme = @"
-# VS Code Air-gapped Offline Kit (Remote-SSH)
+Ensure-Dir $manifestDir
+$contextPath = Join-Path $manifestDir $ContextName
 
-This folder is an offline kit for Microsoft VS Code Remote-SSH.
+function RelFiles {
+    param(
+        [Parameter(Mandatory = $false)]
+        [AllowEmptyCollection()]
+        [System.IO.FileInfo[]]$Files = @(),
 
-## Release pin
-
-- Channel: `$channel`
-- Version: `$version` (if known)
-- Commit: `$commit` (must match line 2 of `code --version` on the client)
-
-## What is in this kit
-
-### Client installers/archives
-
-$(($clientInventory -join "`n`n"))
-
-### Server artifacts (headless Linux)
-
-VS Code Server tarballs:
-
-$(($serverInventory -join "`n`n"))
-
-VS Code CLI tarballs:
-$($cliInventory -join "`n")
-
-### Extensions (VSIX)
-
-- Local (client/UI side): `./extensions/local/`
-- Remote (server extension host): `./extensions/remote/`
-
-## Install on an air-gapped desktop client
-
-### 0) Copy the kit
-
-Copy this entire folder to the client machine (USB/NAS).
-
-### 1) Install VS Code (client)
-
-$(($clientInstallSections -join "`n"))
-
-### 2) Configure VS Code for air-gapped stability
-
-Set these in user settings (disables auto-updates and prevents Remote-SSH downloads):
-
-- `"update.mode": "manual"`
-- `"extensions.autoCheckUpdates": false`
-- `"extensions.autoUpdate": false`
-- `"remote.SSH.localServerDownload": "off"`
-
-$(($configureHelpers -join "`n"))
-
-### 3) Install local (client-side) extensions from VSIX
-
-Remote-SSH must be installed locally (`ms-vscode-remote.remote-ssh`).
-
-$(($localExtHelpers -join "`n"))
-
-## Install on an air-gapped headless Linux server (Remote-SSH target)
-
-These steps must be run on the target Linux server (or via SSH to it). They pre-place the cache files so Remote-SSH does not try to download anything.
-
-### 1) Install the server cache + extract the server
-
-$serverInstallNote
-
-### 2) Configure server state (settings + readiness marker)
-
-```bash
-sudo bash scripts/server/configure-vscode-server.sh --commit "$commit" --user "<USERNAME>"
-```
-
-### 3) Install remote-side extensions from VSIX (optional but common)
-
-```bash
-sudo bash scripts/server/install-vscode-server-extensions.sh \
-  --commit "$commit" --user "<USERNAME>" \
-  --extensions-dir "./extensions/remote"
-```
-
-### 4) Verify on the server
-
-```bash
-test -f ~/.vscode-server/vscode-cli-$commit.tar.gz.done
-test -f ~/.vscode-server/vscode-server.tar.gz
-test -x ~/.vscode-server/cli/servers/Stable-$commit/server/bin/code-server
-~/.vscode-server/cli/servers/Stable-$commit/server/bin/code-server --list-extensions --show-versions --extensions-dir ~/.vscode-server/extensions
-```
-
-## Connect (desktop client)
-
-In VS Code: run “Remote-SSH: Connect to Host...”. The Remote-SSH log should indicate it found an existing server installation and should not attempt downloads.
-"@
-
-if (-not $serverHasEnough) {
-    $readme += (@(
-            ""
-            "---"
-            ""
-            "Note: this kit does not include both server tarballs and CLI tarballs for Linux. Remote-SSH offline typically requires both, plus the extracted server cache."
-            ""
-        ) -join "`n")
+        [Parameter(Mandatory = $true)]
+        [string]$KitRoot
+    )
+    if (-not $Files -or $Files.Count -eq 0) { return ,@() }
+    return ,@($Files | ForEach-Object { ('./{0}' -f (Get-RelativePath -BaseDir $KitRoot -Path $_.FullName).Replace('\', '/')) })
 }
 
-$readme | Out-File -FilePath $readmePath -Encoding UTF8
-Write-Host "==> Wrote: $readmePath" -ForegroundColor Green
+$extLocalVsix = @(Find-Files -Dir $extLocalDir -Patterns @("*.vsix"))
+$extRemoteVsix = @(Find-Files -Dir $extRemoteDir -Patterns @("*.vsix"))
+
+$payload = [ordered]@{
+    generated_at = (Get-Date).ToString("s")
+    kit_dir      = $KitDir
+    release      = [ordered]@{
+        channel = $channel
+        version = $version
+        commit  = $commit
+    }
+    inventories  = [ordered]@{
+        clients    = [ordered]@{
+            windows = RelFiles -Files $winInstallers -KitRoot $KitDir
+            macos   = RelFiles -Files $macPackages -KitRoot $KitDir
+            linux   = RelFiles -Files $linuxPackages -KitRoot $KitDir
+        }
+        server     = [ordered]@{
+            linux_x64  = RelFiles -Files $srvX64 -KitRoot $KitDir
+            linux_arm64 = RelFiles -Files $srvArm64 -KitRoot $KitDir
+            cli        = RelFiles -Files $cliTars -KitRoot $KitDir
+        }
+        extensions = [ordered]@{
+            local_vsix  = RelFiles -Files $extLocalVsix -KitRoot $KitDir
+            remote_vsix = RelFiles -Files $extRemoteVsix -KitRoot $KitDir
+        }
+    }
+    helpers      = [ordered]@{
+        server_has_enough_artifacts = $serverHasEnough
+        client_install_sections_md  = ($clientInstallSections -join "`n")
+        server_install_note_md      = $serverInstallNote
+        configure_helpers_md        = ($configureHelpers -join "`n")
+        local_extension_helpers_md  = ($localExtHelpers -join "`n")
+    }
+    notes        = @(
+        "This script does NOT generate README.md. Fill the README template manually.",
+        "Template source (in this skill pack): references/kit-readme.template.md",
+        "Recommended: copy the template into the kit root as README.md and replace {{...}} placeholders using this context plus the actual kit contents."
+    )
+}
+
+$payload | ConvertTo-Json -Depth 10 | Out-File -FilePath $contextPath -Encoding UTF8
+
+Write-Host "==> Wrote context: $contextPath" -ForegroundColor Green
+Write-Host "==> NOTE: This script does NOT generate README.md (ReadmeName '$ReadmeName' is deprecated)." -ForegroundColor Yellow

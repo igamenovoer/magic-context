@@ -18,6 +18,7 @@ This skill assumes Microsoft VS Code + Remote-SSH (not Coder "code-server").
   - Either:
     - Explicit: `CHANNEL` (`stable` or `insider`), and `COMMIT` (required), plus optional `VERSION`, or
     - Mirror local host: `TARGET_RELEASE=local-installed` (agent discovers `CHANNEL`, `VERSION`, `COMMIT`, and local extensions)
+  - Note: server-side cache/install scripts currently assume the Stable server directory layout (`~/.vscode-server/.../Stable-<COMMIT>`). If you target `CHANNEL=insider`, confirm the expected server paths for Insiders and adjust scripts/paths as needed.
 - Client targets:
   - OS + arch list (examples: `win32-x64-user`, `darwin-universal`, `linux-deb-x64`)
   - If unspecified, assume the client runs in the same environment as the host running this workflow.
@@ -30,6 +31,16 @@ This skill assumes Microsoft VS Code + Remote-SSH (not Coder "code-server").
   - `extensions_remote`: extension IDs + pinned versions
   - Download policy (recommended): try Open VSX first, then Marketplace, else skip the extension
   - Required: `extensions_local` must include `ms-vscode-remote.remote-ssh`
+- Optional: Testing environment (to validate the kit end-to-end):
+  - Option A: an actual remote Linux server reachable over SSH
+    - Provide as `username@ip` / `username@hostname`, or an SSH config host alias (e.g. `myserver` from `~/.ssh/config`).
+    - Used to verify the server-side cache placement and remote-side extension installs (the VS Code Server `bin/code-server`) without needing any internet access.
+  - Option B: a Docker image or an existing container to use as a disposable test host
+    - If provided, treat it as a fully-controlled testing sandbox (destructive actions are OK inside the container; just do not delete the image).
+    - Used to run/exercise the `scripts/server/*.sh` flow and sanity-check the extracted VS Code Server `bin/code-server` + remote extension installs.
+- Safety (default behavior):
+  - **Never** install/modify client-side VS Code or client-side extensions on the current host as part of testing; generating the kit must not change the user's dev environment.
+  - **Never** attempt to verify server-side `code-server` or remote-side extension installs unless the user explicitly provides a testing environment (SSH host or Docker image/container) for this task.
 - Assumptions for this skill:
   - Clients have SSH access to servers (Remote-SSH is the connectivity path).
   - `tar` is available on the Linux server.
@@ -91,7 +102,7 @@ This skill ships scripts in 3 groups:
 - `scripts/wan/discover-local-vscode.ps1` — detect installed VS Code `channel`/`version`/`commit` and export the local extension inventory.
 - `scripts/wan/download-vscode-artifacts.ps1` — download commit-pinned VS Code client installers/archives and the matching server+CLI tarballs into the kit, plus SHA256s.
 - `scripts/wan/download-vsix-bundle.ps1` — download pinned extension `.vsix` files for offline install (Open VSX first, Marketplace fallback) and write a report.
-- `scripts/wan/write-kit-readme.ps1` — write `README.md` into the kit output directory with installation instructions for the selected client/server platforms (stages `scripts/client/` + `scripts/server/` into the kit by default; disable via `-NoStageScripts`).
+- `scripts/wan/export-kit-readme-context.ps1` — export `manifest/readme.context.json` (inventory + snippets) to help the agent fill the kit `README.md` template manually; also stages `scripts/client/` + `scripts/server/` into the kit by default (disable via `-NoStageScripts`). This script does **not** generate the final `README.md`.
 
 2) Air-gapped client (desktop):
 - Install VS Code:
@@ -213,21 +224,48 @@ Put them under:
 - `server/linux-x64/` and `server/linux-arm64/`
 - `server/cli/`
 
-### 4) Freeze and download extensions as `.vsix` (local + remote)
+### 4) Freeze and download extensions as `.vsix`
 
-Pin versions first, then download `.vsix` files.
+Pin versions first, then download the matching `.vsix` files.
+
+#### 4a) Client-side extensions (local / UI side)
 
 Required client extension for SSH remote development:
 - `ms-vscode-remote.remote-ssh` (do not skip)
 
-Recommended "pinning" flow (do this on an online staging environment):
-1. Install VS Code client (`COMMIT`) on a desktop.
+Export the exact client-side extension versions:
+- `code --list-extensions --show-versions > extensions.local.txt`
+
+Place downloaded `.vsix` files into:
+- `extensions/local/`
+
+#### 4b) Server-side extensions (remote / extension host side)
+
+If the user provided a testing environment for this task, prefer using it to produce `extensions.remote.txt` (this captures what actually ends up running remotely).
+
+Option A (recommended): use the provided test environment to generate `extensions.remote.txt`
+- SSH host:
+  - `ssh <host> "~/.vscode-server/cli/servers/Stable-<COMMIT>/server/bin/code-server --list-extensions --show-versions" > extensions.remote.txt`
+- Docker image/container:
+  - Use it as a disposable sandbox to run the server install scripts, then run:
+    - `~/.vscode-server/cli/servers/Stable-<COMMIT>/server/bin/code-server --list-extensions --show-versions > extensions.remote.txt`
+
+Option B (fallback): no test environment provided
+- Start from the extension IDs you intend to install remotely and pin versions to be “as close as possible” to the client-side pins:
+  - First choice: use the **exact same version** as the local pin for that extension ID.
+  - If that exact `id@version` cannot be downloaded as a `.vsix` from Open VSX or Marketplace, pick the **nearest older version** than the local pin:
+    - Define “nearest older” as the highest available version that is `<` the local version (semantic-version compare).
+    - Practical workflow: try downloading the remote list with `scripts/wan/download-vsix-bundle.ps1`, and when an item fails, decrement to the next older published version and retry until it succeeds.
+
+Place downloaded `.vsix` files into:
+- `extensions/remote/`
+
+#### Download `.vsix` files (applies to both local + remote lists)
+
+Recommended pinning flow (do this on an online staging environment):
+1. Install VS Code client (`COMMIT`) on a desktop staging machine.
 2. Connect to a similar Linux server once (online) and install/configure extensions until it works.
-3. Export the exact extension versions:
-   - Local: `code --list-extensions --show-versions > extensions.local.txt`
-   - Remote (over SSH): run the server's `code-server` binary:
-     - `~/.vscode-server/cli/servers/Stable-<COMMIT>/server/bin/code-server --list-extensions --show-versions`
-     - Save output as `extensions.remote.txt`
+3. Export `extensions.local.txt` (client) and `extensions.remote.txt` (server).
 
 Downloading `.vsix` (preferred order):
 - 1) Open VSX (https://open-vsx.org/) (preferred when available):
@@ -245,123 +283,83 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsi
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.remote.txt -OutDir .\\extensions\\remote -RequiredIds @()
 ```
 
-Place downloaded `.vsix` files into:
-- `extensions/local/`
-- `extensions/remote/`
-
 Validate every `.vsix` is a ZIP (fast corruption check):
 - `unzip -t file.vsix` (Linux/macOS) or
 - `python -c "import zipfile; zipfile.ZipFile('file.vsix').testzip()"` (any)
 
-Generate an install README in the kit output directory (recommended):
+### 5) Fill kit `README.md` template (recommended)
+
+Keep detailed install/runbook instructions in the kit output (not in this `SKILL.md`). This skill ships a Markdown template that the **agent** fills in as part of the run (no auto-generated final README).
+
+Template:
+- `references/kit-readme.template.md` (edit this template to customize wording)
+
+Recommended workflow:
+1. Copy the template into the kit root as `README.md`.
+2. Fill all `{{...}}` placeholders using:
+   - Selected `CHANNEL`/`COMMIT` (and optional `VERSION`),
+   - The actual kit contents (filenames under `clients/`, `server/`, `extensions/`, and the staged `scripts/` folder if included),
+   - Any existing kit metadata under `manifest/` (for example `vscode.json`, `vscode.local.json`, `extensions.*.txt`, and VSIX download reports).
+3. (Optional) Export an agent-facing fill-context JSON (inventory + snippets) into `<KitDir>/manifest/readme.context.json`:
 
 ```powershell
-# Agent
-pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\write-kit-readme.ps1 -KitDir .\\vscode-airgap-kit
-
-# User (double-click friendly)
-scripts\\wan\\write-kit-readme.bat -KitDir .\\vscode-airgap-kit
-```
-
-### 5) README content: install VS Code on air-gapped clients (desktop)
-
-> Agent note: you typically cannot run client-side steps on an air-gapped desktop. Instead, generate a `README.md` in the kit output dir that contains these instructions (use `scripts/wan/write-kit-readme.ps1`).
-
-On each client OS:
-1. Install VS Code from the offline installer/archive.
-2. Disable update checks + extension auto-updates (required for air-gapped stability):
-   - Run the post-install config script:
-      - `pwsh -NoProfile -File scripts\\client\\configure-vscode-client.ps1 -Channel auto`
-      - `bash scripts/client/configure-vscode-client.sh --channel auto`
-3. Install local extensions:
-   - `code --install-extension /path/to/extensions/local/<x>.vsix --force`
-
-Recommended split scripts on the air-gapped client:
-
-Windows (PowerShell):
-```powershell
-# 1) Install VS Code (best-effort automation; Windows supported)
-pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\client\\install-vscode-client.ps1 -InstallerPath .\\clients\\windows\\VSCodeUserSetup-x64-*.exe
-
-# 2) Configure VS Code settings (disable updates, set Remote-SSH behavior)
-pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\client\\configure-vscode-client.ps1 -Channel auto
-
-# 3) Install local extensions from VSIX (includes required Remote-SSH)
-pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\client\\install-vscode-client-extensions.ps1 -ExtensionsDir .\\extensions\\local -Channel auto
-```
-
-Linux (Ubuntu Desktop) / macOS (Bash):
-```bash
-# 1) Install VS Code from an offline package (Ubuntu: .deb)
-bash scripts/client/install-vscode-client.sh --installer-path ./clients/linux/*.deb
-
-# 2) Configure VS Code settings (disable updates, set Remote-SSH behavior)
-bash scripts/client/configure-vscode-client.sh --channel stable
-
-# 3) Install local extensions from VSIX (includes required Remote-SSH)
-bash scripts/client/install-vscode-client-extensions.sh --extensions-dir ./extensions/local --channel stable
-```
-
-Remote-SSH settings guidance:
-- Fully air-gapped (server already has cache files): set `"remote.SSH.localServerDownload": "off"`
-- Client online but server offline (rare): set `"remote.SSH.localServerDownload": "always"`
-
-### 6) README content: install VS Code Server on headless Linux (air-gapped)
-
-> Agent note: you typically cannot run server-side steps on the air-gapped host. Instead, generate a `README.md` in the kit output dir that contains these instructions (use `scripts/wan/write-kit-readme.ps1`).
-
-Prefer the cache-based method so Remote-SSH never attempts downloads.
-
-Copy the `scripts/server/` folder to the headless server and run the scripts there.
-
-Recommended split scripts on the server:
-
-```bash
-# 1) Install (place cache files + extract server)
-sudo bash scripts/server/install-vscode-server-cache.sh \
-  --commit "<COMMIT>" --user "<USERNAME>" \
-  --server-tar "/path/to/vscode-server-linux-x64-<COMMIT>.tar.gz" \
-  --cli-tar "/path/to/vscode-cli-alpine-x64-<COMMIT>.tar.gz"
-
-# 2) Configure (create settings.json, touch .ready)
-sudo bash scripts/server/configure-vscode-server.sh --commit "<COMMIT>" --user "<USERNAME>"
-# Optional: provide a prebuilt settings.json
-# sudo bash scripts/server/configure-vscode-server.sh --commit "<COMMIT>" --user "<USERNAME>" --settings-file "/path/to/settings.json"
-
-# 3) Install remote-side extensions (safe to re-run for updates)
-sudo bash scripts/server/install-vscode-server-extensions.sh \
-  --commit "<COMMIT>" --user "<USERNAME>" \
-  --extensions-dir "/path/to/extensions/remote"
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\export-kit-readme-context.ps1 -KitDir .\\vscode-airgap-kit
 ```
 
 Notes:
-- If `--user` is omitted, it installs for the executing user.
-- If `--user` is different from the executing user, run the script as root/admin (or via `sudo`) so it can write into that user's home and fix ownership.
+- `export-kit-readme-context.ps1` does **not** generate the final `README.md`; it only exports context to help fill the template and (by default) stages `scripts/client/` and `scripts/server/` into `<KitDir>/scripts/`. Use `-NoStageScripts` to skip staging.
 
-Option B: manual placement (must match filenames exactly):
-- Copy CLI tarball to `~/.vscode-server/vscode-cli-<COMMIT>.tar.gz`
-- Duplicate it to `~/.vscode-server/vscode-cli-<COMMIT>.tar.gz.done`
-- Copy server tarball to `~/.vscode-server/vscode-server.tar.gz`
-- Extract server to `~/.vscode-server/cli/servers/Stable-<COMMIT>/server/` (strip top-level folder)
+### 6) Optional: verify end-to-end (requires a provided test environment)
 
-### 7) Verify end-to-end (no downloads)
+Only do verification if the user explicitly provided a test environment (SSH host or Docker image/container). Stage 1 is fully headless; Stage 2 (optional) is a user-driven VS Code GUI check performed while offline. See also: `context/hints/howto-verify-vscode-server-code-server-headless.md`.
 
-On the server:
-- `test -f ~/.vscode-server/vscode-cli-<COMMIT>.tar.gz.done`
-- `test -f ~/.vscode-server/vscode-server.tar.gz`
-- `test -x ~/.vscode-server/cli/servers/Stable-<COMMIT>/server/bin/code-server`
-- `~/.vscode-server/cli/servers/Stable-<COMMIT>/server/bin/code-server --list-extensions --extensions-dir ~/.vscode-server/extensions`
+Verification stages:
 
-From a desktop client:
-- Connect via "Remote-SSH: Connect to Host..."
-- Watch the Remote-SSH output: it should report it found an existing installation and should not attempt downloads.
+#### Stage 1: Server-side validation (requires the provided test server env)
 
-## Common failure modes
+Goal: prove the kit’s VS Code Server artifacts can be installed/extracted and the server-side `code-server` binary runs and can manage extensions.
 
-- Client/server mismatch: `COMMIT` differs -> client tries to download a different server build.
-- Wrong filenames: `vscode-server-linux-x64-<COMMIT>.tar.gz` is not detected unless it is copied/renamed to `~/.vscode-server/vscode-server.tar.gz`.
-- Wrong architecture: x64 server tarball on arm64 host (or vice versa).
-- Extensions not visible remotely: installed only on the client; install them via server `code-server` too (or install "from VSIX" while connected to the remote window).
+1) Install/extract on the provided server env (SSH host or disposable container) using the kit’s server scripts:
+- Run `scripts/server/install-vscode-server-cache.sh` (cache placement + extraction)
+- Run `scripts/server/configure-vscode-server.sh` (settings + readiness marker)
+- Optionally run `scripts/server/install-vscode-server-extensions.sh` with `./extensions/remote/` (VSIX installs)
+
+2) Headless sanity checks on the server env (example; substitute `<COMMIT>`):
+```bash
+COMMIT="<COMMIT>"
+SERVER_BIN="$HOME/.vscode-server/cli/servers/Stable-$COMMIT/server/bin/code-server"
+EXT_DIR="$HOME/.vscode-server/extensions"
+
+test -x "$SERVER_BIN"
+"$SERVER_BIN" -h
+"$SERVER_BIN" --list-extensions --show-versions --extensions-dir "$EXT_DIR"
+"$SERVER_BIN" --install-extension "/path/to/kit/extensions/remote/<some>.vsix" --force --extensions-dir "$EXT_DIR"
+"$SERVER_BIN" --list-extensions --show-versions --extensions-dir "$EXT_DIR"
+```
+
+3) Optional: try starting a local listener on the server env
+- Use `"$SERVER_BIN" -h` to discover the correct flags, bind to `127.0.0.1`, then probe with `curl -I` (or use SSH port-forwarding). Keep it on localhost and do not expose it publicly.
+
+#### Stage 2: Desktop-side Remote-SSH validation (user GUI; optional)
+
+Goal: validate the full Remote-SSH experience with the user’s VS Code desktop app, while the internet is disconnected (so any attempted downloads fail fast and are visible).
+
+Agent preparation (do before asking the user to test):
+- Ensure Stage 1 is complete: the server cache files are in place, the server is extracted, and `code-server` is runnable for the target `COMMIT`.
+- Ensure server SSH access works (for a Docker image/container test env, ensure SSH is reachable from the user’s desktop):
+  - SSH host: confirm `ssh <host> 'echo ok'` succeeds (from the user’s desktop if possible).
+  - Container: start/maintain an SSH-accessible container instance (do not delete the image), and provide the user with `username@host:port` (and any key/password) needed to connect.
+- Ensure remote-side extensions are installed as intended (optional but common) via `scripts/server/install-vscode-server-extensions.sh` using the kit’s `./extensions/remote/`.
+- Do not install/modify client-side VS Code or client-side extensions on the agent host “for testing”; the user performs the GUI validation on their desktop environment (ideally a dedicated test profile/machine).
+
+User instructions (GUI-driven, but offline):
+1) On the desktop client, ensure VS Code has the Remote-SSH extension installed from the kit (`ms-vscode-remote.remote-ssh` from `./extensions/local/`), and apply the kit’s client config (disable auto-updates + set `remote.SSH.localServerDownload` to `off`).
+2) Disconnect the desktop client from the internet (airplane mode or unplug). Keep LAN access to the SSH server if applicable.
+3) In VS Code, open **View → Output**, select **Remote - SSH** in the dropdown, then run **Remote-SSH: Connect to Host...** and connect to the test host.
+4) Verify (from the Remote - SSH output/log):
+   - It finds an existing server install for the exact `COMMIT` and does not attempt to download server bits.
+   - Remote window opens successfully and remote extensions (if provided) are present.
+5) If it fails, re-enable internet only long enough to capture complete logs (Output: Remote - SSH), then go offline again and iterate by adjusting the kit/server cache based on those logs.
 
 ## Updating (client and server)
 

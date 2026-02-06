@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions
 
-set "SCRIPT=%~dp0write-kit-readme.ps1"
+set "SCRIPT=%~dp0export-kit-readme-context.ps1"
 if not exist "%SCRIPT%" (
   echo ERROR: Script not found: "%SCRIPT%"
   exit /b 1
