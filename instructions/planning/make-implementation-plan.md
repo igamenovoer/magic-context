@@ -66,6 +66,10 @@ When the user asks **“make a plan about `<what>`”**, follow these steps:
      - A checklist of concrete steps using GitHub-style checkboxes:
        - `- [ ] **Action title** short description...`
      - Each item should be actionable and testable (e.g., “Implement helper X”, “Add integration test Y”, “Update doc Z”).  
+   - `## 5. Verification`:
+     - A checklist of how to verify the implementation (unit tests, integration tests, manual checks as needed).
+     - Use GitHub-style checkboxes:
+       - `- [ ] **Test type** short description...`
 
 4. **Mermaid sequence diagram details**  
    - Place the diagram under `## 2. Implementation Approach`, in a subsection like `### 2.2 Sequence diagram (steady-state usage)`.  
