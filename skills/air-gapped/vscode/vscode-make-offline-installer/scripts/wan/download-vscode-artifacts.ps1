@@ -76,22 +76,38 @@ function Download-UrlToFile {
     )
 
     Ensure-Dir $OutDir
-    $tmp = Join-Path $OutDir "$FallbackFileName.tmp"
-    if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }
 
-    $resp = Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing -ErrorAction Stop
+    $aria2 = Get-Command aria2c -ErrorAction SilentlyContinue
 
-    $contentDisposition = $null
-    try { $contentDisposition = $resp.Headers["Content-Disposition"] } catch { $contentDisposition = $null }
+    $fileName = $FallbackFileName
+    $contentLength = $null
 
-    $fileName = $null
-    if ($contentDisposition) {
-        if ($contentDisposition -match 'filename\*=UTF-8''''([^;]+)') {
-            $fileName = [System.Uri]::UnescapeDataString($Matches[1])
+    try {
+        $head = Invoke-WebRequest -Uri $Url -Method Head -MaximumRedirection 10 -ErrorAction Stop
+        $contentDisposition = $null
+        try { $contentDisposition = $head.Headers["Content-Disposition"] } catch { $contentDisposition = $null }
+
+        if ($contentDisposition) {
+            if ($contentDisposition -match 'filename\*=UTF-8''''([^;]+)') {
+                $fileName = [System.Uri]::UnescapeDataString($Matches[1])
+            }
+            elseif ($contentDisposition -match 'filename="?([^";]+)"?') {
+                $fileName = $Matches[1]
+            }
         }
-        elseif ($contentDisposition -match 'filename="?([^";]+)"?') {
-            $fileName = $Matches[1]
+
+        try {
+            $len = $head.Headers["Content-Length"]
+            if (-not [string]::IsNullOrWhiteSpace($len)) {
+                $contentLength = [int64]$len
+            }
         }
+        catch {
+            $contentLength = $null
+        }
+    }
+    catch {
+        # ignore HEAD failures; fall back to the provided filename
     }
 
     if ([string]::IsNullOrWhiteSpace($fileName)) {
@@ -101,11 +117,70 @@ function Download-UrlToFile {
     $outFile = Join-Path $OutDir $fileName
 
     if ((-not $Force) -and (Test-Path -LiteralPath $outFile)) {
-        Remove-Item -LiteralPath $tmp -Force
-        return @{ Downloaded = $false; Path = $outFile; Url = $Url }
+        if ($contentLength) {
+            $localLen = (Get-Item -LiteralPath $outFile).Length
+            if ($localLen -eq $contentLength) {
+                return @{ Downloaded = $false; Path = $outFile; Url = $Url }
+            }
+        }
     }
 
-    Move-Item -LiteralPath $tmp -Destination $outFile -Force
+    if (-not $aria2) {
+        $tmp = Join-Path $OutDir "$fileName.tmp"
+        if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue }
+        Invoke-WebRequest -Uri $Url -OutFile $tmp -ErrorAction Stop | Out-Null
+        Move-Item -LiteralPath $tmp -Destination $outFile -Force
+        return @{ Downloaded = $true; Path = $outFile; Url = $Url }
+    }
+
+    $partFile = "$outFile.part"
+    if ((Test-Path -LiteralPath $outFile) -and (-not (Test-Path -LiteralPath $partFile))) {
+        try { Move-Item -LiteralPath $outFile -Destination $partFile -Force } catch { }
+    }
+
+    $outName = [System.IO.Path]::GetFileName($partFile)
+    $dirName = [System.IO.Path]::GetDirectoryName($partFile)
+
+    $args = @(
+        "--continue=true",
+        "--allow-overwrite=true",
+        "--auto-file-renaming=false",
+        "--check-integrity=true",
+        "--file-allocation=none",
+        "--max-tries=10",
+        "--retry-wait=5",
+        "--timeout=60",
+        "--max-connection-per-server=4",
+        "--split=4",
+        "--min-split-size=1M",
+        "--summary-interval=0",
+        "--dir=$dirName",
+        "--out=$outName",
+        $Url
+    )
+
+    & $aria2.Source @args | Out-Null
+
+    if (-not (Test-Path -LiteralPath $partFile)) {
+        throw "Download failed (file missing): $partFile"
+    }
+
+    if ($contentLength) {
+        $localLen = (Get-Item -LiteralPath $partFile).Length
+        if ($localLen -ne $contentLength) {
+            throw "Download size mismatch for $fileName (expected $contentLength bytes, got $localLen)"
+        }
+    }
+
+    if (Test-Path -LiteralPath $outFile) {
+        Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue
+    }
+
+    Move-Item -LiteralPath $partFile -Destination $outFile -Force
+    if (Test-Path -LiteralPath "$partFile.aria2") {
+        Remove-Item -LiteralPath "$partFile.aria2" -Force -ErrorAction SilentlyContinue
+    }
+
     return @{ Downloaded = $true; Path = $outFile; Url = $Url }
 }
 

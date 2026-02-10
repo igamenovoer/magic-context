@@ -38,6 +38,9 @@ param(
     [string]$ReportName = "report.json",
 
     [Parameter(Mandatory = $false)]
+    [string[]]$LocalCacheDir = @(),
+
+    [Parameter(Mandatory = $false)]
     [string[]]$RequiredIds = @("ms-vscode-remote.remote-ssh")
 )
 
@@ -68,8 +71,59 @@ function Invoke-Download {
         [Parameter(Mandatory = $true)][string]$Url,
         [Parameter(Mandatory = $true)][string]$OutFile
     )
+
+    $aria2 = Get-Command aria2c -ErrorAction SilentlyContinue
+    if ($aria2) {
+        try {
+            $dirName = [System.IO.Path]::GetDirectoryName($OutFile)
+            $fileName = [System.IO.Path]::GetFileName($OutFile)
+            $partFile = "$OutFile.part"
+
+            if ((Test-Path -LiteralPath $OutFile) -and (-not (Test-Path -LiteralPath $partFile))) {
+                try { Move-Item -LiteralPath $OutFile -Destination $partFile -Force } catch { }
+            }
+
+            New-Item -ItemType Directory -Path $dirName -Force | Out-Null
+            $args = @(
+                "--continue=true",
+                "--allow-overwrite=true",
+                "--auto-file-renaming=false",
+                "--check-integrity=true",
+                "--file-allocation=none",
+                "--max-tries=10",
+                "--retry-wait=5",
+                "--timeout=60",
+                "--max-connection-per-server=4",
+                "--split=4",
+                "--min-split-size=1M",
+                "--summary-interval=0",
+                "--dir=$dirName",
+                "--out=$($fileName).part",
+                $Url
+            )
+
+            & $aria2.Source @args | Out-Null
+
+            if (-not (Test-Path -LiteralPath $partFile)) { return $false }
+
+            if (Test-Path -LiteralPath $OutFile) {
+                Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+            }
+
+            Move-Item -LiteralPath $partFile -Destination $OutFile -Force
+            if (Test-Path -LiteralPath "$partFile.aria2") {
+                Remove-Item -LiteralPath "$partFile.aria2" -Force -ErrorAction SilentlyContinue
+            }
+
+            return $true
+        }
+        catch {
+            return $false
+        }
+    }
+
     try {
-        Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing -ErrorAction Stop | Out-Null
+        Invoke-WebRequest -Uri $Url -OutFile $OutFile -ErrorAction Stop | Out-Null
         return $true
     }
     catch {
@@ -111,12 +165,178 @@ if (-not (Test-Path -LiteralPath $InputList)) {
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 $OutDir = (Resolve-Path $OutDir).Path
 
+$cacheDirs = @()
+if ($LocalCacheDir -and $LocalCacheDir.Count -gt 0) {
+    foreach ($d in $LocalCacheDir) {
+        if (-not [string]::IsNullOrWhiteSpace($d) -and (Test-Path -LiteralPath $d)) {
+            $cacheDirs += (Resolve-Path $d).Path
+        }
+    }
+}
+else {
+    $candidates = @(
+        (Join-Path $env:APPDATA "Code\\CachedExtensionVSIXs"),
+        (Join-Path $env:APPDATA "Code - Insiders\\CachedExtensionVSIXs")
+    )
+    foreach ($d in $candidates) {
+        if (-not [string]::IsNullOrWhiteSpace($d) -and (Test-Path -LiteralPath $d)) {
+            $cacheDirs += (Resolve-Path $d).Path
+        }
+    }
+}
+
+function Try-GetCacheKey {
+    param([Parameter(Mandatory = $true)][string]$ZipPath)
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue | Out-Null
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($ZipPath)
+        try {
+            $entry = $zip.Entries | Where-Object { $_.FullName -eq "extension/package.json" } | Select-Object -First 1
+            if (-not $entry) { return $null }
+
+            $sr = New-Object System.IO.StreamReader($entry.Open())
+            try {
+                $json = $sr.ReadToEnd() | ConvertFrom-Json
+            }
+            finally {
+                $sr.Dispose()
+            }
+
+            if (-not $json.publisher -or -not $json.name -or -not $json.version) { return $null }
+            $id = "$($json.publisher).$($json.name)"
+            $ver = "$($json.version)"
+            if ([string]::IsNullOrWhiteSpace($id) -or [string]::IsNullOrWhiteSpace($ver)) { return $null }
+            return ("$id@$ver").ToLowerInvariant()
+        }
+        finally {
+            $zip.Dispose()
+        }
+    }
+    catch {
+        return $null
+    }
+}
+
+$cacheIndex = @{}
+foreach ($dir in $cacheDirs) {
+    try {
+        $files = Get-ChildItem -LiteralPath $dir -File -ErrorAction Stop
+        foreach ($f in $files) {
+            $key = Try-GetCacheKey -ZipPath $f.FullName
+            if (-not $key) { continue }
+            if (-not $cacheIndex.ContainsKey($key)) {
+                $cacheIndex[$key] = $f.FullName
+            }
+        }
+    }
+    catch {
+        # ignore cache scanning failures
+    }
+}
+
+$installedExtRoots = @(
+    (Join-Path $env:USERPROFILE ".vscode\\extensions"),
+    (Join-Path $env:USERPROFILE ".vscode-insiders\\extensions")
+)
+
+function Try-ExportFromInstalledFolder {
+    param(
+        [Parameter(Mandatory = $true)][pscustomobject]$Spec,
+        [Parameter(Mandatory = $true)][string]$OutFile,
+        [Parameter(Mandatory = $true)][string[]]$Roots
+    )
+
+    $folderPrefix = "$($Spec.Id)-$($Spec.Version)"
+    $sourceDir = $null
+
+    foreach ($root in $Roots) {
+        if ([string]::IsNullOrWhiteSpace($root)) { continue }
+        if (-not (Test-Path -LiteralPath $root)) { continue }
+
+        $exact = Join-Path $root $folderPrefix
+        if (Test-Path -LiteralPath $exact) {
+            $sourceDir = $exact
+            break
+        }
+
+        try {
+            $match = Get-ChildItem -LiteralPath $root -Directory -Filter "$folderPrefix*" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($match) {
+                $sourceDir = $match.FullName
+                break
+            }
+        }
+        catch {
+            # ignore
+        }
+    }
+
+    if (-not $sourceDir) { return $null }
+
+    try {
+        if (Test-Path -LiteralPath $OutFile) {
+            Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+        }
+
+        Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue | Out-Null
+
+        $outFs = [System.IO.File]::Open($OutFile, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        try {
+            $zip = New-Object System.IO.Compression.ZipArchive($outFs, [System.IO.Compression.ZipArchiveMode]::Create, $true)
+            try {
+                $root = (Resolve-Path -LiteralPath $sourceDir).Path.TrimEnd("\", "/")
+                $files = Get-ChildItem -LiteralPath $root -Recurse -File -ErrorAction Stop
+                foreach ($f in $files) {
+                    $full = $f.FullName
+                    $rel = $full.Substring($root.Length).TrimStart("\", "/")
+                    if ([string]::IsNullOrWhiteSpace($rel)) { continue }
+
+                    $zipPath = ("extension/" + ($rel -replace "\\", "/"))
+                    $entry = $zip.CreateEntry($zipPath, [System.IO.Compression.CompressionLevel]::Optimal)
+
+                    $inStream = [System.IO.File]::Open($full, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+                    try {
+                        $outStream = $entry.Open()
+                        try {
+                            $inStream.CopyTo($outStream)
+                        }
+                        finally {
+                            $outStream.Dispose()
+                        }
+                    }
+                    finally {
+                        $inStream.Dispose()
+                    }
+                }
+            }
+            finally {
+                $zip.Dispose()
+            }
+        }
+        finally {
+            $outFs.Dispose()
+        }
+
+        if (Test-ZipHeader -Path $OutFile) {
+            return $sourceDir
+        }
+
+        try { Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue } catch { }
+        return $null
+    }
+    catch {
+        try { Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue } catch { }
+        return $null
+    }
+}
+
 $ovsxCmd = Get-Command ovsx -ErrorAction SilentlyContinue
 
 $report = [ordered]@{
     started_at = (Get-Date).ToString("s")
     input_list = (Resolve-Path $InputList).Path
     out_dir    = $OutDir
+    local_cache_dir = $cacheDirs
     required   = $RequiredIds
     results    = @()
 }
@@ -161,17 +381,68 @@ foreach ($line in $lines) {
 
     Write-Host "==> $($spec.Id)@$($spec.Version)" -ForegroundColor Cyan
 
+    if (Test-Path -LiteralPath $outFile) {
+        if (Test-ZipHeader -Path $outFile) {
+            $item.status = "already_present"
+            $item.source = "local"
+            $item.url = $null
+            $item.zip_valid = $true
+            $report.results += $item
+            Write-Host "    OK: $baseName (already present)" -ForegroundColor Green
+            continue
+        }
+
+        try { Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue } catch { }
+    }
+
+    $cacheKey = ("$($spec.Id)@$($spec.Version)").ToLowerInvariant()
+    if ($cacheIndex.ContainsKey($cacheKey)) {
+        $cachePath = $cacheIndex[$cacheKey]
+        try {
+            Copy-Item -LiteralPath $cachePath -Destination $outFile -Force
+            if (Test-ZipHeader -Path $outFile) {
+                $item.status = "downloaded"
+                $item.source = "local_cache"
+                $item.url = $cachePath
+                $item.zip_valid = $true
+                $report.results += $item
+                Write-Host "    OK: $baseName (local cache)" -ForegroundColor Green
+                continue
+            }
+            else {
+                try { Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue } catch { }
+            }
+        }
+        catch {
+            try { Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue } catch { }
+        }
+    }
+
+    $installedSource = Try-ExportFromInstalledFolder -Spec $spec -OutFile $outFile -Roots $installedExtRoots
+    if ($installedSource) {
+        $item.status = "downloaded"
+        $item.source = "local_install"
+        $item.url = $installedSource
+        $item.zip_valid = $true
+        $report.results += $item
+        Write-Host "    OK: $baseName (local install)" -ForegroundColor Green
+        continue
+    }
+
     $downloaded = $false
 
     # 1) Open VSX (ovsx CLI) if available
     if ($ovsxCmd) {
         try {
             & $ovsxCmd.Source get "$($spec.Id)@$($spec.Version)" -o $outFile 2>$null | Out-Null
-            if (Test-Path -LiteralPath $outFile) {
+            if ((Test-Path -LiteralPath $outFile) -and (Test-ZipHeader -Path $outFile)) {
                 $downloaded = $true
                 $item.status = "downloaded"
                 $item.source = "openvsx"
                 $item.url = "ovsx get"
+            }
+            elseif (Test-Path -LiteralPath $outFile) {
+                try { Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue } catch { }
             }
         }
         catch {
@@ -183,10 +454,15 @@ foreach ($line in $lines) {
     if (-not $downloaded) {
         $openVsxUrl = "https://open-vsx.org/api/$($spec.Publisher)/$($spec.Name)/$($spec.Version)/file/$($spec.Id)-$($spec.Version).vsix"
         if (Invoke-Download -Url $openVsxUrl -OutFile $outFile) {
-            $downloaded = $true
-            $item.status = "downloaded"
-            $item.source = "openvsx"
-            $item.url = $openVsxUrl
+            if (Test-ZipHeader -Path $outFile) {
+                $downloaded = $true
+                $item.status = "downloaded"
+                $item.source = "openvsx"
+                $item.url = $openVsxUrl
+            }
+            else {
+                try { Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue } catch { }
+            }
         }
     }
 
@@ -194,10 +470,15 @@ foreach ($line in $lines) {
     if (-not $downloaded) {
         $marketUrl = "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/$($spec.Publisher)/vsextensions/$($spec.Name)/$($spec.Version)/vspackage"
         if (Invoke-Download -Url $marketUrl -OutFile $outFile) {
-            $downloaded = $true
-            $item.status = "downloaded"
-            $item.source = "marketplace"
-            $item.url = $marketUrl
+            if (Test-ZipHeader -Path $outFile) {
+                $downloaded = $true
+                $item.status = "downloaded"
+                $item.source = "marketplace"
+                $item.url = $marketUrl
+            }
+            else {
+                try { Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue } catch { }
+            }
         }
     }
 

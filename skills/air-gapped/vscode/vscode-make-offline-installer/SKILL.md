@@ -12,6 +12,11 @@ Prepare an offline, reproducible bundle that lets:
 
 This skill assumes Microsoft VS Code + Remote-SSH (not Coder "code-server").
 
+## Triggering (manual)
+
+This skill must be triggered manually by skill name (for example: `vscode-make-offline-installer`).
+Do not auto-trigger this workflow based on “similar” requests; ask the user to explicitly invoke it.
+
 ## What to ask the user
 
 - Target release:
@@ -103,6 +108,7 @@ This skill ships scripts in 3 groups:
 - `scripts/wan/download-vscode-artifacts.ps1` — download commit-pinned VS Code client installers/archives and the matching server+CLI tarballs into the kit, plus SHA256s.
 - `scripts/wan/download-vsix-bundle.ps1` — download pinned extension `.vsix` files for offline install (Open VSX first, Marketplace fallback) and write a report.
 - `scripts/wan/export-kit-readme-context.ps1` — export `manifest/readme.context.json` (inventory + snippets) to help the agent fill the kit `README.md` template manually; also stages `scripts/client/` + `scripts/server/` into the kit by default (disable via `-NoStageScripts`). This script does **not** generate the final `README.md`.
+- Download robustness: if `aria2c` is available on the host, the WAN download scripts prefer it for resumable downloads; otherwise they fall back to PowerShell HTTP downloads.
 
 2) Air-gapped client (desktop):
 - Install VS Code:
@@ -379,3 +385,53 @@ When you need to update VS Code (new `COMMIT`) and/or extension versions:
    - Run `scripts/server/configure-vscode-server.sh --commit <NEW_COMMIT> ...`
    - Run `scripts/server/install-vscode-server-extensions.sh --commit <NEW_COMMIT> ...` (forces extension installs).
    - Optionally remove old commits/cache with `scripts/server/cleanup-vscode-server.sh` after verification.
+
+## Troubleshooting
+
+This section is based on real-world friction observed while mirroring a Windows host into an air-gapped kit (see also: `context/issues/issue-vscode-airgap-kit-skill-friction.md` in this repo).
+
+### Downloads are slow, restart from zero, or fail due to partial files / file locks
+
+- Prefer `aria2c` (if installed): the WAN download scripts will automatically use it for resumable downloads; verify with `Get-Command aria2c`.
+- If a previous run left temp artifacts (`*.tmp`, `*.part`, `*.aria2`) and retries behave oddly, stop any stray `pwsh` processes that might still be downloading, then re-run with `-Force` (where supported).
+
+### `download-vscode-artifacts.ps1` errors: `A positional parameter cannot be found that accepts argument 'arm64'`
+
+- This can happen when passing array parameters through wrappers/quoting.
+- Workaround: invoke via `pwsh -Command "& 'scripts\\wan\\download-vscode-artifacts.ps1' ... -ServerArch @('x64','arm64')"` (so PowerShell parses the array expression reliably), or run it directly inside an interactive PowerShell session.
+
+### VSIX download “succeeds” but the file is not a real VSIX (ZIP validation fails)
+
+Symptoms:
+- You see `.vsix` files but install fails or the script reports `bad_file` / `required_bad_file`.
+
+Actions:
+- Re-run the VSIX download; Open VSX / Marketplace endpoints can return HTML/redirect/error payloads for some IDs/versions.
+- Use local fallbacks when mirroring a host:
+  - VS Code’s cache directory (e.g. `%APPDATA%\\Code\\CachedExtensionVSIXs`), if present.
+  - Export from the installed extension folder under `%USERPROFILE%\\.vscode\\extensions\\...`.
+
+### Remote bundle contains Windows-only VSIX (Linux Remote-SSH target cannot install them)
+
+Symptoms:
+- Remote install fails on Linux for extensions that are platform-specific on Windows (examples seen: `ms-vscode.cpptools`, `ms-dotnettools.csharp`, `charliermarsh.ruff`).
+
+Actions:
+- When building `extensions/remote/`, do not rely only on `extension/package.json` fields; some packages only encode platform targeting in `extension.vsixmanifest` via `TargetPlatform="win32-x64"`.
+- Prefer a deterministic “derive remote bundle” step that:
+  - Parses each VSIX `extension.vsixmanifest` `TargetPlatform`, and
+  - Excludes `win32-*` / `darwin-*` targets from `extensions/remote/`.
+
+### Docker/container testbed seems “stuck” installing remote extensions
+
+Symptoms:
+- Installing a large number of VSIX into the remote extension host via `code-server --install-extension ...` takes a very long time.
+
+Actions:
+- For discovery and packaging, prefer deriving `extensions/remote/` from VSIX metadata (manifest-based), and reserve full remote installs for small validation sets or explicitly requested end-to-end verification.
+- If you do validate with Docker, keep the container commands simple and inspect progress with `docker logs` / `docker top` rather than complex shell pipelines.
+
+### Cross-shell quoting pitfalls (`/dev/null`, `grep`, `true`) when running `docker exec ... bash -lc "..."`
+
+- Keep Linux redirection/pipelines entirely inside the quoted `bash -lc "..."` string.
+- Avoid composing long `bash -lc` command strings with nested quoting from PowerShell; prefer multiple smaller `docker exec ...` calls or write outputs to files under a bind-mounted kit directory.
