@@ -317,7 +317,7 @@ Notes:
 
 ### 6) Optional: verify end-to-end (requires a provided test environment)
 
-Only do verification if the user explicitly provided a test environment (SSH host or Docker image/container). Stage 1 is fully headless; Stage 2 (optional) is a user-driven VS Code GUI check performed while offline. See also: `context/hints/howto-verify-vscode-server-code-server-headless.md`.
+Only do verification if the user explicitly provided a test environment (SSH host or Docker image/container). Stage 1 is fully headless; Stage 2 (optional) is a user-driven VS Code GUI check performed while offline.
 
 Verification stages:
 
@@ -388,7 +388,7 @@ When you need to update VS Code (new `COMMIT`) and/or extension versions:
 
 ## Troubleshooting
 
-This section is based on real-world friction observed while mirroring a Windows host into an air-gapped kit (see also: `context/issues/issue-vscode-airgap-kit-skill-friction.md` in this repo).
+This section is based on real-world friction observed while mirroring a Windows host into an air-gapped kit.
 
 ### Downloads are slow, restart from zero, or fail due to partial files / file locks
 
