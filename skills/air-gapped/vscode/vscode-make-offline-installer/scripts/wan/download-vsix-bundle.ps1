@@ -21,6 +21,13 @@
 .PARAMETER ReportName
   Report JSON filename. Default: report.json
 
+.PARAMETER TargetPlatform
+  Optional VSIX target platform string to prefer when downloading platform-specific variants
+  (for example: linux-x64, linux-arm64, win32-x64, darwin-arm64).
+
+.PARAMETER LocalCacheDir
+  Optional list of VS Code CachedExtensionVSIXs directories to use as offline sources.
+
 .PARAMETER RequiredIds
   Extension IDs (publisher.name) that must be downloadable. If any required ID cannot be downloaded
   (or results in a bad file), the script exits non-zero after writing the report.
@@ -36,6 +43,10 @@ param(
 
     [Parameter(Mandatory = $false)]
     [string]$ReportName = "report.json",
+
+    [Parameter(Mandatory = $false)]
+    [ValidatePattern("^[a-z0-9-]+$")]
+    [string]$TargetPlatform = "",
 
     [Parameter(Mandatory = $false)]
     [string[]]$LocalCacheDir = @(),
@@ -64,6 +75,53 @@ function Test-ZipHeader {
     catch {
         return $false
     }
+}
+
+function Get-VsixTargetPlatform {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue | Out-Null
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($Path)
+        try {
+            $entry = $zip.Entries | Where-Object { $_.FullName -eq "extension.vsixmanifest" } | Select-Object -First 1
+            if (-not $entry) { return "" }
+
+            $sr = New-Object System.IO.StreamReader($entry.Open())
+            try {
+                $raw = $sr.ReadToEnd()
+            }
+            finally {
+                $sr.Dispose()
+            }
+
+            if ([string]::IsNullOrWhiteSpace($raw)) { return "" }
+            [xml]$xml = $raw
+
+            $identity = $xml.SelectSingleNode("//*[local-name()='Identity']")
+            if (-not $identity) { return "" }
+            $tp = $identity.GetAttribute("TargetPlatform")
+            if ([string]::IsNullOrWhiteSpace($tp)) { return "" }
+            return $tp.Trim().ToLowerInvariant()
+        }
+        finally {
+            $zip.Dispose()
+        }
+    }
+    catch {
+        return ""
+    }
+}
+
+function Test-VsixCompatibleWithTarget {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $false)][string]$TargetPlatform
+    )
+
+    if ([string]::IsNullOrWhiteSpace($TargetPlatform)) { return $true }
+    $tp = Get-VsixTargetPlatform -Path $Path
+    if ([string]::IsNullOrWhiteSpace($tp)) { return $true } # universal or unknown => assume compatible
+    return ($tp -ieq $TargetPlatform)
 }
 
 function Invoke-Download {
@@ -336,6 +394,7 @@ $report = [ordered]@{
     started_at = (Get-Date).ToString("s")
     input_list = (Resolve-Path $InputList).Path
     out_dir    = $OutDir
+    target_platform = $TargetPlatform
     local_cache_dir = $cacheDirs
     required   = $RequiredIds
     results    = @()
@@ -365,12 +424,17 @@ foreach ($line in $lines) {
 
     if (-not $spec) { continue }
 
-    $baseName = "$($spec.Id)-$($spec.Version).vsix"
+    $suffix = ""
+    if (-not [string]::IsNullOrWhiteSpace($TargetPlatform)) {
+        $suffix = "@$TargetPlatform"
+    }
+    $baseName = "$($spec.Id)-$($spec.Version)$suffix.vsix"
     $outFile = Join-Path $OutDir $baseName
 
     $item = [ordered]@{
         id        = $spec.Id
         version   = $spec.Version
+        target_platform = $TargetPlatform
         filename  = $baseName
         status    = "skipped"
         source    = $null
@@ -379,10 +443,15 @@ foreach ($line in $lines) {
         message   = $null
     }
 
-    Write-Host "==> $($spec.Id)@$($spec.Version)" -ForegroundColor Cyan
+    if ([string]::IsNullOrWhiteSpace($TargetPlatform)) {
+        Write-Host "==> $($spec.Id)@$($spec.Version)" -ForegroundColor Cyan
+    }
+    else {
+        Write-Host "==> $($spec.Id)@$($spec.Version) (prefer target: $TargetPlatform)" -ForegroundColor Cyan
+    }
 
     if (Test-Path -LiteralPath $outFile) {
-        if (Test-ZipHeader -Path $outFile) {
+        if ((Test-ZipHeader -Path $outFile) -and (Test-VsixCompatibleWithTarget -Path $outFile -TargetPlatform $TargetPlatform)) {
             $item.status = "already_present"
             $item.source = "local"
             $item.url = $null
@@ -400,7 +469,7 @@ foreach ($line in $lines) {
         $cachePath = $cacheIndex[$cacheKey]
         try {
             Copy-Item -LiteralPath $cachePath -Destination $outFile -Force
-            if (Test-ZipHeader -Path $outFile) {
+            if ((Test-ZipHeader -Path $outFile) -and (Test-VsixCompatibleWithTarget -Path $outFile -TargetPlatform $TargetPlatform)) {
                 $item.status = "downloaded"
                 $item.source = "local_cache"
                 $item.url = $cachePath
@@ -420,13 +489,18 @@ foreach ($line in $lines) {
 
     $installedSource = Try-ExportFromInstalledFolder -Spec $spec -OutFile $outFile -Roots $installedExtRoots
     if ($installedSource) {
-        $item.status = "downloaded"
-        $item.source = "local_install"
-        $item.url = $installedSource
-        $item.zip_valid = $true
-        $report.results += $item
-        Write-Host "    OK: $baseName (local install)" -ForegroundColor Green
-        continue
+        if (Test-VsixCompatibleWithTarget -Path $outFile -TargetPlatform $TargetPlatform) {
+            $item.status = "downloaded"
+            $item.source = "local_install"
+            $item.url = $installedSource
+            $item.zip_valid = $true
+            $report.results += $item
+            Write-Host "    OK: $baseName (local install)" -ForegroundColor Green
+            continue
+        }
+        else {
+            try { Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue } catch { }
+        }
     }
 
     $downloaded = $false
@@ -434,12 +508,22 @@ foreach ($line in $lines) {
     # 1) Open VSX (ovsx CLI) if available
     if ($ovsxCmd) {
         try {
-            & $ovsxCmd.Source get "$($spec.Id)@$($spec.Version)" -o $outFile 2>$null | Out-Null
+            if (-not [string]::IsNullOrWhiteSpace($TargetPlatform)) {
+                & $ovsxCmd.Source get "$($spec.Id)@$($spec.Version)" -o $outFile --targetPlatform $TargetPlatform 2>$null | Out-Null
+            }
+            else {
+                & $ovsxCmd.Source get "$($spec.Id)@$($spec.Version)" -o $outFile 2>$null | Out-Null
+            }
             if ((Test-Path -LiteralPath $outFile) -and (Test-ZipHeader -Path $outFile)) {
-                $downloaded = $true
-                $item.status = "downloaded"
-                $item.source = "openvsx"
-                $item.url = "ovsx get"
+                if (Test-VsixCompatibleWithTarget -Path $outFile -TargetPlatform $TargetPlatform) {
+                    $downloaded = $true
+                    $item.status = "downloaded"
+                    $item.source = "openvsx"
+                    $item.url = "ovsx get"
+                }
+                else {
+                    try { Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue } catch { }
+                }
             }
             elseif (Test-Path -LiteralPath $outFile) {
                 try { Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue } catch { }
@@ -452,32 +536,49 @@ foreach ($line in $lines) {
 
     # 1b) Open VSX HTTP fallback
     if (-not $downloaded) {
-        $openVsxUrl = "https://open-vsx.org/api/$($spec.Publisher)/$($spec.Name)/$($spec.Version)/file/$($spec.Id)-$($spec.Version).vsix"
-        if (Invoke-Download -Url $openVsxUrl -OutFile $outFile) {
-            if (Test-ZipHeader -Path $outFile) {
-                $downloaded = $true
-                $item.status = "downloaded"
-                $item.source = "openvsx"
-                $item.url = $openVsxUrl
-            }
-            else {
-                try { Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue } catch { }
+        $openVsxUrls = @()
+        if (-not [string]::IsNullOrWhiteSpace($TargetPlatform)) {
+            $openVsxUrls += "https://open-vsx.org/api/$($spec.Publisher)/$($spec.Name)/$($spec.Version)/file/$($spec.Id)-$($spec.Version)@$TargetPlatform.vsix"
+        }
+        $openVsxUrls += "https://open-vsx.org/api/$($spec.Publisher)/$($spec.Name)/$($spec.Version)/file/$($spec.Id)-$($spec.Version).vsix"
+
+        foreach ($openVsxUrl in $openVsxUrls) {
+            if ($downloaded) { break }
+            if (Invoke-Download -Url $openVsxUrl -OutFile $outFile) {
+                if ((Test-ZipHeader -Path $outFile) -and (Test-VsixCompatibleWithTarget -Path $outFile -TargetPlatform $TargetPlatform)) {
+                    $downloaded = $true
+                    $item.status = "downloaded"
+                    $item.source = "openvsx"
+                    $item.url = $openVsxUrl
+                }
+                else {
+                    try { Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue } catch { }
+                }
             }
         }
     }
 
     # 2) Marketplace fallback (version-pinned)
     if (-not $downloaded) {
-        $marketUrl = "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/$($spec.Publisher)/vsextensions/$($spec.Name)/$($spec.Version)/vspackage"
-        if (Invoke-Download -Url $marketUrl -OutFile $outFile) {
-            if (Test-ZipHeader -Path $outFile) {
-                $downloaded = $true
-                $item.status = "downloaded"
-                $item.source = "marketplace"
-                $item.url = $marketUrl
-            }
-            else {
-                try { Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue } catch { }
+        $marketUrls = @()
+        if (-not [string]::IsNullOrWhiteSpace($TargetPlatform)) {
+            $tp = [System.Uri]::EscapeDataString($TargetPlatform)
+            $marketUrls += "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/$($spec.Publisher)/vsextensions/$($spec.Name)/$($spec.Version)/vspackage?targetPlatform=$tp"
+        }
+        $marketUrls += "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/$($spec.Publisher)/vsextensions/$($spec.Name)/$($spec.Version)/vspackage"
+
+        foreach ($marketUrl in $marketUrls) {
+            if ($downloaded) { break }
+            if (Invoke-Download -Url $marketUrl -OutFile $outFile) {
+                if ((Test-ZipHeader -Path $outFile) -and (Test-VsixCompatibleWithTarget -Path $outFile -TargetPlatform $TargetPlatform)) {
+                    $downloaded = $true
+                    $item.status = "downloaded"
+                    $item.source = "marketplace"
+                    $item.url = $marketUrl
+                }
+                else {
+                    try { Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue } catch { }
+                }
             }
         }
     }

@@ -48,10 +48,51 @@ if [[ -z "${installer_path}" ]]; then
         rpms=( "${linux_clients_dir}"/*.rpm )
         shopt -u nullglob
 
+        detect_arch() {
+            local m=""
+            m="$(uname -m || true)"
+            case "${m}" in
+                x86_64|amd64) echo "x64" ;;
+                aarch64|arm64) echo "arm64" ;;
+                *) echo "x64" ;;
+            esac
+        }
+
+        pick_matching() {
+            local arch="$1"
+            shift
+            local f=""
+            for f in "$@"; do
+                local b=""
+                b="$(basename "${f}")"
+                case "${arch}" in
+                    x64)
+                        if [[ "${b}" =~ (amd64|x86_64|x64) ]]; then
+                            printf '%s\n' "${f}"
+                            return 0
+                        fi
+                        ;;
+                    arm64)
+                        if [[ "${b}" =~ (arm64|aarch64) ]]; then
+                            printf '%s\n' "${f}"
+                            return 0
+                        fi
+                        ;;
+                esac
+            done
+            if [[ $# -gt 0 ]]; then
+                printf '%s\n' "$1"
+                return 0
+            fi
+            return 1
+        }
+
+        arch="$(detect_arch)"
+
         if [[ ${#debs[@]} -gt 0 ]]; then
-            installer_path="${debs[0]}"
+            installer_path="$(pick_matching "${arch}" "${debs[@]}")"
         elif [[ ${#rpms[@]} -gt 0 ]]; then
-            installer_path="${rpms[0]}"
+            installer_path="$(pick_matching "${arch}" "${rpms[@]}")"
         fi
     fi
 fi

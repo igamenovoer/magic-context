@@ -106,7 +106,7 @@ This skill ships scripts in 3 groups:
 1) WAN prep host (internet-connected):
 - `scripts/wan/discover-local-vscode.ps1` — detect installed VS Code `channel`/`version`/`commit` and export the local extension inventory.
 - `scripts/wan/download-vscode-artifacts.ps1` — download commit-pinned VS Code client installers/archives and the matching server+CLI tarballs into the kit, plus SHA256s.
-- `scripts/wan/download-vsix-bundle.ps1` — download pinned extension `.vsix` files for offline install (Open VSX first, Marketplace fallback) and write a report.
+- `scripts/wan/download-vsix-bundle.ps1` — download pinned extension `.vsix` files for offline install (Open VSX first, Marketplace fallback) and write a report. Supports platform targeting (best-effort) via `-TargetPlatform` and skips extensions that have no compatible VSIX for that platform.
 - `scripts/wan/export-kit-readme-context.ps1` — export `manifest/readme.context.json` (inventory + snippets) to help the agent fill the kit `README.md` template manually; also stages `scripts/client/` + `scripts/server/` into the kit by default (disable via `-NoStageScripts`). This script does **not** generate the final `README.md`.
 - Download robustness: if `aria2c` is available on the host, the WAN download scripts prefer it for resumable downloads; otherwise they fall back to PowerShell HTTP downloads.
 
@@ -281,6 +281,10 @@ Downloading `.vsix` (preferred order):
 - 2) Marketplace fallback:
   - Use the Marketplace "vspackage" endpoint (as implemented by `scripts/wan/download-vsix-bundle.ps1`):
     - `https://marketplace.visualstudio.com/_apis/public/gallery/publishers/<publisher>/vsextensions/<name>/<version>/vspackage`
+  - Platform-specific variants (best-effort):
+    - Many extensions publish different VSIX per OS/arch. To prefer a specific target, use:
+      - `https://marketplace.visualstudio.com/_apis/public/gallery/publishers/<publisher>/vsextensions/<name>/<version>/vspackage?targetPlatform=<TARGET>`
+    - Common `<TARGET>` values: `linux-x64`, `linux-arm64`, `win32-x64`, `win32-arm64`, `darwin-x64`, `darwin-arm64`.
 - 3) If neither source has the extension, skip it and record it in your manifest/logs.
   - If you expected it to exist but the links/endpoints look broken (404/redirect loops), try a quick web search for the extension ID + version + “vsix” and update the download URL/source notes you store in the manifest.
 
@@ -288,7 +292,7 @@ Optional helper (Windows-friendly) to download pinned VSIX in bulk:
 
 ```powershell
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.local.txt -OutDir .\\extensions\\local
-pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.remote.txt -OutDir .\\extensions\\remote -RequiredIds @()
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.remote.txt -OutDir .\\extensions\\remote -TargetPlatform linux-x64 -RequiredIds @()
 ```
 
 Validate every `.vsix` is a ZIP (fast corruption check):
@@ -419,10 +423,11 @@ Symptoms:
 - Remote install fails on Linux for extensions that are platform-specific on Windows (examples seen: `ms-vscode.cpptools`, `ms-dotnettools.csharp`, `charliermarsh.ruff`).
 
 Actions:
-- When building `extensions/remote/`, do not rely only on `extension/package.json` fields; some packages only encode platform targeting in `extension.vsixmanifest` via `TargetPlatform="win32-x64"`.
-- Prefer a deterministic “derive remote bundle” step that:
-  - Parses each VSIX `extension.vsixmanifest` `TargetPlatform`, and
-  - Excludes `win32-*` / `darwin-*` targets from `extensions/remote/`.
+- You cannot transform a Windows-only VSIX into a Linux VSIX; you must download the Linux-targeted VSIX (if the publisher provides one).
+- Prefer downloading for the target Linux platform up front:
+  - `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.local.txt -OutDir .\\extensions\\remote -TargetPlatform linux-x64 -RequiredIds @()`
+  - Use `linux-arm64` for ARM servers.
+- If you already have a folder of VSIX, parse each VSIX `extension.vsixmanifest` `TargetPlatform` and exclude `win32-*` / `darwin-*` when building `extensions/remote/` for Linux.
 
 ### Docker/container testbed seems “stuck” installing remote extensions
 
