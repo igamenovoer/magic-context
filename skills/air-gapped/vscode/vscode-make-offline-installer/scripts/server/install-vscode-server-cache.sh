@@ -15,7 +15,7 @@ Args:
   --server-tar  Path to server tarball (vscode-server-linux-<arch>-<COMMIT>.tar.gz). If omitted, tries to locate it under ./server/ relative to this script for the current CPU arch.
   --cli-tar     Path to CLI tarball (vscode-cli-alpine-<arch>-<COMMIT>.tar.gz). If omitted, tries to locate it under ./server/ relative to this script for the current CPU arch.
   --user        Install for this Linux user (writes into ~<user>/.vscode-server). Default: executing user.
-  --force       Overwrite cache files and re-extract even if already present.
+  --force       Overwrite cache files and re-extract even if already present (default behavior; kept for compatibility).
   --kit-dir     Optional kit root override (folder containing manifest/, server/, scripts/).
 
 Notes:
@@ -161,13 +161,6 @@ mkdir -p "${server_root}"
 copy_if_needed() {
     local src="$1"
     local dst="$2"
-    if [[ "${force}" -eq 1 ]]; then
-        cp -f "${src}" "${dst}"
-        return 0
-    fi
-    if [[ -f "${dst}" ]]; then
-        return 0
-    fi
     cp -f "${src}" "${dst}"
 }
 
@@ -178,13 +171,9 @@ copy_if_needed "${cli_cache}" "${cli_done}"
 cp -f "${server_tar}" "${server_cache}"
 
 echo "==> Extracting server"
-if [[ "${force}" -eq 0 && -f "${server_root}/bin/code-server" ]]; then
-    echo "  - Already extracted: ${server_root}/bin/code-server"
-else
-    rm -rf "${server_root}"
-    mkdir -p "${server_root}"
-    tar -xzf "${server_tar}" --strip-components=1 -C "${server_root}"
-fi
+rm -rf "${server_root}"
+mkdir -p "${server_root}"
+tar -xzf "${server_tar}" --strip-components=1 -C "${server_root}"
 
 if [[ "$(id -u)" -eq 0 ]]; then
     chown -R "${install_user}:${install_user}" "${vscode_server_dir}" || true
