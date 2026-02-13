@@ -6,34 +6,41 @@ usage() {
 Install local (client-side) VS Code extensions from a directory of .vsix files.
 
 Usage:
-  install-vscode-client-extensions.sh --extensions-dir <DIR> [--channel auto|stable|insider] [--required-id <ID> ...]
+  install-vscode-client-extensions.sh [--extensions-dir <DIR>] [--channel auto|stable|insider] [--required-id <ID> ...] [--kit-dir <DIR>]
 
 Args:
-  --extensions-dir   Directory containing *.vsix files.
+  --extensions-dir   Directory containing *.vsix files. If omitted, defaults to ./extensions/local relative to this script.
   --channel          Which VS Code binary to use. Default: auto (prefer code, else code-insiders).
   --required-id      Extension ID that must be installed (repeatable).
                     Default: ms-vscode-remote.remote-ssh
+  --kit-dir          Optional kit root override (folder containing extensions/, scripts/).
 EOF
 }
 
 extensions_dir=""
 channel="auto"
 required_ids=( "ms-vscode-remote.remote-ssh" )
+kit_dir=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --extensions-dir) extensions_dir="${2:-}"; shift 2 ;;
         --channel) channel="${2:-}"; shift 2 ;;
         --required-id) required_ids+=( "${2:-}" ); shift 2 ;;
+        --kit-dir) kit_dir="${2:-}"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown argument: $1" >&2; usage; exit 2 ;;
     esac
 done
 
 if [[ -z "${extensions_dir}" ]]; then
-    echo "Missing --extensions-dir." >&2
-    usage
-    exit 2
+    if [[ -z "${kit_dir}" ]]; then
+        script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+        kit_dir="$(cd -- "${script_dir}/../.." && pwd)"
+    else
+        kit_dir="$(cd -- "${kit_dir}" && pwd)"
+    fi
+    extensions_dir="${kit_dir}/extensions/local"
 fi
 
 if [[ ! -d "${extensions_dir}" ]]; then

@@ -6,11 +6,12 @@ usage() {
 Install VS Code on an air-gapped Linux desktop client (Ubuntu recommended) using a pre-downloaded package.
 
 Usage:
-  install-vscode-client.sh --installer-path <PATH> [--channel auto|stable|insider]
+  install-vscode-client.sh [--installer-path <PATH>] [--channel auto|stable|insider] [--kit-dir <DIR>]
 
 Args:
-  --installer-path   Path to offline VS Code package (recommended: .deb for Ubuntu Desktop).
+  --installer-path   Path to offline VS Code package (recommended: .deb for Ubuntu Desktop). If omitted, tries to locate one under ./clients/linux/ relative to this script.
   --channel          Used only for printing the currently installed VS Code (auto|stable|insider). Default: auto.
+  --kit-dir          Optional kit root override (folder containing clients/, extensions/, scripts/).
 
 Notes:
   - Ubuntu Desktop: prefer the "linux-deb-<arch>" artifact and install via dpkg.
@@ -20,15 +21,40 @@ EOF
 
 installer_path=""
 channel="auto"
+kit_dir=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --installer-path) installer_path="${2:-}"; shift 2 ;;
         --channel) channel="${2:-}"; shift 2 ;;
+        --kit-dir) kit_dir="${2:-}"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown argument: $1" >&2; usage; exit 2 ;;
     esac
 done
+
+if [[ -z "${kit_dir}" ]]; then
+    script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+    kit_dir="$(cd -- "${script_dir}/../.." && pwd)"
+else
+    kit_dir="$(cd -- "${kit_dir}" && pwd)"
+fi
+
+if [[ -z "${installer_path}" ]]; then
+    linux_clients_dir="${kit_dir}/clients/linux"
+    if [[ -d "${linux_clients_dir}" ]]; then
+        shopt -s nullglob
+        debs=( "${linux_clients_dir}"/*.deb )
+        rpms=( "${linux_clients_dir}"/*.rpm )
+        shopt -u nullglob
+
+        if [[ ${#debs[@]} -gt 0 ]]; then
+            installer_path="${debs[0]}"
+        elif [[ ${#rpms[@]} -gt 0 ]]; then
+            installer_path="${rpms[0]}"
+        fi
+    fi
+fi
 
 if [[ -z "${installer_path}" ]]; then
     echo "Missing --installer-path." >&2

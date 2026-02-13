@@ -8,14 +8,15 @@ Install Microsoft VS Code Server + Remote-SSH cache files for an air-gapped Linu
 This script handles only installation (cache placement + extraction). Configure and extensions are separate scripts.
 
 Usage:
-  install-vscode-server-cache.sh --commit <COMMIT> --server-tar <PATH> --cli-tar <PATH> [--user <USERNAME>] [--force]
+  install-vscode-server-cache.sh [--commit <COMMIT>] [--server-tar <PATH>] [--cli-tar <PATH>] [--user <USERNAME>] [--force] [--kit-dir <DIR>]
 
 Args:
-  --commit      VS Code build commit hash (40 chars; line 2 of `code --version` on the client)
-  --server-tar  Path to server tarball (vscode-server-linux-<arch>-<COMMIT>.tar.gz)
-  --cli-tar     Path to CLI tarball (vscode-cli-alpine-<arch>-<COMMIT>.tar.gz)
+  --commit      VS Code build commit hash (40 chars; line 2 of `code --version` on the client). If omitted, tries to read it from ./manifest/vscode.json relative to this script.
+  --server-tar  Path to server tarball (vscode-server-linux-<arch>-<COMMIT>.tar.gz). If omitted, tries to locate it under ./server/ relative to this script for the current CPU arch.
+  --cli-tar     Path to CLI tarball (vscode-cli-alpine-<arch>-<COMMIT>.tar.gz). If omitted, tries to locate it under ./server/ relative to this script for the current CPU arch.
   --user        Install for this Linux user (writes into ~<user>/.vscode-server). Default: executing user.
   --force       Overwrite cache files and re-extract even if already present.
+  --kit-dir     Optional kit root override (folder containing manifest/, server/, scripts/).
 
 Notes:
   - If --user differs from the executing user, run as root/admin (or via sudo) so ownership can be fixed.
@@ -27,6 +28,7 @@ server_tar=""
 cli_tar=""
 install_user=""
 force="0"
+kit_dir=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -34,14 +36,54 @@ while [[ $# -gt 0 ]]; do
         --server-tar) server_tar="${2:-}"; shift 2 ;;
         --cli-tar) cli_tar="${2:-}"; shift 2 ;;
         --user) install_user="${2:-}"; shift 2 ;;
+        --kit-dir) kit_dir="${2:-}"; shift 2 ;;
         --force) force="1"; shift 1 ;;
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown argument: $1" >&2; usage; exit 2 ;;
     esac
 done
 
+if [[ -z "${kit_dir}" ]]; then
+    script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+    kit_dir="$(cd -- "${script_dir}/../.." && pwd)"
+else
+    kit_dir="$(cd -- "${kit_dir}" && pwd)"
+fi
+
+read_commit_from_manifest() {
+    local manifest=""
+    for manifest in "${kit_dir}/manifest/vscode.json" "${kit_dir}/manifest/vscode.local.json"; do
+        [[ -f "${manifest}" ]] || continue
+        grep -oE '"commit"[[:space:]]*:[[:space:]]*"[0-9a-f]{40}"' "${manifest}" 2>/dev/null | head -n 1 | sed -E 's/.*"([0-9a-f]{40})".*/\\1/' || true
+        return 0
+    done
+    return 1
+}
+
+detect_arch() {
+    local m=""
+    m="$(uname -m || true)"
+    case "${m}" in
+        x86_64|amd64) echo "x64" ;;
+        aarch64|arm64) echo "arm64" ;;
+        *) echo "x64" ;;
+    esac
+}
+
+if [[ -z "${commit}" ]]; then
+    commit="$(read_commit_from_manifest || true)"
+fi
+
+arch="$(detect_arch)"
+if [[ -z "${server_tar}" ]]; then
+    server_tar="${kit_dir}/server/linux-${arch}/vscode-server-linux-${arch}-${commit}.tar.gz"
+fi
+if [[ -z "${cli_tar}" ]]; then
+    cli_tar="${kit_dir}/server/cli/vscode-cli-alpine-${arch}-${commit}.tar.gz"
+fi
+
 if [[ -z "${commit}" || -z "${server_tar}" || -z "${cli_tar}" ]]; then
-    echo "Missing required arguments." >&2
+    echo "Missing required arguments and could not auto-detect from kit layout." >&2
     usage
     exit 2
 fi

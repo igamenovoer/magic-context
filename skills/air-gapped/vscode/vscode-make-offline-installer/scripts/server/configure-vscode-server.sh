@@ -8,16 +8,17 @@ Configure VS Code Server state under ~/.vscode-server for an air-gapped Linux se
 This script is separate from installation and extension installation.
 
 Usage:
-  configure-vscode-server.sh --commit <COMMIT> [--user <USERNAME>] [--settings-file <PATH>]
+  configure-vscode-server.sh [--commit <COMMIT>] [--user <USERNAME>] [--settings-file <PATH>] [--kit-dir <DIR>]
 
 What it does:
   - Ensures ~/.vscode-server/data/Machine/settings.json exists (default: {})
   - Touches the server readiness marker: cli/servers/Stable-<COMMIT>/server/.ready
 
 Args:
-  --commit  VS Code commit hash (40 chars)
+  --commit  VS Code commit hash (40 chars). If omitted, tries to read it from ./manifest/vscode.json relative to this script.
   --user    Configure for this Linux user. Default: executing user.
   --settings-file Optional JSON file to copy to data/Machine/settings.json
+  --kit-dir Optional kit root override (folder containing manifest/, server/, scripts/).
 
 Notes:
   - If --user differs from the executing user, run as root/admin (or via sudo).
@@ -27,19 +28,42 @@ EOF
 commit=""
 install_user=""
 settings_file=""
+kit_dir=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --commit) commit="${2:-}"; shift 2 ;;
         --user) install_user="${2:-}"; shift 2 ;;
         --settings-file) settings_file="${2:-}"; shift 2 ;;
+        --kit-dir) kit_dir="${2:-}"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown argument: $1" >&2; usage; exit 2 ;;
     esac
 done
 
+if [[ -z "${kit_dir}" ]]; then
+    script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+    kit_dir="$(cd -- "${script_dir}/../.." && pwd)"
+else
+    kit_dir="$(cd -- "${kit_dir}" && pwd)"
+fi
+
+read_commit_from_manifest() {
+    local manifest=""
+    for manifest in "${kit_dir}/manifest/vscode.json" "${kit_dir}/manifest/vscode.local.json"; do
+        [[ -f "${manifest}" ]] || continue
+        grep -oE '"commit"[[:space:]]*:[[:space:]]*"[0-9a-f]{40}"' "${manifest}" 2>/dev/null | head -n 1 | sed -E 's/.*"([0-9a-f]{40})".*/\\1/' || true
+        return 0
+    done
+    return 1
+}
+
 if [[ -z "${commit}" ]]; then
-    echo "Missing --commit." >&2
+    commit="$(read_commit_from_manifest || true)"
+fi
+
+if [[ -z "${commit}" ]]; then
+    echo "Missing --commit and could not auto-detect from kit layout." >&2
     usage
     exit 2
 fi

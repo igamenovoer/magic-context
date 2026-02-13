@@ -6,12 +6,13 @@ usage() {
 Install remote-side VS Code extensions on a Linux server from a directory of VSIX files.
 
 Usage:
-  install-vscode-server-extensions.sh --commit <COMMIT> --extensions-dir <DIR> [--user <USERNAME>]
+  install-vscode-server-extensions.sh [--commit <COMMIT>] [--extensions-dir <DIR>] [--user <USERNAME>] [--kit-dir <DIR>]
 
 Args:
-  --commit         VS Code commit hash (40 chars)
-  --extensions-dir Directory containing *.vsix
+  --commit         VS Code commit hash (40 chars). If omitted, tries to read it from ./manifest/vscode.json relative to this script.
+  --extensions-dir Directory containing *.vsix. If omitted, defaults to ./extensions/remote if present, else ./extensions/local (relative to this script).
   --user           Install for this Linux user. Default: executing user.
+  --kit-dir        Optional kit root override (folder containing manifest/, extensions/, scripts/).
 
 Notes:
   - Requires that the server for COMMIT is already extracted:
@@ -25,19 +26,50 @@ EOF
 commit=""
 extensions_dir=""
 install_user=""
+kit_dir=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --commit) commit="${2:-}"; shift 2 ;;
         --extensions-dir) extensions_dir="${2:-}"; shift 2 ;;
         --user) install_user="${2:-}"; shift 2 ;;
+        --kit-dir) kit_dir="${2:-}"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown argument: $1" >&2; usage; exit 2 ;;
     esac
 done
 
+if [[ -z "${kit_dir}" ]]; then
+    script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+    kit_dir="$(cd -- "${script_dir}/../.." && pwd)"
+else
+    kit_dir="$(cd -- "${kit_dir}" && pwd)"
+fi
+
+read_commit_from_manifest() {
+    local manifest=""
+    for manifest in "${kit_dir}/manifest/vscode.json" "${kit_dir}/manifest/vscode.local.json"; do
+        [[ -f "${manifest}" ]] || continue
+        grep -oE '"commit"[[:space:]]*:[[:space:]]*"[0-9a-f]{40}"' "${manifest}" 2>/dev/null | head -n 1 | sed -E 's/.*"([0-9a-f]{40})".*/\\1/' || true
+        return 0
+    done
+    return 1
+}
+
+if [[ -z "${commit}" ]]; then
+    commit="$(read_commit_from_manifest || true)"
+fi
+
+if [[ -z "${extensions_dir}" ]]; then
+    if ls "${kit_dir}/extensions/remote"/*.vsix >/dev/null 2>&1; then
+        extensions_dir="${kit_dir}/extensions/remote"
+    else
+        extensions_dir="${kit_dir}/extensions/local"
+    fi
+fi
+
 if [[ -z "${commit}" || -z "${extensions_dir}" ]]; then
-    echo "Missing required arguments." >&2
+    echo "Missing required arguments and could not auto-detect from kit layout." >&2
     usage
     exit 2
 fi
@@ -117,4 +149,3 @@ if [[ "$(id -u)" -eq 0 ]]; then
 else
     "${server_bin}" --list-extensions --show-versions --extensions-dir "${extensions_target_dir}" || true
 fi
-

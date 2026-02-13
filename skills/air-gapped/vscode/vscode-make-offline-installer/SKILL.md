@@ -376,14 +376,14 @@ When you need to update VS Code (new `COMMIT`) and/or extension versions:
    - Re-run `scripts/wan/download-vsix-bundle.ps1` for updated pinned extension lists.
 
 2) On the air-gapped client:
-   - Re-run `scripts/client/install-vscode-client.ps1` (Windows) or `scripts/client/install-vscode-client.sh` (Linux) with the new installer/package.
+   - Re-run `scripts/client/install-vscode-client.ps1` (Windows) or `scripts/client/install-vscode-client.sh` (Linux). If the kit layout is intact, you can omit the installer path and the script will auto-locate it relative to the script location.
    - Re-run `scripts/client/configure-vscode-client.ps1` or `scripts/client/configure-vscode-client.sh` (idempotent).
-   - Re-run `scripts/client/install-vscode-client-extensions.ps1` or `scripts/client/install-vscode-client-extensions.sh` with updated VSIX (forces install).
+   - Re-run `scripts/client/install-vscode-client-extensions.ps1` or `scripts/client/install-vscode-client-extensions.sh`. If the kit layout is intact, you can omit the extensions dir and it will default to `./extensions/local` relative to the script location (forces install).
 
 3) On the headless server:
-   - Run `scripts/server/install-vscode-server-cache.sh --commit <NEW_COMMIT> ...` (keeps old extracted servers unless you later clean up).
-   - Run `scripts/server/configure-vscode-server.sh --commit <NEW_COMMIT> ...`
-   - Run `scripts/server/install-vscode-server-extensions.sh --commit <NEW_COMMIT> ...` (forces extension installs).
+   - Run `scripts/server/install-vscode-server-cache.sh` (keeps old extracted servers unless you later clean up). If the kit layout is intact, you can omit `--commit` and tarball paths and it will auto-detect from `./manifest/` and `./server/` relative to the script location.
+   - Run `scripts/server/configure-vscode-server.sh` (can auto-detect `--commit` from `./manifest/`).
+   - Run `scripts/server/install-vscode-server-extensions.sh` (can auto-detect `--commit`, and defaults `--extensions-dir` to `./extensions/remote` if present, else `./extensions/local`).
    - Optionally remove old commits/cache with `scripts/server/cleanup-vscode-server.sh` after verification.
 
 ## Troubleshooting

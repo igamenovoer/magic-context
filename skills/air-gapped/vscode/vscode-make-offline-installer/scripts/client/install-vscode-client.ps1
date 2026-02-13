@@ -22,8 +22,8 @@
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$InstallerPath,
+    [Parameter(Mandatory = $false)]
+    [string]$InstallerPath = $null,
 
     [Parameter(Mandatory = $false)]
     [ValidateSet("auto", "stable", "insider")]
@@ -35,9 +35,55 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Get-KitRootFromScriptLocation {
+    try {
+        if (-not $PSScriptRoot) { return $null }
+        $kit = Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\\..") -ErrorAction Stop
+        return $kit.Path
+    }
+    catch {
+        return $null
+    }
+}
+
+function Find-DefaultWindowsInstaller {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$KitRoot
+    )
+
+    $clientsWindows = Join-Path $KitRoot "clients\\windows"
+    if (-not (Test-Path -LiteralPath $clientsWindows)) { return $null }
+
+    $candidates = Get-ChildItem -LiteralPath $clientsWindows -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -in @(".exe", ".msi") }
+
+    if (-not $candidates) { return $null }
+
+    $preferred = $candidates | Where-Object { $_.Name -like "VSCodeUserSetup*.exe" }
+    if ($preferred) {
+        return ($preferred | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+    }
+
+    return ($candidates | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+}
+
+if ([string]::IsNullOrWhiteSpace($InstallerPath)) {
+    $kitRoot = Get-KitRootFromScriptLocation
+    if ($kitRoot) {
+        $InstallerPath = Find-DefaultWindowsInstaller -KitRoot $kitRoot
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($InstallerPath)) {
+    throw "InstallerPath not provided and could not auto-detect a VS Code installer relative to this script. Pass -InstallerPath explicitly."
+}
+
 if (-not (Test-Path -LiteralPath $InstallerPath)) {
     throw "InstallerPath not found: $InstallerPath"
 }
+
+$InstallerPath = (Resolve-Path -LiteralPath $InstallerPath).Path
 
 function Resolve-CodeCommand {
     param([ValidateSet("auto", "stable", "insider")][string]$Channel)

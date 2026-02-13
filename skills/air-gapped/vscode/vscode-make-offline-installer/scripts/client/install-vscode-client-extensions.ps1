@@ -21,8 +21,8 @@
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$ExtensionsDir,
+    [Parameter(Mandatory = $false)]
+    [string]$ExtensionsDir = $null,
 
     [Parameter(Mandatory = $false)]
     [ValidateSet("auto", "stable", "insider")]
@@ -33,6 +33,28 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+function Get-KitRootFromScriptLocation {
+    try {
+        if (-not $PSScriptRoot) { return $null }
+        $kit = Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\\..") -ErrorAction Stop
+        return $kit.Path
+    }
+    catch {
+        return $null
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($ExtensionsDir)) {
+    $kitRoot = Get-KitRootFromScriptLocation
+    if ($kitRoot) {
+        $ExtensionsDir = Join-Path $kitRoot "extensions\\local"
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($ExtensionsDir)) {
+    throw "ExtensionsDir not provided and could not auto-detect an extensions folder relative to this script. Pass -ExtensionsDir explicitly."
+}
 
 if (-not (Test-Path -LiteralPath $ExtensionsDir)) {
     throw "ExtensionsDir not found: $ExtensionsDir"
@@ -58,6 +80,7 @@ function Resolve-CodeCommand {
 }
 
 $codeCmd = Resolve-CodeCommand -Channel $Channel
+$ExtensionsDir = (Resolve-Path -LiteralPath $ExtensionsDir).Path
 $vsix = Get-ChildItem -LiteralPath $ExtensionsDir -Filter *.vsix -File -ErrorAction SilentlyContinue
 
 if (-not $vsix) {
