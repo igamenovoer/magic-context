@@ -67,15 +67,14 @@ These steps must be run on the target Linux server (or via SSH to it). They pre-
 ### 2) Configure server state (settings + readiness marker)
 
 ```bash
-sudo bash scripts/server/configure-vscode-server.sh --commit "{{COMMIT}}" --user "<USERNAME>"
+sudo bash scripts/server/configure-vscode-server.sh --user "<USERNAME>"
 ```
 
 ### 3) Install remote-side extensions from VSIX (optional but common)
 
 ```bash
 sudo bash scripts/server/install-vscode-server-extensions.sh \
-  --commit "{{COMMIT}}" --user "<USERNAME>" \
-  --extensions-dir "./extensions/remote"
+  --user "<USERNAME>"
 ```
 
 ### 4) Verify on the server

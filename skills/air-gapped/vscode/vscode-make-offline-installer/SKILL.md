@@ -130,6 +130,8 @@ This skill ships scripts in 3 groups:
 - Install remote extensions: `scripts/server/install-vscode-server-extensions.sh` — install all `.vsix` in a folder into the remote extension host via `code-server`.
 - Cleanup old versions/cache (optional): `scripts/server/cleanup-vscode-server.sh` — remove cache tarballs and/or old extracted servers once you’ve verified Remote-SSH works.
 
+Default behavior (recommended): the install scripts accept explicit path/commit arguments, but those arguments are optional. When omitted, they auto-discover the kit root relative to the script location and use the default kit layout (`clients/`, `extensions/`, `manifest/`, `server/`). For Linux server scripts, `--user` defaults to the executing user.
+
 Installation, configuration, and cleanup are intentionally split because they have different purposes and options.
 
 When preparing `vscode-airgap-kit/`, copy the relevant script folders from this skill into `vscode-airgap-kit/scripts/` so they travel with the offline packages.

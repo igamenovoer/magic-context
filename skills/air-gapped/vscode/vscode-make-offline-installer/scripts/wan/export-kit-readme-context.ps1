@@ -205,7 +205,8 @@ if ($hasWindows) {
             ''
             '1. Pick the installer under `./clients/windows/`'
             '2. Run the installer (interactive):'
-            '   - `scripts\client\install-vscode-client.bat -InstallerPath .\clients\windows\<FILE>.exe`'
+            '   - Recommended (auto-detects from `./clients/windows/`): `scripts\client\install-vscode-client.bat`'
+            '   - Or specify an exact file: `scripts\client\install-vscode-client.bat -InstallerPath .\clients\windows\<FILE>.exe`'
         ) -join "`n")
 }
 if ($hasLinuxClient) {
@@ -221,7 +222,8 @@ if ($hasLinuxClient) {
         $linuxInstallLines += @(
             'Ubuntu Desktop / Debian:'
             ('- Install: `sudo dpkg -i {0}`' -f $debRel)
-            ('- Or helper: `bash scripts/client/install-vscode-client.sh --installer-path {0}`' -f $debRel)
+            '- Or helper (auto-detects from `./clients/linux/`): `bash scripts/client/install-vscode-client.sh`'
+            ('- Or helper (explicit): `bash scripts/client/install-vscode-client.sh --installer-path {0}`' -f $debRel)
             ''
             'If `dpkg` reports missing dependencies, you must stage and install those dependency `.deb` files offline too.'
             ''
@@ -233,7 +235,8 @@ if ($hasLinuxClient) {
         $linuxInstallLines += @(
             'Fedora / RHEL-like:'
             ('- Install: `sudo rpm -Uvh {0}`' -f $rpmRel)
-            ('- Or helper: `bash scripts/client/install-vscode-client.sh --installer-path {0}`' -f $rpmRel)
+            '- Or helper (auto-detects from `./clients/linux/`): `bash scripts/client/install-vscode-client.sh`'
+            ('- Or helper (explicit): `bash scripts/client/install-vscode-client.sh --installer-path {0}`' -f $rpmRel)
             ''
         )
     }
@@ -276,7 +279,13 @@ if ($hasServerX64 -or $hasServerArm) {
     $cliTarRel = if ($cliCandidate) { ('./{0}' -f (Get-RelativePath -BaseDir $KitDir -Path $cliCandidate.FullName).Replace('\', '/')) } else { "./server/cli/<CLI_TARBALL>.tar.gz" }
 
     $serverInstallNote = (@(
-            'Pick the matching server tarball for your server architecture (x64 vs arm64) and a CLI tarball.'
+            'Recommended: run the helper with no tarball paths; it auto-detects `--commit` from `./manifest/` and tarballs from `./server/` relative to the script location.'
+            ''
+            '```bash'
+            'sudo bash scripts/server/install-vscode-server-cache.sh --user "<USERNAME>"'
+            '```'
+            ''
+            'If you need to override (for example multiple commits/artifacts in one kit), pass explicit args:'
             ''
             ('Example ({0}):' -f $arch)
             ''
@@ -302,10 +311,12 @@ if ($configureHelpers.Count -eq 0) {
 
 $localExtHelpers = @()
 if ($hasWindows) {
-    $localExtHelpers += '- Windows helper: `scripts\client\install-vscode-client-extensions.bat -ExtensionsDir .\extensions\local -Channel auto`'
+    $localExtHelpers += '- Windows helper (auto-detects from `./extensions/local/`): `scripts\client\install-vscode-client-extensions.bat -Channel auto`'
+    $localExtHelpers += '- Windows helper (explicit): `scripts\client\install-vscode-client-extensions.bat -ExtensionsDir .\extensions\local -Channel auto`'
 }
 if ($hasLinuxClient -or $hasMac) {
-    $localExtHelpers += '- Linux/macOS helper: `bash scripts/client/install-vscode-client-extensions.sh --extensions-dir ./extensions/local --channel auto`'
+    $localExtHelpers += '- Linux/macOS helper (auto-detects from `./extensions/local/`): `bash scripts/client/install-vscode-client-extensions.sh --channel auto`'
+    $localExtHelpers += '- Linux/macOS helper (explicit): `bash scripts/client/install-vscode-client-extensions.sh --extensions-dir ./extensions/local --channel auto`'
 }
 if ($localExtHelpers.Count -eq 0) {
     $localExtHelpers += '- Helper scripts: `./scripts/client/` (if included)'
