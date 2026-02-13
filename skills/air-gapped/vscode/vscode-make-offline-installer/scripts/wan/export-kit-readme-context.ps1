@@ -167,10 +167,11 @@ if (Test-Path -LiteralPath $clientsRoot) {
 
 $serverLinuxX64Dir = Join-Path $KitDir "server\\linux-x64"
 $serverLinuxArm64Dir = Join-Path $KitDir "server\\linux-arm64"
-$serverCliDir = Join-Path $KitDir "server\\cli"
+$serverAlpineX64Dir = Join-Path $KitDir "server\\alpine-x64"
+$serverAlpineArm64Dir = Join-Path $KitDir "server\\alpine-arm64"
+$serverCliLegacyDir = Join-Path $KitDir "server\\cli" # legacy kits
 
-$extLocalDir = Join-Path $KitDir "extensions\\local"
-$extRemoteDir = Join-Path $KitDir "extensions\\remote"
+$extensionsRoot = Join-Path $KitDir "extensions"
 
 $linuxDeb = @($linuxPackages | Where-Object { $_.Extension -eq ".deb" })
 $linuxRpm = @($linuxPackages | Where-Object { $_.Extension -eq ".rpm" })
@@ -178,7 +179,11 @@ $linuxTarGz = @($linuxPackages | Where-Object { $_.Name -like "*.tar.gz" })
 
 $srvX64 = @(Find-Files -Dir $serverLinuxX64Dir -Patterns @("*.tar.gz"))
 $srvArm64 = @(Find-Files -Dir $serverLinuxArm64Dir -Patterns @("*.tar.gz"))
-$cliTars = @(Find-Files -Dir $serverCliDir -Patterns @("*.tar.gz"))
+$cliTars = @()
+foreach ($d in @($serverAlpineX64Dir, $serverAlpineArm64Dir, $serverCliLegacyDir)) {
+    $cliTars += Find-Files -Dir $d -Patterns @("*.tar.gz")
+}
+$cliTars = @($cliTars | Sort-Object -Property FullName -Unique)
 
 function Maybe-StageScripts {
     param([Parameter(Mandatory = $true)][string]$KitRoot)
@@ -251,17 +256,17 @@ if ($hasWindows) {
     $clientInstallSections += (@(
             '#### Windows'
             ''
-            '1. Pick an installer under `./clients/win32-*/` (or legacy `./clients/windows/`)'
+            '1. Pick an installer under `./clients/win32-*/`'
             '2. Run the installer (interactive):'
             '   - Recommended (auto-detects from `./clients/`): `scripts\client\install-vscode-client.bat`'
-            '   - Or specify an exact file: `scripts\client\install-vscode-client.bat -InstallerPath .\clients\<PLATFORM>\<FILE>.exe`'
+            '   - Or specify an exact file: `scripts\client\install-vscode-client.bat -InstallerPath .\clients\<os>-<arch>\<FILE>.exe`'
         ) -join "`n")
 }
 if ($hasLinuxClient) {
     $linuxInstallLines = @(
         '#### Linux desktop (air-gapped client)'
         ''
-        'Pick a package under `./clients/linux-*/` (or legacy `./clients/linux/`) and install it with your distro tooling.'
+        'Pick a package under `./clients/linux-*/` and install it with your distro tooling.'
         ''
     )
 
@@ -304,7 +309,7 @@ if ($hasMac) {
     $clientInstallSections += (@(
             '#### macOS'
             ''
-            '1. Pick the `.zip` or `.dmg` under `./clients/macos/`'
+            '1. Pick the `.zip` or `.dmg` under `./clients/darwin-*/`'
             '2. Install using your standard offline method (for `.zip`, extract and move the app into `/Applications`).'
         ) -join "`n")
 }
@@ -324,7 +329,7 @@ if ($hasServerX64 -or $hasServerArm) {
     }
     if (-not $cliCandidate -and $cliTars.Count -gt 0) { $cliCandidate = $cliTars[0] }
 
-    $cliTarRel = if ($cliCandidate) { ('./{0}' -f (Get-RelativePath -BaseDir $KitDir -Path $cliCandidate.FullName).Replace('\', '/')) } else { "./server/cli/<CLI_TARBALL>.tar.gz" }
+    $cliTarRel = if ($cliCandidate) { ('./{0}' -f (Get-RelativePath -BaseDir $KitDir -Path $cliCandidate.FullName).Replace('\', '/')) } else { ("./server/alpine-{0}/<CLI_TARBALL>.tar.gz" -f $arch) }
 
     $serverInstallNote = (@(
             'Recommended: run the helper with no tarball paths; it auto-detects `--commit` from `./manifest/` and tarballs from `./server/` relative to the script location.'
@@ -359,12 +364,12 @@ if ($configureHelpers.Count -eq 0) {
 
 $localExtHelpers = @()
 if ($hasWindows) {
-    $localExtHelpers += '- Windows helper (auto-detects from `./extensions/local/`): `scripts\client\install-vscode-client-extensions.bat -Channel auto`'
-    $localExtHelpers += '- Windows helper (explicit): `scripts\client\install-vscode-client-extensions.bat -ExtensionsDir .\extensions\local -Channel auto`'
+    $localExtHelpers += '- Windows helper (auto-detects from `./extensions/local-win32-<arch>/`): `scripts\client\install-vscode-client-extensions.bat -Channel auto`'
+    $localExtHelpers += '- Windows helper (explicit): `scripts\client\install-vscode-client-extensions.bat -ExtensionsDir .\extensions\local-win32-<arch> -Channel auto`'
 }
 if ($hasLinuxClient -or $hasMac) {
-    $localExtHelpers += '- Linux/macOS helper (auto-detects from `./extensions/local/`): `bash scripts/client/install-vscode-client-extensions.sh --channel auto`'
-    $localExtHelpers += '- Linux/macOS helper (explicit): `bash scripts/client/install-vscode-client-extensions.sh --extensions-dir ./extensions/local --channel auto`'
+    $localExtHelpers += '- Linux/macOS helper (auto-detects from `./extensions/local-<os>-<arch>/`): `bash scripts/client/install-vscode-client-extensions.sh --channel auto`'
+    $localExtHelpers += '- Linux/macOS helper (explicit): `bash scripts/client/install-vscode-client-extensions.sh --extensions-dir ./extensions/local-<os>-<arch> --channel auto`'
 }
 if ($localExtHelpers.Count -eq 0) {
     $localExtHelpers += '- Helper scripts: `./scripts/client/` (if included)'
@@ -388,8 +393,36 @@ function RelFiles {
     return ,@($Files | ForEach-Object { ('./{0}' -f (Get-RelativePath -BaseDir $KitRoot -Path $_.FullName).Replace('\', '/')) })
 }
 
-$extLocalVsix = @(Find-Files -Dir $extLocalDir -Patterns @("*.vsix"))
-$extRemoteVsix = @(Find-Files -Dir $extRemoteDir -Patterns @("*.vsix"))
+$extLocalVsix = @()
+$extRemoteVsix = @()
+
+if (Test-Path -LiteralPath $extensionsRoot) {
+    $localDirs = @()
+    $legacyLocal = Join-Path $extensionsRoot "local"
+    if (Test-Path -LiteralPath $legacyLocal) { $localDirs += $legacyLocal }
+
+    $localDirs += Get-ChildItem -LiteralPath $extensionsRoot -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like "local-*" } |
+        Select-Object -ExpandProperty FullName
+
+    $remoteDirs = @()
+    $legacyRemote = Join-Path $extensionsRoot "remote"
+    if (Test-Path -LiteralPath $legacyRemote) { $remoteDirs += $legacyRemote }
+
+    $remoteDirs += Get-ChildItem -LiteralPath $extensionsRoot -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like "remote-*" } |
+        Select-Object -ExpandProperty FullName
+
+    foreach ($d in @($localDirs | Sort-Object -Unique)) {
+        $extLocalVsix += Find-Files -Dir $d -Patterns @("*.vsix")
+    }
+    foreach ($d in @($remoteDirs | Sort-Object -Unique)) {
+        $extRemoteVsix += Find-Files -Dir $d -Patterns @("*.vsix")
+    }
+
+    $extLocalVsix = @($extLocalVsix | Sort-Object -Property FullName -Unique)
+    $extRemoteVsix = @($extRemoteVsix | Sort-Object -Property FullName -Unique)
+}
 
 $payload = [ordered]@{
     generated_at = (Get-Date).ToString("s")

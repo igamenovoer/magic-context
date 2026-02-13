@@ -50,10 +50,14 @@ fi
 
 read_commit_from_manifest() {
     local manifest=""
+    local value=""
     for manifest in "${kit_dir}/manifest/vscode.json" "${kit_dir}/manifest/vscode.local.json"; do
         [[ -f "${manifest}" ]] || continue
-        grep -oE '"commit"[[:space:]]*:[[:space:]]*"[0-9a-f]{40}"' "${manifest}" 2>/dev/null | head -n 1 | sed -E 's/.*"([0-9a-f]{40})".*/\\1/' || true
-        return 0
+        value="$(grep -oE '"commit"[[:space:]]*:[[:space:]]*"[0-9a-f]{40}"' "${manifest}" 2>/dev/null | head -n 1 | sed -E 's/.*"([0-9a-f]{40})".*/\1/' || true)"
+        if [[ "${value}" =~ ^[0-9a-f]{40}$ ]]; then
+            printf '%s\n' "${value}"
+            return 0
+        fi
     done
     return 1
 }

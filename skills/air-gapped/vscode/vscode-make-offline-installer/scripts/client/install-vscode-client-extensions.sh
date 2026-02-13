@@ -9,7 +9,7 @@ Usage:
   install-vscode-client-extensions.sh [--extensions-dir <DIR>] [--channel auto|stable|insider] [--required-id <ID> ...] [--kit-dir <DIR>]
 
 Args:
-  --extensions-dir   Directory containing *.vsix files. If omitted, defaults to ./extensions/local relative to this script.
+  --extensions-dir   Directory containing *.vsix files. If omitted, auto-detects ./extensions/local-<os>-<arch>/ relative to this script.
   --channel          Which VS Code binary to use. Default: auto (prefer code, else code-insiders).
   --required-id      Extension ID that must be installed (repeatable).
                     Default: ms-vscode-remote.remote-ssh
@@ -42,7 +42,7 @@ if [[ -z "${extensions_dir}" ]]; then
     fi
 
     os="$(uname -s | tr '[:upper:]' '[:lower:]' || true)"
-    if [[ "${os}" == "linux" ]]; then
+    if [[ "${os}" == "linux" || "${os}" == "darwin" ]]; then
         m="$(uname -m || true)"
         arch="x64"
         case "${m}" in
@@ -51,9 +51,14 @@ if [[ -z "${extensions_dir}" ]]; then
             *) arch="x64" ;;
         esac
 
-        if [[ -d "${kit_dir}/extensions/local-linux-${arch}" ]]; then
+        if [[ "${os}" == "linux" && -d "${kit_dir}/extensions/local-linux-${arch}" ]]; then
             extensions_dir="${kit_dir}/extensions/local-linux-${arch}"
+        elif [[ "${os}" == "darwin" && "${arch}" == "arm64" && -d "${kit_dir}/extensions/local-darwin-arm64" ]]; then
+            extensions_dir="${kit_dir}/extensions/local-darwin-arm64"
+        elif [[ "${os}" == "darwin" && -d "${kit_dir}/extensions/local-darwin-universal" ]]; then
+            extensions_dir="${kit_dir}/extensions/local-darwin-universal"
         else
+            # Backward-compatible fallback (older kits).
             extensions_dir="${kit_dir}/extensions/local"
         fi
     else

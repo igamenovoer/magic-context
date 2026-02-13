@@ -78,28 +78,27 @@ vscode-airgap-kit/
     vscode.local.json               # optional: discovery export from a host (channel/version/commit)
     extensions.local.txt            # local-side extension id@version pins
     extensions.remote.txt           # remote-side extension id@version pins
-  clients/                          # VS Code desktop installers/archives per PLATFORM (cross-OS downloads supported)
-    win32-x64-user/                 # e.g., VSCodeUserSetup-*.exe
-    win32-arm64-user/               # e.g., VSCodeUserSetup-*.exe
-    darwin-universal/               # e.g., VSCode-darwin-universal.zip
-    darwin-arm64/                   # e.g., VSCode-darwin-arm64.zip
-    linux-deb-x64/                  # e.g., code_*.deb
-    linux-deb-arm64/                # e.g., code_*.deb
-    linux-rpm-x64/                  # e.g., code-*.rpm
-    linux-rpm-arm64/                # e.g., code-*.rpm
-    linux-x64/                      # e.g., VSCode-linux-x64.tar.gz
-    linux-arm64/                    # e.g., VSCode-linux-arm64.tar.gz
+  clients/                          # VS Code desktop installers/archives grouped by <os>-<arch>
+    win32-x64/                      # Windows installers/archives (x64)
+    win32-arm64/                    # Windows installers/archives (arm64)
+    darwin-universal/               # macOS packages (universal)
+    darwin-arm64/                   # macOS packages (arm64)
+    linux-x64/                      # Linux packages (x64): .deb/.rpm/.tar.gz
+    linux-arm64/                    # Linux packages (arm64): .deb/.rpm/.tar.gz
   server/                           # VS Code Server + CLI artifacts for air-gapped Remote-SSH
     linux-x64/                      # vscode-server-linux-x64-<COMMIT>.tar.gz
     linux-arm64/                    # vscode-server-linux-arm64-<COMMIT>.tar.gz
-    cli/                            # vscode-cli-alpine-<arch>-<COMMIT>.tar.gz
+    alpine-x64/                     # vscode-cli-alpine-x64-<COMMIT>.tar.gz
+    alpine-arm64/                   # vscode-cli-alpine-arm64-<COMMIT>.tar.gz
   extensions/                       # offline extension bundles (.vsix)
-    local/                          # install on the client (UI side): `code --install-extension` (universal or host-side)
-    remote/                         # install on the server (extension host): `code-server --install-extension` (derived subset)
-    local-linux-x64/                # optional: platform-targeted downloads (preferred on Linux x64)
-    local-linux-arm64/              # optional: platform-targeted downloads (preferred on Linux arm64)
-    remote-linux-x64/               # optional: platform-targeted downloads (preferred on Linux x64 servers)
-    remote-linux-arm64/             # optional: platform-targeted downloads (preferred on Linux arm64 servers)
+    local-win32-x64/                # local/UI side (Windows x64)
+    local-win32-arm64/              # local/UI side (Windows arm64)
+    local-darwin-universal/         # local/UI side (macOS universal)
+    local-darwin-arm64/             # local/UI side (macOS arm64)
+    local-linux-x64/                # local/UI side (Linux x64)
+    local-linux-arm64/              # local/UI side (Linux arm64)
+    remote-linux-x64/               # remote/extension-host side (Linux x64 servers)
+    remote-linux-arm64/             # remote/extension-host side (Linux arm64 servers)
   scripts/                          # helper install/config scripts to run in each environment
     wan/                            # run on WAN-connected prep host
     client/                         # run on air-gapped desktop client
@@ -124,7 +123,7 @@ This skill ships scripts in 3 groups:
 2) Air-gapped client (desktop):
 - Install VS Code:
   - Windows: `scripts/client/install-vscode-client.ps1` — launch the offline installer (interactive by default; `-Silent` best-effort).
-  - Linux (Ubuntu Desktop): `scripts/client/install-vscode-client.sh` — install the offline `.deb` via `dpkg` (recommended client artifact: `linux-deb-<arch>`).
+  - Linux (Ubuntu Desktop): `scripts/client/install-vscode-client.sh` — install the offline `.deb` via `dpkg` (recommended: a `.deb` in `clients/linux-<arch>/`).
 - Install local extensions (client/UI side):
   - PowerShell: `scripts/client/install-vscode-client-extensions.ps1`
   - Bash: `scripts/client/install-vscode-client-extensions.sh`
@@ -212,7 +211,15 @@ Common `PLATFORM` values:
   - Debian/Ubuntu: `linux-deb-x64`, `linux-deb-arm64`
   - RHEL/Fedora: `linux-rpm-x64`, `linux-rpm-arm64`
 
-Save the downloaded files under `clients/<PLATFORM>/` and record SHA256 hashes in `manifest/vscode.json`.
+Save the downloaded files under `clients/<os>-<arch>/` and record SHA256 hashes in `manifest/vscode.json`.
+
+Suggested mapping (download platform → kit folder):
+- `win32-x64-*` → `clients/win32-x64/`
+- `win32-arm64-*` → `clients/win32-arm64/`
+- `darwin-universal` → `clients/darwin-universal/`
+- `darwin-arm64` → `clients/darwin-arm64/`
+- `linux-*-x64` → `clients/linux-x64/`
+- `linux-*-arm64` → `clients/linux-arm64/`
 
 Optional helper (WAN prep) to download commit-pinned artifacts and write `manifest/vscode.json`:
 
@@ -241,7 +248,7 @@ https://update.code.visualstudio.com/commit:<COMMIT>/cli-alpine-arm64/<CHANNEL>
 
 Put them under:
 - `server/linux-x64/` and `server/linux-arm64/`
-- `server/cli/`
+- `server/alpine-x64/` and `server/alpine-arm64/`
 
 ### 4) Freeze and download extensions as `.vsix`
 
@@ -256,7 +263,7 @@ Export the exact client-side extension versions:
 - `code --list-extensions --show-versions > extensions.local.txt`
 
 Place downloaded `.vsix` files into:
-- `extensions/local/`
+- `extensions/local-<TARGET>/` (examples: `extensions/local-win32-x64/`, `extensions/local-linux-x64/`)
 
 #### 4b) Server-side extensions (remote / extension host side)
 
@@ -277,7 +284,7 @@ Option B (fallback): no test environment provided
     - Practical workflow: try downloading the remote list with `scripts/wan/download-vsix-bundle.ps1`, and when an item fails, decrement to the next older published version and retry until it succeeds.
 
 Place downloaded `.vsix` files into:
-- `extensions/remote/`
+- `extensions/remote-linux-<arch>/` (examples: `extensions/remote-linux-x64/`, `extensions/remote-linux-arm64/`)
 
 #### Download `.vsix` files (applies to both local + remote lists)
 
@@ -302,12 +309,11 @@ Downloading `.vsix` (preferred order):
 Optional helper (Windows-friendly) to download pinned VSIX in bulk:
 
 ```powershell
-# Universal / host-side (works for most extensions):
-pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.local.txt -OutDir .\\extensions\\local
-pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.remote.txt -OutDir .\\extensions\\remote -RequiredIds @()
+# Local (client/UI side), per target platform (best-effort; skips VSIX that don't exist for that platform):
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.local.txt -OutDir .\\extensions\\local-win32-x64 -TargetPlatform win32-x64
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.local.txt -OutDir .\\extensions\\local-linux-x64 -TargetPlatform linux-x64
 
-# Platform-targeted (best-effort; skips VSIX that don't exist for that platform):
-pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.local.txt -OutDir .\\extensions\\local-linux-x64 -TargetPlatform linux-x64 -RequiredIds @()
+# Remote (server/extension-host side), per target platform (Linux only):
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.remote.txt -OutDir .\\extensions\\remote-linux-x64 -TargetPlatform linux-x64 -RequiredIds @()
 ```
 
@@ -350,7 +356,7 @@ Goal: prove the kit’s VS Code Server artifacts can be installed/extracted and 
 1) Install/extract on the provided server env (SSH host or disposable container) using the kit’s server scripts:
 - Run `scripts/server/install-vscode-server-cache.sh` (cache placement + extraction)
 - Run `scripts/server/configure-vscode-server.sh` (settings + readiness marker)
-- Optionally run `scripts/server/install-vscode-server-extensions.sh` with `./extensions/remote/` (VSIX installs)
+- Optionally run `scripts/server/install-vscode-server-extensions.sh` (auto-detects from `./extensions/remote-linux-<arch>/` when present)
 
 2) Headless sanity checks on the server env (example; substitute `<COMMIT>`):
 ```bash
@@ -361,7 +367,7 @@ EXT_DIR="$HOME/.vscode-server/extensions"
 test -x "$SERVER_BIN"
 "$SERVER_BIN" -h
 "$SERVER_BIN" --list-extensions --show-versions --extensions-dir "$EXT_DIR"
-"$SERVER_BIN" --install-extension "/path/to/kit/extensions/remote/<some>.vsix" --force --extensions-dir "$EXT_DIR"
+"$SERVER_BIN" --install-extension "/path/to/kit/extensions/remote-linux-<arch>/<some>.vsix" --force --extensions-dir "$EXT_DIR"
 "$SERVER_BIN" --list-extensions --show-versions --extensions-dir "$EXT_DIR"
 ```
 
@@ -377,11 +383,11 @@ Agent preparation (do before asking the user to test):
 - Ensure server SSH access works (for a Docker image/container test env, ensure SSH is reachable from the user’s desktop):
   - SSH host: confirm `ssh <host> 'echo ok'` succeeds (from the user’s desktop if possible).
   - Container: start/maintain an SSH-accessible container instance (do not delete the image), and provide the user with `username@host:port` (and any key/password) needed to connect.
-- Ensure remote-side extensions are installed as intended (optional but common) via `scripts/server/install-vscode-server-extensions.sh` using the kit’s `./extensions/remote/`.
+- Ensure remote-side extensions are installed as intended (optional but common) via `scripts/server/install-vscode-server-extensions.sh` using the kit’s `./extensions/remote-linux-<arch>/`.
 - Do not install/modify client-side VS Code or client-side extensions on the agent host “for testing”; the user performs the GUI validation on their desktop environment (ideally a dedicated test profile/machine).
 
 User instructions (GUI-driven, but offline):
-1) On the desktop client, ensure VS Code has the Remote-SSH extension installed from the kit (`ms-vscode-remote.remote-ssh` from `./extensions/local/`), and apply the kit’s client config (disable auto-updates + set `remote.SSH.localServerDownload` to `off`).
+1) On the desktop client, ensure VS Code has the Remote-SSH extension installed from the kit (`ms-vscode-remote.remote-ssh` from `./extensions/local-<TARGET>/`), and apply the kit’s client config (disable auto-updates + set `remote.SSH.localServerDownload` to `off`).
 2) Disconnect the desktop client from the internet (airplane mode or unplug). Keep LAN access to the SSH server if applicable.
 3) In VS Code, open **View → Output**, select **Remote - SSH** in the dropdown, then run **Remote-SSH: Connect to Host...** and connect to the test host.
 4) Verify (from the Remote - SSH output/log):
@@ -400,12 +406,12 @@ When you need to update VS Code (new `COMMIT`) and/or extension versions:
 2) On the air-gapped client:
    - Re-run `scripts/client/install-vscode-client.ps1` (Windows) or `scripts/client/install-vscode-client.sh` (Linux). If the kit layout is intact, you can omit the installer path and the script will auto-locate it relative to the script location.
    - Re-run `scripts/client/configure-vscode-client.ps1` or `scripts/client/configure-vscode-client.sh` (idempotent).
-   - Re-run `scripts/client/install-vscode-client-extensions.ps1` or `scripts/client/install-vscode-client-extensions.sh`. If the kit layout is intact, you can omit the extensions dir and it will default to `./extensions/local` relative to the script location (forces install).
+   - Re-run `scripts/client/install-vscode-client-extensions.ps1` or `scripts/client/install-vscode-client-extensions.sh`. If the kit layout is intact, you can omit the extensions dir and it will auto-detect `./extensions/local-<TARGET>/` relative to the script location (forces install).
 
 3) On the headless server:
    - Run `scripts/server/install-vscode-server-cache.sh` (keeps old extracted servers unless you later clean up). If the kit layout is intact, you can omit `--commit` and tarball paths and it will auto-detect from `./manifest/` and `./server/` relative to the script location.
    - Run `scripts/server/configure-vscode-server.sh` (can auto-detect `--commit` from `./manifest/`).
-   - Run `scripts/server/install-vscode-server-extensions.sh` (can auto-detect `--commit`, and defaults `--extensions-dir` to `./extensions/remote` if present, else `./extensions/local`).
+   - Run `scripts/server/install-vscode-server-extensions.sh` (can auto-detect `--commit`, and defaults `--extensions-dir` to `./extensions/remote-linux-<arch>/` when present).
    - Optionally remove old commits/cache with `scripts/server/cleanup-vscode-server.sh` after verification.
 
 ## Troubleshooting
@@ -441,9 +447,9 @@ Symptoms:
 Actions:
 - You cannot transform a Windows-only VSIX into a Linux VSIX; you must download the Linux-targeted VSIX (if the publisher provides one).
 - Prefer downloading for the target Linux platform up front:
-  - `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.local.txt -OutDir .\\extensions\\remote-linux-x64 -TargetPlatform linux-x64 -RequiredIds @()`
+  - `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.remote.txt -OutDir .\\extensions\\remote-linux-x64 -TargetPlatform linux-x64 -RequiredIds @()`
   - Use `linux-arm64` for ARM servers.
-- If you already have a folder of VSIX, parse each VSIX `extension.vsixmanifest` `TargetPlatform` and exclude `win32-*` / `darwin-*` when building `extensions/remote/` for Linux.
+- If you already have a folder of VSIX, parse each VSIX `extension.vsixmanifest` `TargetPlatform` and exclude `win32-*` / `darwin-*` when building `extensions/remote-linux-<arch>/` for Linux.
 
 ### Docker/container testbed seems “stuck” installing remote extensions
 
@@ -451,7 +457,7 @@ Symptoms:
 - Installing a large number of VSIX into the remote extension host via `code-server --install-extension ...` takes a very long time.
 
 Actions:
-- For discovery and packaging, prefer deriving `extensions/remote/` from VSIX metadata (manifest-based), and reserve full remote installs for small validation sets or explicitly requested end-to-end verification.
+- For discovery and packaging, prefer deriving `extensions/remote-linux-<arch>/` from VSIX metadata (manifest-based), and reserve full remote installs for small validation sets or explicitly requested end-to-end verification.
 - If you do validate with Docker, keep the container commands simple and inspect progress with `docker logs` / `docker top` rather than complex shell pipelines.
 
 ### Cross-shell quoting pitfalls (`/dev/null`, `grep`, `true`) when running `docker exec ... bash -lc "..."`

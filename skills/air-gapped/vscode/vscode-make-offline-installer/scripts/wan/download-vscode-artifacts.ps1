@@ -19,7 +19,7 @@
 
 .PARAMETER ClientPlatforms
   Array of client platform strings (e.g. win32-x64-user, darwin-universal, linux-deb-x64).
-  If omitted, no client artifacts are downloaded. Artifacts are saved under clients/<PLATFORM>/ by default.
+  If omitted, no client artifacts are downloaded. Artifacts are saved under clients/<os>-<arch>/ by default.
 
 .PARAMETER ServerArch
   Array of Linux server arches to download (x64, arm64). Default: x64.
@@ -184,6 +184,37 @@ function Download-UrlToFile {
     return @{ Downloaded = $true; Path = $outFile; Url = $Url }
 }
 
+function Get-ClientBinaryDirName {
+    param([Parameter(Mandatory = $true)][string]$Platform)
+    $p = $Platform.Trim().ToLowerInvariant()
+    if ([string]::IsNullOrWhiteSpace($p)) { return $null }
+
+    $parts = $p.Split('-', [System.StringSplitOptions]::RemoveEmptyEntries)
+    if (-not $parts -or $parts.Count -lt 2) { return $p }
+
+    $os = $parts[0]
+
+    if ($os -eq "win32") {
+        $arch = $parts[1]
+        if ($arch -in @("x64", "arm64")) { return "win32-$arch" }
+        return $p
+    }
+
+    if ($os -eq "darwin") {
+        $arch = $parts[1]
+        if ($arch -in @("universal", "arm64", "x64")) { return "darwin-$arch" }
+        return $p
+    }
+
+    if ($os -eq "linux") {
+        $arch = $parts[$parts.Count - 1]
+        if ($arch -in @("x64", "arm64")) { return "linux-$arch" }
+        return $p
+    }
+
+    return $p
+}
+
 Ensure-Dir $OutDir
 $OutDir = (Resolve-Path $OutDir).Path
 
@@ -212,10 +243,12 @@ foreach ($platform in $ClientPlatforms) {
     $plat = $platform.Trim()
     $url = "https://update.code.visualstudio.com/commit:$Commit/$plat/$Channel"
 
-    $outSub = Join-Path $clientsDir $plat
+    $outSubName = Get-ClientBinaryDirName -Platform $plat
+    if ([string]::IsNullOrWhiteSpace($outSubName)) { $outSubName = $plat }
+    $outSub = Join-Path $clientsDir $outSubName
     Ensure-Dir $outSub
 
-    Write-Host "==> Download client: $plat" -ForegroundColor Yellow
+    Write-Host "==> Download client: $plat -> clients\\$outSubName" -ForegroundColor Yellow
     $dl = Download-UrlToFile -Url $url -OutDir $outSub -FallbackFileName "vscode-$plat-$Commit.bin" -Force:$Force
 
     $manifest.clients += [ordered]@{
@@ -231,7 +264,7 @@ foreach ($arch in $ServerArch) {
     $cliUrl = "https://update.code.visualstudio.com/commit:$Commit/cli-alpine-$arch/$Channel"
 
     $srvOutDir = Join-Path $serverDir "linux-$arch"
-    $cliOutDir = Join-Path $serverDir "cli"
+    $cliOutDir = Join-Path $serverDir "alpine-$arch"
     Ensure-Dir $srvOutDir
     Ensure-Dir $cliOutDir
 

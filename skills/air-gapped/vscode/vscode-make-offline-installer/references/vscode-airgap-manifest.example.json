@@ -5,29 +5,34 @@
     "created_at_utc": "2026-02-05T00:00:00Z",
     "clients": [
         {
-            "platform": "win32-x64-user",
+            "download_platform": "win32-x64-user",
+            "kit_dir": "clients/win32-x64",
             "filename": "VSCodeUserSetup-x64-1.106.2.exe",
             "sha256": "<fill>"
         },
         {
-            "platform": "darwin-universal",
+            "download_platform": "darwin-universal",
+            "kit_dir": "clients/darwin-universal",
             "filename": "VSCode-darwin-universal-1.106.2.zip",
             "sha256": "<fill>"
         },
         {
-            "platform": "linux-deb-x64",
+            "download_platform": "linux-deb-x64",
+            "kit_dir": "clients/linux-x64",
             "filename": "code_1.106.2-<build>_amd64.deb",
             "sha256": "<fill>"
         }
     ],
     "server": [
         {
-            "platform": "server-linux-x64",
+            "download_platform": "server-linux-x64",
+            "kit_dir": "server/linux-x64",
             "filename": "vscode-server-linux-x64-1e3c50d64110be466c0b4a45222e81d2c9352888.tar.gz",
             "sha256": "<fill>"
         },
         {
-            "platform": "cli-alpine-x64",
+            "download_platform": "cli-alpine-x64",
+            "kit_dir": "server/alpine-x64",
             "filename": "vscode-cli-alpine-x64-1e3c50d64110be466c0b4a45222e81d2c9352888.tar.gz",
             "sha256": "<fill>"
         }
@@ -35,18 +40,31 @@
     "extensions": {
         "local": [
             {
+                "target": "win32-x64",
+                "kit_dir": "extensions/local-win32-x64",
                 "id": "ms-vscode-remote.remote-ssh",
                 "version": "<fill>",
-                "filename": "ms-vscode-remote.remote-ssh-<ver>.vsix",
+                "filename": "ms-vscode-remote.remote-ssh-<ver>@win32-x64.vsix",
+                "sha256": "<fill>",
+                "source": "openvsx|marketplace"
+            },
+            {
+                "target": "linux-x64",
+                "kit_dir": "extensions/local-linux-x64",
+                "id": "ms-vscode-remote.remote-ssh",
+                "version": "<fill>",
+                "filename": "ms-vscode-remote.remote-ssh-<ver>@linux-x64.vsix",
                 "sha256": "<fill>",
                 "source": "openvsx|marketplace"
             }
         ],
         "remote": [
             {
+                "target": "linux-x64",
+                "kit_dir": "extensions/remote-linux-x64",
                 "id": "ms-python.python",
                 "version": "<fill>",
-                "filename": "ms-python.python-<ver>.vsix",
+                "filename": "ms-python.python-<ver>@linux-x64.vsix",
                 "sha256": "<fill>",
                 "source": "openvsx|marketplace"
             }

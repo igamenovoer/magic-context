@@ -52,10 +52,14 @@ fi
 
 read_commit_from_manifest() {
     local manifest=""
+    local value=""
     for manifest in "${kit_dir}/manifest/vscode.json" "${kit_dir}/manifest/vscode.local.json"; do
         [[ -f "${manifest}" ]] || continue
-        grep -oE '"commit"[[:space:]]*:[[:space:]]*"[0-9a-f]{40}"' "${manifest}" 2>/dev/null | head -n 1 | sed -E 's/.*"([0-9a-f]{40})".*/\\1/' || true
-        return 0
+        value="$(grep -oE '"commit"[[:space:]]*:[[:space:]]*"[0-9a-f]{40}"' "${manifest}" 2>/dev/null | head -n 1 | sed -E 's/.*"([0-9a-f]{40})".*/\1/' || true)"
+        if [[ "${value}" =~ ^[0-9a-f]{40}$ ]]; then
+            printf '%s\n' "${value}"
+            return 0
+        fi
     done
     return 1
 }
@@ -79,7 +83,13 @@ if [[ -z "${server_tar}" ]]; then
     server_tar="${kit_dir}/server/linux-${arch}/vscode-server-linux-${arch}-${commit}.tar.gz"
 fi
 if [[ -z "${cli_tar}" ]]; then
-    cli_tar="${kit_dir}/server/cli/vscode-cli-alpine-${arch}-${commit}.tar.gz"
+    cli_tar="${kit_dir}/server/alpine-${arch}/vscode-cli-alpine-${arch}-${commit}.tar.gz"
+    if [[ ! -f "${cli_tar}" ]]; then
+        legacy_cli_tar="${kit_dir}/server/cli/vscode-cli-alpine-${arch}-${commit}.tar.gz"
+        if [[ -f "${legacy_cli_tar}" ]]; then
+            cli_tar="${legacy_cli_tar}"
+        fi
+    fi
 fi
 
 if [[ -z "${commit}" || -z "${server_tar}" || -z "${cli_tar}" ]]; then

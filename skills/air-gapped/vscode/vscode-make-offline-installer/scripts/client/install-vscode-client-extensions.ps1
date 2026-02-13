@@ -48,22 +48,36 @@ function Get-KitRootFromScriptLocation {
 if ([string]::IsNullOrWhiteSpace($ExtensionsDir)) {
     $kitRoot = Get-KitRootFromScriptLocation
     if ($kitRoot) {
-        if ($IsLinux) {
-            $arch = $null
-            try { $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString() } catch { $arch = $null }
-            $suffix = $null
-            if ($arch -eq "Arm64") { $suffix = "arm64" } else { $suffix = "x64" }
+        $arch = $null
+        try { $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString() } catch { $arch = $null }
+        $suffix = "x64"
+        if ($arch -eq "Arm64") { $suffix = "arm64" }
 
-            $candidate = Join-Path $kitRoot ("extensions\\local-linux-{0}" -f $suffix)
-            if (Test-Path -LiteralPath $candidate) {
-                $ExtensionsDir = $candidate
+        $extRoot = Join-Path $kitRoot "extensions"
+        $candidates = @()
+
+        if ($IsWindows) {
+            $candidates += Join-Path $extRoot ("local-win32-{0}" -f $suffix)
+        }
+        elseif ($IsLinux) {
+            $candidates += Join-Path $extRoot ("local-linux-{0}" -f $suffix)
+        }
+        elseif ($IsMacOS) {
+            if ($suffix -eq "arm64") {
+                $candidates += Join-Path $extRoot "local-darwin-arm64"
+                $candidates += Join-Path $extRoot "local-darwin-universal"
             }
             else {
-                $ExtensionsDir = Join-Path $kitRoot "extensions\\local"
+                $candidates += Join-Path $extRoot "local-darwin-x64"
+                $candidates += Join-Path $extRoot "local-darwin-universal"
             }
         }
-        else {
-            $ExtensionsDir = Join-Path $kitRoot "extensions\\local"
+
+        # Backward-compatible fallback (older kits).
+        $candidates += Join-Path $extRoot "local"
+
+        foreach ($c in $candidates) {
+            if (Test-Path -LiteralPath $c) { $ExtensionsDir = $c; break }
         }
     }
 }

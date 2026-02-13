@@ -12,7 +12,7 @@ This folder is an offline kit for Microsoft VS Code Remote-SSH.
 
 ### Client installers/archives
 
-Client packages are grouped under `./clients/<PLATFORM>/` (for example `win32-x64-user`, `darwin-universal`, `linux-deb-x64`).
+Client packages are grouped under `./clients/<os>-<arch>/` (for example `win32-x64`, `darwin-universal`, `linux-x64`).
 
 {{CLIENT_INVENTORY}}
 
@@ -28,8 +28,8 @@ VS Code CLI tarballs:
 
 ### Extensions (VSIX)
 
-- Local (client/UI side): `./extensions/local/`
-- Remote (server extension host): `./extensions/remote/`
+- Local (client/UI side): `./extensions/local-<TARGET>/` (examples: `./extensions/local-win32-x64/`, `./extensions/local-linux-x64/`)
+- Remote (server extension host): `./extensions/remote-linux-<arch>/` (examples: `./extensions/remote-linux-x64/`, `./extensions/remote-linux-arm64/`)
 
 ## Install on an air-gapped desktop client
 

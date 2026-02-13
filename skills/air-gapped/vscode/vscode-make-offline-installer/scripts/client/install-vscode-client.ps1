@@ -60,6 +60,8 @@ function Find-DefaultWindowsInstaller {
     if (Test-Path -LiteralPath $legacy) { $dirs += $legacy }
 
     $known = @(
+        (Join-Path $clientsRoot "win32-x64"),
+        (Join-Path $clientsRoot "win32-arm64"),
         (Join-Path $clientsRoot "win32-x64-user"),
         (Join-Path $clientsRoot "win32-arm64-user")
     )

@@ -14,7 +14,7 @@ Args:
   --kit-dir          Optional kit root override (folder containing clients/, extensions/, scripts/).
 
 Notes:
-  - Ubuntu Desktop: prefer the "linux-deb-<arch>" artifact and install via dpkg.
+  - Ubuntu Desktop: prefer a `.deb` under `clients/linux-<arch>/` and install via dpkg.
   - If dpkg reports missing dependencies, you must also provide those dependency .deb files offline.
 EOF
 }
@@ -89,6 +89,20 @@ if [[ -z "${installer_path}" ]]; then
         local rpms=( "${d}"/*.rpm )
         shopt -u nullglob
 
+        local has_dpkg="0"
+        local has_rpm="0"
+        command -v dpkg >/dev/null 2>&1 && has_dpkg="1"
+        command -v rpm >/dev/null 2>&1 && has_rpm="1"
+
+        if [[ "${has_dpkg}" -eq 1 && ${#debs[@]} -gt 0 ]]; then
+            installer_path="$(pick_matching "${arch}" "${debs[@]}")"
+            return 0
+        fi
+        if [[ "${has_rpm}" -eq 1 && ${#rpms[@]} -gt 0 ]]; then
+            installer_path="$(pick_matching "${arch}" "${rpms[@]}")"
+            return 0
+        fi
+
         if [[ ${#debs[@]} -gt 0 ]]; then
             installer_path="$(pick_matching "${arch}" "${debs[@]}")"
             return 0
@@ -102,14 +116,17 @@ if [[ -z "${installer_path}" ]]; then
 
     arch="$(detect_arch)"
 
-    # Preferred (platform-reflecting) layout produced by download scripts:
-    #   clients/linux-deb-x64/, clients/linux-deb-arm64/, clients/linux-rpm-x64/, ...
-    try_dir "${kit_dir}/clients/linux-deb-${arch}" || true
+    # Preferred (platform-specific) layout:
+    #   clients/linux-x64/, clients/linux-arm64/
+    try_dir "${kit_dir}/clients/linux-${arch}" || true
+
+    # Legacy layouts:
+    if [[ -z "${installer_path}" ]]; then
+        try_dir "${kit_dir}/clients/linux-deb-${arch}" || true
+    fi
     if [[ -z "${installer_path}" ]]; then
         try_dir "${kit_dir}/clients/linux-rpm-${arch}" || true
     fi
-
-    # Legacy layout:
     if [[ -z "${installer_path}" ]]; then
         try_dir "${kit_dir}/clients/linux" || true
     fi
