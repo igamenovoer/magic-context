@@ -40,7 +40,25 @@ if [[ -z "${extensions_dir}" ]]; then
     else
         kit_dir="$(cd -- "${kit_dir}" && pwd)"
     fi
-    extensions_dir="${kit_dir}/extensions/local"
+
+    os="$(uname -s | tr '[:upper:]' '[:lower:]' || true)"
+    if [[ "${os}" == "linux" ]]; then
+        m="$(uname -m || true)"
+        arch="x64"
+        case "${m}" in
+            x86_64|amd64) arch="x64" ;;
+            aarch64|arm64) arch="arm64" ;;
+            *) arch="x64" ;;
+        esac
+
+        if [[ -d "${kit_dir}/extensions/local-linux-${arch}" ]]; then
+            extensions_dir="${kit_dir}/extensions/local-linux-${arch}"
+        else
+            extensions_dir="${kit_dir}/extensions/local"
+        fi
+    else
+        extensions_dir="${kit_dir}/extensions/local"
+    fi
 fi
 
 if [[ ! -d "${extensions_dir}" ]]; then

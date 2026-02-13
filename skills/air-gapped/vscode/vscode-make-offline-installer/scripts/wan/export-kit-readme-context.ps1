@@ -110,9 +110,60 @@ if ($commit -is [string] -and $commit -ne "<COMMIT>" -and $commit -notmatch "^[0
     $commit = "<COMMIT>"
 }
 
-$clientsWindowsDir = Join-Path $KitDir "clients\\windows"
-$clientsMacDir = Join-Path $KitDir "clients\\macos"
-$clientsLinuxDir = Join-Path $KitDir "clients\\linux"
+$clientsRoot = Join-Path $KitDir "clients"
+
+function Find-ClientPlatformDirs {
+    param([Parameter(Mandatory = $true)][string]$ClientsRoot)
+
+    if (-not (Test-Path -LiteralPath $ClientsRoot)) { return @() }
+
+    $dirs = Get-ChildItem -LiteralPath $ClientsRoot -Directory -ErrorAction SilentlyContinue
+    if (-not $dirs) { return @() }
+
+    return @($dirs | Select-Object -ExpandProperty FullName)
+}
+
+function Find-ClientFilesByPrefix {
+    param(
+        [Parameter(Mandatory = $true)][string]$ClientsRoot,
+        [Parameter(Mandatory = $true)][string[]]$Prefixes,
+        [Parameter(Mandatory = $true)][string[]]$Patterns
+    )
+
+    $files = @()
+
+    # Legacy OS folders (windows/macos/linux)
+    foreach ($legacy in @("windows", "macos", "linux")) {
+        $p = Join-Path $ClientsRoot $legacy
+        if (Test-Path -LiteralPath $p) {
+            $files += Find-Files -Dir $p -Patterns $Patterns
+        }
+    }
+
+    # Platform-reflecting folders (e.g. win32-x64-user, linux-deb-x64, darwin-universal)
+    $platDirs = Find-ClientPlatformDirs -ClientsRoot $ClientsRoot
+    foreach ($d in $platDirs) {
+        $name = Split-Path -Leaf $d
+        $match = $false
+        foreach ($pref in $Prefixes) {
+            if ($name.StartsWith($pref)) { $match = $true; break }
+        }
+        if (-not $match) { continue }
+        $files += Find-Files -Dir $d -Patterns $Patterns
+    }
+
+    return @($files | Sort-Object -Property FullName -Unique)
+}
+
+$winInstallers = @()
+$macPackages = @()
+$linuxPackages = @()
+
+if (Test-Path -LiteralPath $clientsRoot) {
+    $winInstallers = @(Find-ClientFilesByPrefix -ClientsRoot $clientsRoot -Prefixes @("win32-") -Patterns @("*.exe", "*.msi", "*.zip"))
+    $macPackages = @(Find-ClientFilesByPrefix -ClientsRoot $clientsRoot -Prefixes @("darwin-") -Patterns @("*.zip", "*.dmg"))
+    $linuxPackages = @(Find-ClientFilesByPrefix -ClientsRoot $clientsRoot -Prefixes @("linux-") -Patterns @("*.deb", "*.rpm", "*.tar.gz"))
+}
 
 $serverLinuxX64Dir = Join-Path $KitDir "server\\linux-x64"
 $serverLinuxArm64Dir = Join-Path $KitDir "server\\linux-arm64"
@@ -121,12 +172,9 @@ $serverCliDir = Join-Path $KitDir "server\\cli"
 $extLocalDir = Join-Path $KitDir "extensions\\local"
 $extRemoteDir = Join-Path $KitDir "extensions\\remote"
 
-$winInstallers = @(Find-Files -Dir $clientsWindowsDir -Patterns @("*.exe", "*.msi", "*.zip"))
-$macPackages = @(Find-Files -Dir $clientsMacDir -Patterns @("*.zip", "*.dmg"))
-$linuxDeb = @(Find-Files -Dir $clientsLinuxDir -Patterns @("*.deb"))
-$linuxRpm = @(Find-Files -Dir $clientsLinuxDir -Patterns @("*.rpm"))
-$linuxTarGz = @(Find-Files -Dir $clientsLinuxDir -Patterns @("*.tar.gz"))
-$linuxPackages = @($linuxDeb + $linuxRpm + $linuxTarGz)
+$linuxDeb = @($linuxPackages | Where-Object { $_.Extension -eq ".deb" })
+$linuxRpm = @($linuxPackages | Where-Object { $_.Extension -eq ".rpm" })
+$linuxTarGz = @($linuxPackages | Where-Object { $_.Name -like "*.tar.gz" })
 
 $srvX64 = @(Find-Files -Dir $serverLinuxX64Dir -Patterns @("*.tar.gz"))
 $srvArm64 = @(Find-Files -Dir $serverLinuxArm64Dir -Patterns @("*.tar.gz"))
@@ -203,17 +251,17 @@ if ($hasWindows) {
     $clientInstallSections += (@(
             '#### Windows'
             ''
-            '1. Pick the installer under `./clients/windows/`'
+            '1. Pick an installer under `./clients/win32-*/` (or legacy `./clients/windows/`)'
             '2. Run the installer (interactive):'
-            '   - Recommended (auto-detects from `./clients/windows/`): `scripts\client\install-vscode-client.bat`'
-            '   - Or specify an exact file: `scripts\client\install-vscode-client.bat -InstallerPath .\clients\windows\<FILE>.exe`'
+            '   - Recommended (auto-detects from `./clients/`): `scripts\client\install-vscode-client.bat`'
+            '   - Or specify an exact file: `scripts\client\install-vscode-client.bat -InstallerPath .\clients\<PLATFORM>\<FILE>.exe`'
         ) -join "`n")
 }
 if ($hasLinuxClient) {
     $linuxInstallLines = @(
         '#### Linux desktop (air-gapped client)'
         ''
-        'Pick a package under `./clients/linux/` and install it with your distro tooling.'
+        'Pick a package under `./clients/linux-*/` (or legacy `./clients/linux/`) and install it with your distro tooling.'
         ''
     )
 
@@ -222,7 +270,7 @@ if ($hasLinuxClient) {
         $linuxInstallLines += @(
             'Ubuntu Desktop / Debian:'
             ('- Install: `sudo dpkg -i {0}`' -f $debRel)
-            '- Or helper (auto-detects from `./clients/linux/`): `bash scripts/client/install-vscode-client.sh`'
+            '- Or helper (auto-detects from `./clients/`): `bash scripts/client/install-vscode-client.sh`'
             ('- Or helper (explicit): `bash scripts/client/install-vscode-client.sh --installer-path {0}`' -f $debRel)
             ''
             'If `dpkg` reports missing dependencies, you must stage and install those dependency `.deb` files offline too.'
@@ -235,7 +283,7 @@ if ($hasLinuxClient) {
         $linuxInstallLines += @(
             'Fedora / RHEL-like:'
             ('- Install: `sudo rpm -Uvh {0}`' -f $rpmRel)
-            '- Or helper (auto-detects from `./clients/linux/`): `bash scripts/client/install-vscode-client.sh`'
+            '- Or helper (auto-detects from `./clients/`): `bash scripts/client/install-vscode-client.sh`'
             ('- Or helper (explicit): `bash scripts/client/install-vscode-client.sh --installer-path {0}`' -f $rpmRel)
             ''
         )

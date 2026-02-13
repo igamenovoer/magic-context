@@ -48,7 +48,23 @@ function Get-KitRootFromScriptLocation {
 if ([string]::IsNullOrWhiteSpace($ExtensionsDir)) {
     $kitRoot = Get-KitRootFromScriptLocation
     if ($kitRoot) {
-        $ExtensionsDir = Join-Path $kitRoot "extensions\\local"
+        if ($IsLinux) {
+            $arch = $null
+            try { $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString() } catch { $arch = $null }
+            $suffix = $null
+            if ($arch -eq "Arm64") { $suffix = "arm64" } else { $suffix = "x64" }
+
+            $candidate = Join-Path $kitRoot ("extensions\\local-linux-{0}" -f $suffix)
+            if (Test-Path -LiteralPath $candidate) {
+                $ExtensionsDir = $candidate
+            }
+            else {
+                $ExtensionsDir = Join-Path $kitRoot "extensions\\local"
+            }
+        }
+        else {
+            $ExtensionsDir = Join-Path $kitRoot "extensions\\local"
+        }
     }
 }
 

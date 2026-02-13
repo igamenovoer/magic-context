@@ -52,11 +52,33 @@ function Find-DefaultWindowsInstaller {
         [string]$KitRoot
     )
 
-    $clientsWindows = Join-Path $KitRoot "clients\\windows"
-    if (-not (Test-Path -LiteralPath $clientsWindows)) { return $null }
+    $clientsRoot = Join-Path $KitRoot "clients"
+    if (-not (Test-Path -LiteralPath $clientsRoot)) { return $null }
 
-    $candidates = Get-ChildItem -LiteralPath $clientsWindows -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.Extension -in @(".exe", ".msi") }
+    $dirs = @()
+    $legacy = Join-Path $clientsRoot "windows"
+    if (Test-Path -LiteralPath $legacy) { $dirs += $legacy }
+
+    $known = @(
+        (Join-Path $clientsRoot "win32-x64-user"),
+        (Join-Path $clientsRoot "win32-arm64-user")
+    )
+    foreach ($d in $known) {
+        if (Test-Path -LiteralPath $d) { $dirs += $d }
+    }
+
+    $dirs += Get-ChildItem -LiteralPath $clientsRoot -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like "win32-*" } |
+        Select-Object -ExpandProperty FullName
+
+    $dirs = @($dirs | Sort-Object -Unique)
+    if (-not $dirs -or $dirs.Count -eq 0) { return $null }
+
+    $candidates = @()
+    foreach ($d in $dirs) {
+        $candidates += Get-ChildItem -LiteralPath $d -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -in @(".exe", ".msi") }
+    }
 
     if (-not $candidates) { return $null }
 

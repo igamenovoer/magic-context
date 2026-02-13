@@ -19,7 +19,7 @@
 
 .PARAMETER ClientPlatforms
   Array of client platform strings (e.g. win32-x64-user, darwin-universal, linux-deb-x64).
-  If omitted, no client artifacts are downloaded.
+  If omitted, no client artifacts are downloaded. Artifacts are saved under clients/<PLATFORM>/ by default.
 
 .PARAMETER ServerArch
   Array of Linux server arches to download (x64, arm64). Default: x64.
@@ -212,12 +212,7 @@ foreach ($platform in $ClientPlatforms) {
     $plat = $platform.Trim()
     $url = "https://update.code.visualstudio.com/commit:$Commit/$plat/$Channel"
 
-    $osFolder = "misc"
-    if ($plat.StartsWith("win32-")) { $osFolder = "windows" }
-    elseif ($plat.StartsWith("darwin-")) { $osFolder = "macos" }
-    elseif ($plat.StartsWith("linux-")) { $osFolder = "linux" }
-
-    $outSub = Join-Path $clientsDir $osFolder
+    $outSub = Join-Path $clientsDir $plat
     Ensure-Dir $outSub
 
     Write-Host "==> Download client: $plat" -ForegroundColor Yellow

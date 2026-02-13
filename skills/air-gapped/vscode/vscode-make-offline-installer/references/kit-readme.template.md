@@ -12,6 +12,8 @@ This folder is an offline kit for Microsoft VS Code Remote-SSH.
 
 ### Client installers/archives
 
+Client packages are grouped under `./clients/<PLATFORM>/` (for example `win32-x64-user`, `darwin-universal`, `linux-deb-x64`).
+
 {{CLIENT_INVENTORY}}
 
 ### Server artifacts (headless Linux)

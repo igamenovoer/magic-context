@@ -78,17 +78,28 @@ vscode-airgap-kit/
     vscode.local.json               # optional: discovery export from a host (channel/version/commit)
     extensions.local.txt            # local-side extension id@version pins
     extensions.remote.txt           # remote-side extension id@version pins
-  clients/                          # VS Code desktop installers/archives per OS
-    windows/                        # e.g., VSCodeUserSetup-*.exe
-    macos/                          # e.g., VSCode-*.zip
-    linux/                          # e.g., .deb/.rpm/.tar.gz
+  clients/                          # VS Code desktop installers/archives per PLATFORM (cross-OS downloads supported)
+    win32-x64-user/                 # e.g., VSCodeUserSetup-*.exe
+    win32-arm64-user/               # e.g., VSCodeUserSetup-*.exe
+    darwin-universal/               # e.g., VSCode-darwin-universal.zip
+    darwin-arm64/                   # e.g., VSCode-darwin-arm64.zip
+    linux-deb-x64/                  # e.g., code_*.deb
+    linux-deb-arm64/                # e.g., code_*.deb
+    linux-rpm-x64/                  # e.g., code-*.rpm
+    linux-rpm-arm64/                # e.g., code-*.rpm
+    linux-x64/                      # e.g., VSCode-linux-x64.tar.gz
+    linux-arm64/                    # e.g., VSCode-linux-arm64.tar.gz
   server/                           # VS Code Server + CLI artifacts for air-gapped Remote-SSH
     linux-x64/                      # vscode-server-linux-x64-<COMMIT>.tar.gz
     linux-arm64/                    # vscode-server-linux-arm64-<COMMIT>.tar.gz
     cli/                            # vscode-cli-alpine-<arch>-<COMMIT>.tar.gz
   extensions/                       # offline extension bundles (.vsix)
-    local/                          # install on the client (UI side): `code --install-extension`
-    remote/                         # install on the server (extension host): `code-server --install-extension`
+    local/                          # install on the client (UI side): `code --install-extension` (universal or host-side)
+    remote/                         # install on the server (extension host): `code-server --install-extension` (derived subset)
+    local-linux-x64/                # optional: platform-targeted downloads (preferred on Linux x64)
+    local-linux-arm64/              # optional: platform-targeted downloads (preferred on Linux arm64)
+    remote-linux-x64/               # optional: platform-targeted downloads (preferred on Linux x64 servers)
+    remote-linux-arm64/             # optional: platform-targeted downloads (preferred on Linux arm64 servers)
   scripts/                          # helper install/config scripts to run in each environment
     wan/                            # run on WAN-connected prep host
     client/                         # run on air-gapped desktop client
@@ -201,14 +212,14 @@ Common `PLATFORM` values:
   - Debian/Ubuntu: `linux-deb-x64`, `linux-deb-arm64`
   - RHEL/Fedora: `linux-rpm-x64`, `linux-rpm-arm64`
 
-Save the downloaded files under `clients/<os>/` and record SHA256 hashes in `manifest/vscode.json`.
+Save the downloaded files under `clients/<PLATFORM>/` and record SHA256 hashes in `manifest/vscode.json`.
 
 Optional helper (WAN prep) to download commit-pinned artifacts and write `manifest/vscode.json`:
 
 ```powershell
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vscode-artifacts.ps1 `
   -Commit "<COMMIT>" -Channel stable -OutDir .\\vscode-airgap-kit `
-  -ClientPlatforms @("win32-x64-user") `
+  -ClientPlatforms @("win32-x64-user","linux-deb-x64") `
   -ServerArch @("x64","arm64")
 ```
 
@@ -291,8 +302,13 @@ Downloading `.vsix` (preferred order):
 Optional helper (Windows-friendly) to download pinned VSIX in bulk:
 
 ```powershell
+# Universal / host-side (works for most extensions):
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.local.txt -OutDir .\\extensions\\local
-pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.remote.txt -OutDir .\\extensions\\remote -TargetPlatform linux-x64 -RequiredIds @()
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.remote.txt -OutDir .\\extensions\\remote -RequiredIds @()
+
+# Platform-targeted (best-effort; skips VSIX that don't exist for that platform):
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.local.txt -OutDir .\\extensions\\local-linux-x64 -TargetPlatform linux-x64 -RequiredIds @()
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.remote.txt -OutDir .\\extensions\\remote-linux-x64 -TargetPlatform linux-x64 -RequiredIds @()
 ```
 
 Validate every `.vsix` is a ZIP (fast corruption check):
@@ -425,7 +441,7 @@ Symptoms:
 Actions:
 - You cannot transform a Windows-only VSIX into a Linux VSIX; you must download the Linux-targeted VSIX (if the publisher provides one).
 - Prefer downloading for the target Linux platform up front:
-  - `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.local.txt -OutDir .\\extensions\\remote -TargetPlatform linux-x64 -RequiredIds @()`
+  - `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts\\wan\\download-vsix-bundle.ps1 -InputList .\\manifest\\extensions.local.txt -OutDir .\\extensions\\remote-linux-x64 -TargetPlatform linux-x64 -RequiredIds @()`
   - Use `linux-arm64` for ARM servers.
 - If you already have a folder of VSIX, parse each VSIX `extension.vsixmanifest` `TargetPlatform` and exclude `win32-*` / `darwin-*` when building `extensions/remote/` for Linux.
 

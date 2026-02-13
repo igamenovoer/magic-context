@@ -9,7 +9,7 @@ Usage:
   install-vscode-client.sh [--installer-path <PATH>] [--channel auto|stable|insider] [--kit-dir <DIR>]
 
 Args:
-  --installer-path   Path to offline VS Code package (recommended: .deb for Ubuntu Desktop). If omitted, tries to locate one under ./clients/linux/ relative to this script.
+  --installer-path   Path to offline VS Code package (recommended: .deb for Ubuntu Desktop). If omitted, tries to locate one under ./clients/ relative to this script.
   --channel          Used only for printing the currently installed VS Code (auto|stable|insider). Default: auto.
   --kit-dir          Optional kit root override (folder containing clients/, extensions/, scripts/).
 
@@ -41,59 +41,77 @@ else
 fi
 
 if [[ -z "${installer_path}" ]]; then
-    linux_clients_dir="${kit_dir}/clients/linux"
-    if [[ -d "${linux_clients_dir}" ]]; then
-        shopt -s nullglob
-        debs=( "${linux_clients_dir}"/*.deb )
-        rpms=( "${linux_clients_dir}"/*.rpm )
-        shopt -u nullglob
+    detect_arch() {
+        local m=""
+        m="$(uname -m || true)"
+        case "${m}" in
+            x86_64|amd64) echo "x64" ;;
+            aarch64|arm64) echo "arm64" ;;
+            *) echo "x64" ;;
+        esac
+    }
 
-        detect_arch() {
-            local m=""
-            m="$(uname -m || true)"
-            case "${m}" in
-                x86_64|amd64) echo "x64" ;;
-                aarch64|arm64) echo "arm64" ;;
-                *) echo "x64" ;;
+    pick_matching() {
+        local arch="$1"
+        shift
+        local f=""
+        for f in "$@"; do
+            local b=""
+            b="$(basename "${f}")"
+            case "${arch}" in
+                x64)
+                    if [[ "${b}" =~ (amd64|x86_64|x64) ]]; then
+                        printf '%s\n' "${f}"
+                        return 0
+                    fi
+                    ;;
+                arm64)
+                    if [[ "${b}" =~ (arm64|aarch64) ]]; then
+                        printf '%s\n' "${f}"
+                        return 0
+                    fi
+                    ;;
             esac
-        }
+        done
+        if [[ $# -gt 0 ]]; then
+            printf '%s\n' "$1"
+            return 0
+        fi
+        return 1
+    }
 
-        pick_matching() {
-            local arch="$1"
-            shift
-            local f=""
-            for f in "$@"; do
-                local b=""
-                b="$(basename "${f}")"
-                case "${arch}" in
-                    x64)
-                        if [[ "${b}" =~ (amd64|x86_64|x64) ]]; then
-                            printf '%s\n' "${f}"
-                            return 0
-                        fi
-                        ;;
-                    arm64)
-                        if [[ "${b}" =~ (arm64|aarch64) ]]; then
-                            printf '%s\n' "${f}"
-                            return 0
-                        fi
-                        ;;
-                esac
-            done
-            if [[ $# -gt 0 ]]; then
-                printf '%s\n' "$1"
-                return 0
-            fi
-            return 1
-        }
+    try_dir() {
+        local d="$1"
+        [[ -d "${d}" ]] || return 1
 
-        arch="$(detect_arch)"
+        shopt -s nullglob
+        local debs=( "${d}"/*.deb )
+        local rpms=( "${d}"/*.rpm )
+        shopt -u nullglob
 
         if [[ ${#debs[@]} -gt 0 ]]; then
             installer_path="$(pick_matching "${arch}" "${debs[@]}")"
-        elif [[ ${#rpms[@]} -gt 0 ]]; then
-            installer_path="$(pick_matching "${arch}" "${rpms[@]}")"
+            return 0
         fi
+        if [[ ${#rpms[@]} -gt 0 ]]; then
+            installer_path="$(pick_matching "${arch}" "${rpms[@]}")"
+            return 0
+        fi
+        return 1
+    }
+
+    arch="$(detect_arch)"
+
+    # Preferred (platform-reflecting) layout produced by download scripts:
+    #   clients/linux-deb-x64/, clients/linux-deb-arm64/, clients/linux-rpm-x64/, ...
+    try_dir "${kit_dir}/clients/linux-deb-${arch}" || true
+    if [[ -z "${installer_path}" ]]; then
+        try_dir "${kit_dir}/clients/linux-rpm-${arch}" || true
+    fi
+
+    # Legacy layout:
+    if [[ -z "${installer_path}" ]]; then
+        try_dir "${kit_dir}/clients/linux" || true
     fi
 fi
 

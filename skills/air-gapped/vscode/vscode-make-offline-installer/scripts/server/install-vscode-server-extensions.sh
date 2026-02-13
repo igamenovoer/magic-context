@@ -61,7 +61,21 @@ if [[ -z "${commit}" ]]; then
 fi
 
 if [[ -z "${extensions_dir}" ]]; then
-    if ls "${kit_dir}/extensions/remote"/*.vsix >/dev/null 2>&1; then
+    detect_arch() {
+        local m=""
+        m="$(uname -m || true)"
+        case "${m}" in
+            x86_64|amd64) echo "x64" ;;
+            aarch64|arm64) echo "arm64" ;;
+            *) echo "x64" ;;
+        esac
+    }
+
+    arch="$(detect_arch)"
+
+    if ls "${kit_dir}/extensions/remote-linux-${arch}"/*.vsix >/dev/null 2>&1; then
+        extensions_dir="${kit_dir}/extensions/remote-linux-${arch}"
+    elif ls "${kit_dir}/extensions/remote"/*.vsix >/dev/null 2>&1; then
         extensions_dir="${kit_dir}/extensions/remote"
     else
         extensions_dir="${kit_dir}/extensions/local"
