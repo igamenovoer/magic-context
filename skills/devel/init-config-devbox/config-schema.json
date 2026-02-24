@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aihub-wan.local/config-schema.json",
+  "title": "aihub-wan bootstrap config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "paths",
+    "proxy",
+    "urls",
+    "pixi",
+    "uv",
+    "npm",
+    "bun",
+    "claude",
+    "credentials"
+  ],
+  "properties": {
+    "paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pixi_cache_dir": { "type": "string" },
+        "uv_cache_dir": { "type": "string" }
+      }
+    },
+    "proxy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "candidate_list": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "urls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["npm_registry_mirror", "npm_registry_official", "nvm_node_mirror", "nvm_npm_mirror"],
+      "properties": {
+        "npm_registry_mirror": { "type": "string", "format": "uri" },
+        "npm_registry_official": { "type": "string", "format": "uri" },
+        "nvm_node_mirror": { "type": "string", "format": "uri" },
+        "nvm_npm_mirror": { "type": "string", "format": "uri" }
+      }
+    },
+    "pixi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["channel_priority", "global_tools"],
+      "properties": {
+        "channel_priority": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "global_tools": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "uv": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["global_tools"],
+      "properties": {
+        "global_tools": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "npm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["global_packages", "install_global", "install_latest"],
+      "properties": {
+        "global_packages": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "install_global": { "type": "boolean" },
+        "install_latest": { "type": "boolean" }
+      }
+    },
+    "bun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["global_packages", "install_global", "install_latest"],
+      "properties": {
+        "global_packages": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "install_global": { "type": "boolean" },
+        "install_latest": { "type": "boolean" }
+      }
+    },
+    "claude": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alias",
+        "base_url",
+        "primary_model",
+        "secondary_model",
+        "configure_skip_login",
+        "configure_tavily_mcp",
+        "configure_context7_mcp"
+      ],
+      "properties": {
+        "alias": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 1
+        },
+        "base_url": { "type": "string" },
+        "primary_model": { "type": "string" },
+        "secondary_model": { "type": "string" },
+        "configure_skip_login": { "type": "boolean" },
+        "configure_tavily_mcp": { "type": "boolean" },
+        "configure_context7_mcp": { "type": "boolean" }
+      }
+    },
+    "credentials": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["anthropic_api_key", "tavily_api_key", "context7_api_key"],
+      "properties": {
+        "anthropic_api_key": { "type": "string", "minLength": 1 },
+        "tavily_api_key": { "type": "string", "minLength": 1 },
+        "context7_api_key": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

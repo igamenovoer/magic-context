@@ -1,0 +1,71 @@
+[paths]
+pixi_cache_dir = "/nfs/3D/huangzhe/pixi-cache"
+uv_cache_dir = "/nfs/3D/huangzhe/uv-cache"
+
+[credentials]
+anthropic_api_key = ""
+tavily_api_key = ""
+context7_api_key = ""
+
+[claude]
+alias = "claude-yunwu"
+base_url = ""
+primary_model = ""
+secondary_model = ""
+configure_skip_login = true
+configure_tavily_mcp = true
+configure_context7_mcp = true
+
+[proxy]
+candidate_list = ["127.0.0.1:7890"]
+
+[urls]
+npm_registry_mirror = "https://registry.npmmirror.com"
+npm_registry_official = "https://registry.npmjs.org"
+nvm_node_mirror = "https://npmmirror.com/mirrors/node/"
+nvm_npm_mirror = "https://npmmirror.com/mirrors/npm/"
+
+[pixi]
+channel_priority = ["nvidia", "conda-forge"]
+global_tools = [
+  "aria2",
+  "btop",
+  "graphviz",
+  "gh",
+  "git-lfs",
+  "helix",
+  "httpie",
+  "jq",
+  "nvitop",
+  "yq",
+]
+
+[uv]
+global_tools = [
+  "awscli",
+  "modelscope",
+  "markitdown",
+  "netron",
+  "openxlab",
+  "pgcli",
+]
+
+[npm]
+global_packages = []
+install_global = true
+install_latest = true
+
+[bun]
+global_packages = [
+  "@anthropic-ai/claude-code",
+  "@google/gemini-cli",
+  "@openai/codex",
+  "@upstash/context7-mcp",
+  "tavily-mcp",
+  "@fission-ai/openspec",
+  "mcp-remote",
+]
+install_global = true
+install_latest = true
+
+
