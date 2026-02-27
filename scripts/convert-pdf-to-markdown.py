@@ -210,7 +210,7 @@ def extract_images_with_pymupdf(pdf_path: Path, images_dir: Path) -> List[str]:
                 pix = fitz.Pixmap(pdf_doc, xref)
 
                 if pix.n - pix.alpha < 4:  # GRAY or RGB
-                    img_filename = f"page_{page_num+1}_img_{img_index+1}.png"
+                    img_filename = f"page_{page_num + 1}_img_{img_index + 1}.png"
                     img_path = images_dir / img_filename
                     pix.save(str(img_path))
                     image_refs.append(img_filename)
@@ -532,9 +532,9 @@ Features:
         pdf_files = pdf_files[:1]
 
     for i, pdf_file in enumerate(pdf_files):
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Processing: {pdf_file.name}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         # Determine the final output file
         if len(pdf_files) == 1 or args.output.endswith(".md"):

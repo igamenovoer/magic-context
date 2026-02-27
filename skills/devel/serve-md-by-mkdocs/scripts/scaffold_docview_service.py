@@ -33,6 +33,7 @@ def _default_dirs_env_var(service_dir: str) -> str:
         slug = f"DOCVIEW_{slug}"
     return f"{slug}_DIRS"
 
+
 def _default_repo_root_env_var(dirs_env_var: str) -> str:
     if dirs_env_var.endswith("_DIRS"):
         return f"{dirs_env_var[:-5]}_REPO_ROOT"
@@ -113,13 +114,23 @@ def _docview_manifest_yaml(
     lines.append("# DocView manifest (v1)")
     lines.append("#")
     lines.append("# This file captures your “what should be staged” intent.")
-    lines.append("# - scan.include_globs: glob patterns for Markdown discovery (defaults)")
-    lines.append("# - scan.force_globs: glob patterns scanned even if gitignored (explicit user intent)")
-    lines.append("# - scan.exclude_globs: glob patterns excluded from Markdown discovery")
+    lines.append(
+        "# - scan.include_globs: glob patterns for Markdown discovery (defaults)"
+    )
+    lines.append(
+        "# - scan.force_globs: glob patterns scanned even if gitignored (explicit user intent)"
+    )
+    lines.append(
+        "# - scan.exclude_globs: glob patterns excluded from Markdown discovery"
+    )
     lines.append("#")
     lines.append("# Notes:")
-    lines.append("# - By default, discovery respects .gitignore (gitignored dirs/files are not scanned for Markdown).")
-    lines.append("# - Referenced image assets from selected Markdown are still staged even if gitignored.")
+    lines.append(
+        "# - By default, discovery respects .gitignore (gitignored dirs/files are not scanned for Markdown)."
+    )
+    lines.append(
+        "# - Referenced image assets from selected Markdown are still staged even if gitignored."
+    )
     lines.append("")
     lines.append("version: 1")
     lines.append("")
@@ -147,6 +158,7 @@ def _docview_manifest_yaml(
         lines.append(f"    - {ext}")
     lines.append("")
     return "\n".join(lines)
+
 
 def _scan_files_script() -> str:
     # Written into the work dir so the service is self-contained and easy to copy/move.
@@ -920,7 +932,11 @@ def _service_readme(
     staging_dir: str,
     default_targets: list[str],
 ) -> str:
-    default_list = "\n".join([f"- `{t}`" for t in default_targets]) if default_targets else "- (none)"
+    default_list = (
+        "\n".join([f"- `{t}`" for t in default_targets])
+        if default_targets
+        else "- (none)"
+    )
     bind_note = (
         f"Default bind address/port is `{dev_addr}`."
         if dev_addr
@@ -1340,14 +1356,20 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    repo_root = Path(args.repo_root).resolve() if args.repo_root else _detect_repo_root(Path("."))
+    repo_root = (
+        Path(args.repo_root).resolve()
+        if args.repo_root
+        else _detect_repo_root(Path("."))
+    )
 
     work_dir_raw = args.work_dir or args.service_dir
     if not work_dir_raw:
         raise ValueError("Missing --work-dir/--service-dir.")
 
     work_dir = Path(work_dir_raw)
-    service_root = (work_dir if work_dir.is_absolute() else (repo_root / work_dir)).resolve()
+    service_root = (
+        work_dir if work_dir.is_absolute() else (repo_root / work_dir)
+    ).resolve()
     service_name = service_root.name
     dirs_env_var = args.dirs_env_var or _default_dirs_env_var(service_name)
     repo_root_env_var = _default_repo_root_env_var(dirs_env_var)
@@ -1364,7 +1386,9 @@ def main() -> int:
     if not staging_dir:
         raise ValueError("--staging-dir must be a non-empty relative path.")
     if Path(staging_dir).is_absolute() or ".." in Path(staging_dir).parts:
-        raise ValueError("--staging-dir must be a relative path that does not contain '..'.")
+        raise ValueError(
+            "--staging-dir must be a relative path that does not contain '..'."
+        )
 
     default_targets = list(args.default_target)
     if not default_targets:
@@ -1433,7 +1457,9 @@ def main() -> int:
     print(f"Created docview service: {service_root}")
     print(f"- Roots override env var: {dirs_env_var}")
     print(f"- Repo root override env var: {repo_root_env_var}")
-    print(f"- Serve: pixi run bash {service_root}/refresh-docs-tree.sh && pixi run mkdocs serve -f {service_root}/mkdocs.yml")
+    print(
+        f"- Serve: pixi run bash {service_root}/refresh-docs-tree.sh && pixi run mkdocs serve -f {service_root}/mkdocs.yml"
+    )
     return 0
 
 
