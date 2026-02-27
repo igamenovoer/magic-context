@@ -71,3 +71,6 @@ If the init block does not render, remove it and fall back to label-wrapping and
 - [ ] Complex flows are split into multiple diagrams.
 - [ ] Diagram validated in Mermaid Live Editor when styling/rendering is uncertain.
 
+## Troubleshooting
+
+See `troubleshoot.md` for common Mermaid parse errors and fixes (especially flowchart node labels that include `<br/>` and parentheses).
