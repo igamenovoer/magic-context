@@ -35,7 +35,26 @@ context/
 
 ## Directory Purposes
 
-**design/** - Store API specifications, architecture diagrams, and technical design documents. Include both high-level system design and detailed component specifications.
+**design/** - Store *iterating* design notes: API specifications, architecture diagrams, and technical design documents that are expected to change while you build. Include both high-level system design and detailed component specifications, but treat them as **draft / working** documents rather than finalized references.
+
+Design docs lifecycle:
+
+- `context/design/**` is for fast iteration during development (brainstorms, drafts, partially-implemented designs, alternative approaches).
+- Finalized designs should be promoted into your project’s **official documentation directory** (commonly `docs/`, or whatever directory you publish/maintain as canonical docs).
+- When a design is done (implemented, superseded, or abandoned), keep the historical record but remove it from the active set by moving it under `context/design/_archive/`.
+
+Recommended organization for `context/design/`:
+
+- Use subdirectories by area (e.g., `context/design/indexing/`, `context/design/contracts/`) and include a short `README.md` in each folder explaining scope.
+- Keep one design topic per file; prefer concise, linkable documents over “mega docs”.
+
+Recommended status vocabulary for `context/design/**` (UPPERCASE):
+
+- `BRAINSTORM`: exploratory ideas; not committed to implement
+- `ACTIVE`: in progress or partially implemented; expected to change
+- `IMPLEMENTED`: implemented and done; archive it
+- `SUPERSEDED`: replaced by a newer design; archive it and point to the replacement
+- `ABANDONED`: dropped; archive it
 
 **hints/** - Create "howto-" guides for common development tasks, error solutions, and best practices specific to your project. These help AI assistants avoid known pitfalls.
 
@@ -126,7 +145,7 @@ context/
 
 **HEADER Section** - Every context document should start with a header section containing:
 - **Purpose**: What this document is for
-- **Status**: Current state (active/completed/deprecated/failed)
+- **Status**: Current state (for design docs under `context/design/**`, prefer the UPPERCASE vocabulary listed above)
 - **Date**: When created or last updated
 - **Dependencies**: What this relates to or requires
 - **Target**: Intended audience (AI assistants, developers, etc.)
@@ -137,7 +156,7 @@ Example header format:
 
 ## HEADER
 - **Purpose**: Implement user authentication system
-- **Status**: Completed
+- **Status**: ACTIVE
 - **Date**: 2025-01-15
 - **Dependencies**: Database schema, JWT library
 - **Target**: AI assistants and backend developers
