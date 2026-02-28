@@ -25,8 +25,8 @@ Prefer `--resume` over `--continue` in automation because it is explicit and det
 
 For multi-process workflows, persist an alias→session mapping file:
 
-- Default path: `<system-tmp>/agent-sessions/claude-code-alias-mapping.yaml`
-- Store per-alias metadata: `session_id`, `workspace_dir`, `created_at`
+- Default path: `<system-tmp>/agent-sessions/<basename-of-workspace>-<md5-hex-string-of-abs-path-of-workspace>/claude-code-alias-mapping.json`
+- Store `workspace_dir` once at top-level; store per-alias metadata under `aliases`: `session_id`, `created_at`
 - Overwrite alias entries unconditionally
 - Conflict handling is left to the user (avoid unintentional alias collisions across processes)
 

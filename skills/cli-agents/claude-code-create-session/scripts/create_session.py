@@ -3,10 +3,11 @@
 Create a Claude Code session and print the resulting session_id.
 
 This is a thin wrapper around the `claude` CLI intended for automation.
-By default it also updates a YAML mapping file in the system temp directory:
-`agent-sessions/claude-code-alias-mapping.yaml` (alias entries are overwritten
-unconditionally). If the mapping file cannot be written, the script prints a
-warning to stderr and still succeeds.
+By default it also updates a JSON mapping file in the system temp directory:
+`agent-sessions/<workspace-basename>-<md5(abs-workspace-dir)>/claude-code-alias-mapping.json`
+(alias entries are overwritten unconditionally). The mapping file stores the
+workspace directory once (top-level), not repeated per alias. If the mapping file
+cannot be written, the script prints a warning to stderr and still succeeds.
 
 Examples
 --------
@@ -20,8 +21,10 @@ Load credentials from an env file before calling `claude`:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -56,125 +59,76 @@ def _read_env_vars_file(path: Path) -> dict[str, str]:
     return env
 
 
-def _default_mapping_file() -> Path:
-    """Return the default alias→session mapping file path."""
+def _workspace_dir_key(workspace_dir: str) -> str:
+    """Convert a workspace directory into a filesystem-safe key string.
 
-    return Path(tempfile.gettempdir()) / "agent-sessions" / "claude-code-alias-mapping.yaml"
-
-
-def _split_key_value(line: str) -> tuple[str, str] | None:
-    """Split a YAML-ish `key: value` line on the first ':' outside quotes."""
-
-    in_single = False
-    in_double = False
-    escaped = False
-    for i, ch in enumerate(line):
-        if escaped:
-            escaped = False
-            continue
-        if ch == "\\" and in_double:
-            escaped = True
-            continue
-        if ch == '"' and not in_single:
-            in_double = not in_double
-            continue
-        if ch == "'" and not in_double:
-            in_single = not in_single
-            continue
-        if ch == ":" and not in_single and not in_double:
-            return line[:i], line[i + 1 :]
-    return None
-
-
-def _parse_scalar(value: str) -> str:
-    """Parse a limited YAML scalar (plain or double-quoted string)."""
-
-    value = value.strip()
-    if not value:
-        return ""
-    if value.startswith('"') and value.endswith('"'):
-        try:
-            parsed = json.loads(value)
-            return parsed if isinstance(parsed, str) else str(parsed)
-        except json.JSONDecodeError:
-            return value.strip('"')
-    if value.startswith("'") and value.endswith("'"):
-        inner = value[1:-1]
-        return inner.replace("''", "'")
-    return value
-
-
-def _load_mapping(path: Path) -> dict[str, dict[str, str]]:
-    """Load alias→metadata mapping from the YAML-ish mapping file.
-
-    The parser is intentionally minimal and only supports the structure this
-    script writes:
-
-    <alias>:
-      session_id: "..."
-      workspace_dir: "..."
-      created_at: "..."
+    Format: <workspace-basename>-<md5(abs-workspace-dir)>
     """
 
+    resolved = str(Path(workspace_dir).resolve())
+    base_name = Path(resolved).name or "workspace"
+    base_name = re.sub(r"[^A-Za-z0-9._-]+", "_", base_name).strip("_") or "workspace"
+    digest = hashlib.md5(resolved.encode("utf-8")).hexdigest()
+    return f"{base_name}-{digest}"
+
+
+def _default_mapping_file(workspace_dir: str) -> Path:
+    """Return the default alias→session mapping file path for a workspace."""
+
+    key = _workspace_dir_key(workspace_dir)
+    return Path(tempfile.gettempdir()) / "agent-sessions" / key / "claude-code-alias-mapping.json"
+
+
+def _load_mapping_json(path: Path) -> dict[str, Any]:
+    """Load mapping data from the JSON mapping file."""
+
     if not path.exists():
-        return {}
+        return {"workspace_dir": "", "aliases": {}}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("mapping file must be a JSON object")
 
-    mapping: dict[str, dict[str, str]] = {}
-    current_alias: str | None = None
+    if "aliases" in data and isinstance(data["aliases"], dict):
+        workspace_dir = data.get("workspace_dir")
+        if not isinstance(workspace_dir, str):
+            workspace_dir = ""
+        aliases: dict[str, dict[str, str]] = {}
+        for alias, entry in data["aliases"].items():
+            if not isinstance(alias, str):
+                continue
+            normalized: dict[str, str] = {}
+            if isinstance(entry, dict):
+                session_id = entry.get("session_id")
+                if isinstance(session_id, str) and session_id:
+                    normalized["session_id"] = session_id
+                created_at = entry.get("created_at")
+                if created_at is not None:
+                    normalized["created_at"] = str(created_at)
+            elif isinstance(entry, str) and entry:
+                normalized["session_id"] = entry
+            if "session_id" in normalized:
+                aliases[alias] = normalized
+        return {"workspace_dir": workspace_dir, "aliases": aliases}
 
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.rstrip()
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
+    # Back-compat: older file shape where the top-level object was the alias map.
+    aliases: dict[str, dict[str, str]] = {}
+    for alias, entry in data.items():
+        if not isinstance(alias, str) or alias in {"workspace_dir", "aliases"}:
             continue
-
-        indent = len(line) - len(line.lstrip(" "))
-
-        if indent == 0:
-            parts = _split_key_value(line)
-            if not parts:
-                current_alias = None
-                continue
-            key_part, rest = parts
-            if rest.strip():
-                # Unexpected inline value; treat as new alias but ignore value.
-                pass
-            alias = _parse_scalar(key_part)
-            current_alias = alias
-            mapping.setdefault(alias, {})
-            continue
-
-        if indent == 2 and current_alias is not None:
-            parts = _split_key_value(line.lstrip(" "))
-            if not parts:
-                continue
-            key_part, rest = parts
-            k = key_part.strip()
-            v = _parse_scalar(rest)
-            if k:
-                mapping[current_alias][k] = v
-
-    return mapping
-
-
-def _quote_key(key: str) -> str:
-    if key and all(ch.isalnum() or ch in "._-" for ch in key):
-        return key
-    return json.dumps(key, ensure_ascii=False)
-
-
-def _dump_mapping(mapping: dict[str, dict[str, str]]) -> str:
-    lines: list[str] = []
-    for alias in sorted(mapping):
-        lines.append(f"{_quote_key(alias)}:")
-        entry = mapping[alias]
-        ordered_keys = ["session_id", "workspace_dir", "created_at"]
-        for k in ordered_keys + sorted(set(entry) - set(ordered_keys)):
-            if k not in entry:
-                continue
-            lines.append(f"  {k}: {json.dumps(str(entry[k]), ensure_ascii=False)}")
-        lines.append("")
-    return "\n".join(lines).rstrip() + "\n"
+        normalized = {}
+        if isinstance(entry, dict):
+            session_id = entry.get("session_id")
+            if isinstance(session_id, str) and session_id:
+                normalized["session_id"] = session_id
+            created_at = entry.get("created_at")
+            if created_at is not None:
+                normalized["created_at"] = str(created_at)
+        elif isinstance(entry, str) and entry:
+            normalized["session_id"] = entry
+        if "session_id" in normalized:
+            aliases[alias] = normalized
+    workspace_dir = data.get("workspace_dir") if isinstance(data.get("workspace_dir"), str) else ""
+    return {"workspace_dir": workspace_dir, "aliases": aliases}
 
 
 def _write_mapping_file(
@@ -189,13 +143,31 @@ def _write_mapping_file(
 
     try:
         mapping_file.parent.mkdir(parents=True, exist_ok=True)
-        mapping = _load_mapping(mapping_file)
-        mapping[alias] = {
-            "session_id": session_id,
-            "workspace_dir": workspace_dir,
-            "created_at": created_at,
-        }
-        payload = _dump_mapping(mapping)
+        try:
+            data = _load_mapping_json(mapping_file)
+        except Exception as e:  # noqa: BLE001
+            backup = mapping_file.with_name(mapping_file.name + f".bad.{os.getpid()}")
+            try:
+                if mapping_file.exists():
+                    mapping_file.replace(backup)
+                sys.stderr.write(
+                    f"[WARN] Mapping file was invalid JSON; moved to {backup} and recreated: {e}\n"
+                )
+                data = {"workspace_dir": "", "aliases": {}}
+            except Exception as backup_error:  # noqa: BLE001
+                sys.stderr.write(
+                    f"[WARN] Failed to read/backup mapping file {mapping_file}: {backup_error}\n"
+                )
+                return False
+
+        aliases = data.get("aliases")
+        if not isinstance(aliases, dict):
+            aliases = {}
+        aliases[alias] = {"session_id": session_id, "created_at": created_at}
+        data["workspace_dir"] = workspace_dir
+        data["aliases"] = aliases
+
+        payload = json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
         tmp_path = mapping_file.with_name(mapping_file.name + f".tmp.{os.getpid()}")
         tmp_path.write_text(payload, encoding="utf-8")
         os.replace(tmp_path, mapping_file)
@@ -266,7 +238,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         "--mapping-file",
         type=Path,
         default=None,
-        help="Optional alias→session mapping YAML file path (defaults to system tmp).",
+        help="Optional alias→session mapping JSON file path (defaults to system tmp, workspace-scoped).",
     )
     parser.add_argument("--print-session-id", action="store_true")
     parser.add_argument("--print-mapping-json", action="store_true")
@@ -280,7 +252,7 @@ def main(argv: list[str]) -> int:
 
     info = create_session(alias=ns.alias, init_prompt=init_prompt, extra_env=extra_env)
 
-    mapping_file = ns.mapping_file or _default_mapping_file()
+    mapping_file = ns.mapping_file or _default_mapping_file(info.workspace_dir)
     wrote_mapping = _write_mapping_file(
         mapping_file,
         alias=info.alias,
