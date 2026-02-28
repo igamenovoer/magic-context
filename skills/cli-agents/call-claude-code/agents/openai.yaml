@@ -1,0 +1,4 @@
+interface:
+  display_name: "Call Claude Code"
+  short_description: "Programmatic Claude Code CLI calls"
+  default_prompt: "Use $call-claude-code to show one-shot, streaming, and resume patterns for the `claude` CLI."
