@@ -1,7 +1,7 @@
 interface:
   display_name: "Create Claude Code Session"
   short_description: "Create a named Claude session"
-  default_prompt: "Use $claude-code-create-session to create a Claude Code session and map a user-provided alias to the returned session_id for later resumes."
+  default_prompt: "Use $claude-code-create-session to create a Claude Code session and map a user-provided session name to the returned session_id for later resumes."
 
 policy:
   allow_implicit_invocation: false

@@ -4,6 +4,8 @@ Drive Claude Code from another program by spawning the `claude` CLI and parsing 
 
 This guide assumes **headless invocations** plus **session continuation**, not a long-lived JSON-RPC chat server.
 
+If you use a Claude wrapper (executable, `.sh`, or shell alias), substitute it for `claude` in the examples (example: `claude-wrapper -p ...`).
+
 ## One-shot prompt (structured JSON)
 
 ```bash
@@ -37,19 +39,13 @@ session_id="$(claude -p "Start a review" --output-format json | jq -r '.session_
 claude -p "Continue that review" --resume "$session_id"
 ```
 
-## Repo pattern: resume with a repo-managed credential profile
+## Credentials (env vars)
 
-This repo stores local-only credential profiles under `agents/brains/api-creds/`.
-
-If you have a Claude profile like:
-
-`agents/brains/api-creds/claude/<cred-profile>/env/vars.env`
-
-Load it into the environment before invoking `claude`:
+If you keep credentials in an env var file (KEY=VALUE lines), load it before invoking `claude`:
 
 ```bash
 set -a
-source agents/brains/api-creds/claude/personal-a-default/env/vars.env
+source /path/to/vars.env
 set +a
 
 codeword="CLAUDE-BANANA-$(date +%s)"
@@ -59,7 +55,7 @@ session_id="$(
 )"
 
 set -a
-source agents/brains/api-creds/claude/personal-a-default/env/vars.env
+source /path/to/vars.env
 set +a
 
 claude --resume "$session_id" -p "What codeword did I ask you to remember? Reply only the codeword." --output-format json |
@@ -102,6 +98,7 @@ Notes:
 1. Treat `stdout` as the machine channel and `stderr` as diagnostics.
 2. For robust automation, prefer `--output-format json` or `--output-format stream-json` over plain text parsing.
 3. If you need multi-turn state, persist the `session_id` and use `--resume`.
+4. If you use a wrapper command, replace `"claude"` with that executable (or pass it as a parameter).
 
 ## Optional: running Claude Code as an MCP server (tools, not chat)
 
@@ -119,4 +116,3 @@ It is not the same as a stable “chat session server” API for sending prompts
 - Claude Code headless mode: `https://code.claude.com/docs/en/headless`
 - Claude Code best practices: `https://code.claude.com/docs/en/best-practices`
 - Claude Code as an MCP server: `https://docs.anthropic.com/en/docs/claude-code/mcp`
-

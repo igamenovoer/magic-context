@@ -1,21 +1,30 @@
 #!/usr/bin/env python3
 """
-Create a Claude Code session and print the resulting session_id.
+Record a Claude Code session_id under a user-provided session name.
 
-This is a thin wrapper around the `claude` CLI intended for automation.
-By default it also updates a JSON mapping file in the system temp directory:
-`agent-sessions/<workspace-basename>-<md5(abs-workspace-dir)>/claude-code-alias-mapping.json`
-(alias entries are overwritten unconditionally). The mapping file stores the
-workspace directory once (top-level), not repeated per alias. If the mapping file
-cannot be written, the script prints a warning to stderr and still succeeds.
+This script does NOT call `claude`. You run `claude` (or your wrapper) yourself with
+`--output-format json`, then pass either:
+- the JSON to this script via stdin, or
+- the extracted `--session-id`.
+
+By default it updates a JSON mapping file in the system temp directory:
+`agent-sessions/<workspace-basename>-<md5(abs-workspace-dir)>/claude-code-session-mapping.json`
+(session name entries are overwritten unconditionally). The mapping file stores the
+workspace directory once (top-level), not repeated per session name. If the mapping file
+cannot be written, the script prints a warning to stderr and still exits successfully.
 
 Examples
 --------
-Create a session and print an alias->session_id JSON mapping:
-  python3 scripts/create_session.py --alias review-foo --print-mapping-json
+Record from a `claude` JSON response:
+  claude -p "Initialize a new session. Reply only: OK" --output-format json | \
+    python3 scripts/record_session.py --session-name review-foo --print-mapping-json
 
-Load credentials from an env file before calling `claude`:
-  python3 scripts/create_session.py --alias review-foo --env-file /path/to/vars.env
+Record by passing the extracted session_id:
+  python3 scripts/record_session.py --session-name review-foo --session-id "<id>" --print-mapping-json
+
+Use a Claude wrapper command instead of `claude`:
+  claude-wrapper -p "Initialize a new session. Reply only: OK" --output-format json | \
+    python3 scripts/record_session.py --session-name review-foo --print-mapping-json
 """
 
 from __future__ import annotations
@@ -25,7 +34,6 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -36,27 +44,10 @@ from typing import Any
 
 @dataclass(frozen=True)
 class SessionInfo:
-    alias: str
+    session_name: str
     session_id: str
     created_at: str
     workspace_dir: str
-    raw: dict[str, Any]
-
-
-def _read_env_vars_file(path: Path) -> dict[str, str]:
-    env: dict[str, str] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if "=" not in stripped:
-            continue
-        key, value = stripped.split("=", 1)
-        key = key.strip()
-        value = value.strip().strip("'").strip('"')
-        if key:
-            env[key] = value
-    return env
 
 
 def _workspace_dir_key(workspace_dir: str) -> str:
@@ -73,28 +64,29 @@ def _workspace_dir_key(workspace_dir: str) -> str:
 
 
 def _default_mapping_file(workspace_dir: str) -> Path:
-    """Return the default alias→session mapping file path for a workspace."""
+    """Return the default session-name→session mapping file path for a workspace."""
 
     key = _workspace_dir_key(workspace_dir)
-    return Path(tempfile.gettempdir()) / "agent-sessions" / key / "claude-code-alias-mapping.json"
+    return Path(tempfile.gettempdir()) / "agent-sessions" / key / "claude-code-session-mapping.json"
 
 
 def _load_mapping_json(path: Path) -> dict[str, Any]:
     """Load mapping data from the JSON mapping file."""
 
     if not path.exists():
-        return {"workspace_dir": "", "aliases": {}}
+        return {"workspace_dir": "", "sessions": {}}
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError("mapping file must be a JSON object")
 
-    if "aliases" in data and isinstance(data["aliases"], dict):
+    sessions_key = "sessions" if "sessions" in data else "aliases"
+    if sessions_key in data and isinstance(data[sessions_key], dict):
         workspace_dir = data.get("workspace_dir")
         if not isinstance(workspace_dir, str):
             workspace_dir = ""
-        aliases: dict[str, dict[str, str]] = {}
-        for alias, entry in data["aliases"].items():
-            if not isinstance(alias, str):
+        sessions: dict[str, dict[str, str]] = {}
+        for session_name, entry in data[sessions_key].items():
+            if not isinstance(session_name, str):
                 continue
             normalized: dict[str, str] = {}
             if isinstance(entry, dict):
@@ -107,13 +99,13 @@ def _load_mapping_json(path: Path) -> dict[str, Any]:
             elif isinstance(entry, str) and entry:
                 normalized["session_id"] = entry
             if "session_id" in normalized:
-                aliases[alias] = normalized
-        return {"workspace_dir": workspace_dir, "aliases": aliases}
+                sessions[session_name] = normalized
+        return {"workspace_dir": workspace_dir, "sessions": sessions}
 
-    # Back-compat: older file shape where the top-level object was the alias map.
-    aliases: dict[str, dict[str, str]] = {}
-    for alias, entry in data.items():
-        if not isinstance(alias, str) or alias in {"workspace_dir", "aliases"}:
+    # Back-compat: older file shape where the top-level object was the session-name map.
+    sessions: dict[str, dict[str, str]] = {}
+    for session_name, entry in data.items():
+        if not isinstance(session_name, str) or session_name in {"workspace_dir", "sessions", "aliases"}:
             continue
         normalized = {}
         if isinstance(entry, dict):
@@ -126,20 +118,20 @@ def _load_mapping_json(path: Path) -> dict[str, Any]:
         elif isinstance(entry, str) and entry:
             normalized["session_id"] = entry
         if "session_id" in normalized:
-            aliases[alias] = normalized
+            sessions[session_name] = normalized
     workspace_dir = data.get("workspace_dir") if isinstance(data.get("workspace_dir"), str) else ""
-    return {"workspace_dir": workspace_dir, "aliases": aliases}
+    return {"workspace_dir": workspace_dir, "sessions": sessions}
 
 
 def _write_mapping_file(
     mapping_file: Path,
     *,
-    alias: str,
+    session_name: str,
     session_id: str,
     workspace_dir: str,
     created_at: str,
 ) -> bool:
-    """Write (or update) the mapping file; overwrite alias unconditionally."""
+    """Write (or update) the mapping file; overwrite session name unconditionally."""
 
     try:
         mapping_file.parent.mkdir(parents=True, exist_ok=True)
@@ -153,19 +145,19 @@ def _write_mapping_file(
                 sys.stderr.write(
                     f"[WARN] Mapping file was invalid JSON; moved to {backup} and recreated: {e}\n"
                 )
-                data = {"workspace_dir": "", "aliases": {}}
+                data = {"workspace_dir": "", "sessions": {}}
             except Exception as backup_error:  # noqa: BLE001
                 sys.stderr.write(
                     f"[WARN] Failed to read/backup mapping file {mapping_file}: {backup_error}\n"
                 )
                 return False
 
-        aliases = data.get("aliases")
-        if not isinstance(aliases, dict):
-            aliases = {}
-        aliases[alias] = {"session_id": session_id, "created_at": created_at}
+        sessions = data.get("sessions")
+        if not isinstance(sessions, dict):
+            sessions = {}
+        sessions[session_name] = {"session_id": session_id, "created_at": created_at}
         data["workspace_dir"] = workspace_dir
-        data["aliases"] = aliases
+        data["sessions"] = sessions
 
         payload = json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
         tmp_path = mapping_file.with_name(mapping_file.name + f".tmp.{os.getpid()}")
@@ -177,68 +169,66 @@ def _write_mapping_file(
         return False
 
 
-def create_session(
-    *,
-    alias: str,
-    init_prompt: str,
-    extra_env: dict[str, str] | None = None,
-) -> SessionInfo:
-    """Create a new Claude Code session and return session metadata.
+def _parse_json_from_maybe_dirty_stdout(stdout: str) -> dict[str, Any]:
+    """Parse JSON from stdout that may contain extra non-JSON lines."""
 
-    Parameters
-    ----------
-    alias
-        User-facing name for the session (not sent to Claude unless included in
-        `init_prompt`).
-    init_prompt
-        First prompt used to create the session.
-    extra_env
-        Extra environment variables to set for the `claude` subprocess.
-    """
-
-    env = os.environ.copy()
-    if extra_env:
-        env.update(extra_env)
-
-    cmd = ["claude", "-p", init_prompt, "--output-format", "json"]
+    stdout = stdout.strip()
     try:
-        proc = subprocess.run(cmd, text=True, capture_output=True, env=env, check=False)
-    except FileNotFoundError as e:
-        raise RuntimeError("`claude` CLI not found on PATH. Install Claude Code and ensure `claude` is available.") from e
+        data = json.loads(stdout)
+        if isinstance(data, dict):
+            return data
+        raise ValueError("expected JSON object")
+    except Exception:
+        decoder = json.JSONDecoder()
+        last_obj: dict[str, Any] | None = None
+        for i, ch in enumerate(stdout):
+            if ch != "{":
+                continue
+            try:
+                obj, _end = decoder.raw_decode(stdout[i:])
+            except Exception:
+                continue
+            if isinstance(obj, dict):
+                last_obj = obj
+        if last_obj is None:
+            raise ValueError("failed to find a JSON object in stdout")
+        return last_obj
 
-    if proc.returncode != 0:
-        raise RuntimeError(f"claude failed rc={proc.returncode}: {proc.stderr.strip()}")
 
-    data = json.loads(proc.stdout)
+def _read_session_id_from_stdin() -> str:
+    if sys.stdin.isatty():
+        raise ValueError("stdin is empty; provide --session-id or pipe `claude --output-format json` output")
+    payload = sys.stdin.read()
+    data = _parse_json_from_maybe_dirty_stdout(payload)
     session_id = data.get("session_id")
     if not session_id or not isinstance(session_id, str):
-        raise RuntimeError("Missing `session_id` in `claude --output-format json` output.")
-
-    created_at = datetime.now(timezone.utc).isoformat()
-    workspace_dir = str(Path.cwd().resolve())
-    return SessionInfo(
-        alias=alias,
-        session_id=session_id,
-        created_at=created_at,
-        workspace_dir=workspace_dir,
-        raw=data,
-    )
+        raise ValueError("Missing `session_id` in JSON input.")
+    return session_id
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog="create_session.py")
-    parser.add_argument("--alias", required=True, help="User-facing name for this session (stored in mapping file).")
+    parser = argparse.ArgumentParser(prog="record_session.py")
     parser.add_argument(
-        "--init-prompt",
-        default=None,
-        help="Optional first prompt; defaults to a minimal init prompt that replies 'OK'.",
+        "--session-name",
+        dest="session_name",
+        required=True,
+        help="User-facing name for this session (stored in mapping file).",
     )
-    parser.add_argument("--env-file", type=Path, help="Optional KEY=VALUE env file to load.")
+    parser.add_argument(
+        "--session-id",
+        default=None,
+        help="Session id to record. If omitted, read `claude --output-format json` from stdin and extract `.session_id`.",
+    )
+    parser.add_argument(
+        "--workspace-dir",
+        default=None,
+        help="Workspace directory to scope the mapping file (defaults to current working directory).",
+    )
     parser.add_argument(
         "--mapping-file",
         type=Path,
         default=None,
-        help="Optional alias→session mapping JSON file path (defaults to system tmp, workspace-scoped).",
+        help="Optional session-name→session mapping JSON file path (defaults to system tmp, workspace-scoped).",
     )
     parser.add_argument("--print-session-id", action="store_true")
     parser.add_argument("--print-mapping-json", action="store_true")
@@ -247,15 +237,20 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str]) -> int:
     ns = _parse_args(argv)
-    init_prompt = ns.init_prompt or f"Initialize a new session named '{ns.alias}'. Reply only: OK"
-    extra_env = _read_env_vars_file(ns.env_file) if ns.env_file else None
-
-    info = create_session(alias=ns.alias, init_prompt=init_prompt, extra_env=extra_env)
+    session_id = ns.session_id or _read_session_id_from_stdin()
+    created_at = datetime.now(timezone.utc).isoformat()
+    workspace_dir = str(Path(ns.workspace_dir).resolve() if ns.workspace_dir else Path.cwd().resolve())
+    info = SessionInfo(
+        session_name=ns.session_name,
+        session_id=session_id,
+        created_at=created_at,
+        workspace_dir=workspace_dir,
+    )
 
     mapping_file = ns.mapping_file or _default_mapping_file(info.workspace_dir)
     wrote_mapping = _write_mapping_file(
         mapping_file,
-        alias=info.alias,
+        session_name=info.session_name,
         session_id=info.session_id,
         workspace_dir=info.workspace_dir,
         created_at=info.created_at,
@@ -268,7 +263,7 @@ def main(argv: list[str]) -> int:
         sys.stdout.write(
             json.dumps(
                 {
-                    "alias": info.alias,
+                    "session_name": info.session_name,
                     "session_id": info.session_id,
                     "workspace_dir": info.workspace_dir,
                     "created_at": info.created_at,

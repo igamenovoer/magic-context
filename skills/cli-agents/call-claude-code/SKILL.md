@@ -13,6 +13,8 @@ One-shot (machine-readable JSON):
 claude -p "Summarize this repo" --output-format json
 ```
 
+If you use a Claude wrapper (executable, `.sh`, or shell alias), substitute it for `claude` (example: `claude-wrapper -p ...`).
+
 Streaming progress/events (JSONL):
 
 ```bash
@@ -44,11 +46,10 @@ claude -p "Continue that review" --resume "$session_id" --output-format json
 - Assume output schemas can evolve; parse defensively and avoid hard-coding event keys.
 - Store the returned `session_id` if you will send follow-up prompts in a later process/run.
 
-## Repo credential profiles (optional)
+## Credentials (optional)
 
-If using this repo’s local-only credential profiles under `agents/brains/api-creds/`, load the env file before invoking `claude` (or pass it to the helper script below).
+Ensure your chosen Claude command can authenticate in your environment (for example by exporting env vars or sourcing an env file before running the command).
 
 ## Resources
 
 - Full guide: `references/howto-control-claude-code-programmatically.md`
-- Minimal wrapper script: `scripts/claude_headless.py` (supports one-shot JSON, streaming JSONL, and `--resume`)
