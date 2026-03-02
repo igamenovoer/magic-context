@@ -33,4 +33,5 @@ python3 scripts/invoke_persist.py list-sessions
 ## Notes
 
 - The mapping file lives under system temp and is keyed by the workspace absolute path.
+- Each alias entry may include `last_model` and `last_reasoning_effort` (the defaults used when resuming that session, unless explicitly overridden).
 - If the mapping file does not exist yet, the command returns an empty list.

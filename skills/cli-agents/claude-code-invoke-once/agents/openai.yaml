@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude Code Invoke Once"
+  short_description: "Programmatic Claude Code CLI calls"
+  default_prompt: "Use $claude-code-invoke-once to show one-shot, streaming, and resume patterns for the `claude` CLI."

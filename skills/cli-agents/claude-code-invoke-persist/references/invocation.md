@@ -11,6 +11,11 @@ Goal: run a prompt in an existing Claude Code conversation deterministically usi
 
 If the user asks to resume but does not specify which session, ask for the session name/alias (or the `session_id`).
 
+## Model and reasoning-effort defaults (manifest-backed)
+
+- If the user does not specify `--model` / `--reasoning-effort`, this skill defaults to the stored `last_model` / `last_reasoning_effort` for that session alias (if present in the mapping file).
+- If the user explicitly specifies `--model` and/or `--reasoning-effort`, those values override for this call and are persisted as the new `last_*` defaults for next time.
+
 ## Resolve session alias to `session_id`
 
 Resolve without calling Claude:
@@ -27,6 +32,12 @@ Machine-readable JSON (simple, but no heartbeat until completion):
 
 ```bash
 python3 scripts/invoke_persist.py resume-json --session-alias "review-src" --prompt "Continue from where we left off"
+```
+
+Override the stored defaults explicitly:
+
+```bash
+python3 scripts/invoke_persist.py resume-json --session-alias "review-src" --prompt "Continue from where we left off" --model "MODEL" --reasoning-effort "EFFORT"
 ```
 
 Print just the assistant text:

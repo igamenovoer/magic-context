@@ -70,6 +70,8 @@ class ResolvedSession:
     session_id: str
     alias: str | None
     mapping_file: str | None
+    last_model: str | None
+    last_reasoning_effort: str | None
     source: str
 
 
@@ -130,6 +132,12 @@ def _load_mapping_json(path: Path) -> dict[str, Any]:
                 created_at = entry.get("created_at")
                 if created_at is not None:
                     normalized["created_at"] = str(created_at)
+                last_model = entry.get("last_model")
+                if isinstance(last_model, str) and last_model:
+                    normalized["last_model"] = last_model
+                last_reasoning_effort = entry.get("last_reasoning_effort")
+                if isinstance(last_reasoning_effort, str) and last_reasoning_effort:
+                    normalized["last_reasoning_effort"] = last_reasoning_effort
             elif isinstance(entry, str) and entry:
                 normalized["session_id"] = entry
             if "session_id" in normalized:
@@ -141,7 +149,7 @@ def _load_mapping_json(path: Path) -> dict[str, Any]:
     for alias, entry in data.items():
         if not isinstance(alias, str) or alias in {"workspace_dir", "aliases"}:
             continue
-        normalized = {}
+        normalized: dict[str, str] = {}
         if isinstance(entry, dict):
             session_id = entry.get("session_id")
             if isinstance(session_id, str) and session_id:
@@ -149,6 +157,12 @@ def _load_mapping_json(path: Path) -> dict[str, Any]:
             created_at = entry.get("created_at")
             if created_at is not None:
                 normalized["created_at"] = str(created_at)
+            last_model = entry.get("last_model")
+            if isinstance(last_model, str) and last_model:
+                normalized["last_model"] = last_model
+            last_reasoning_effort = entry.get("last_reasoning_effort")
+            if isinstance(last_reasoning_effort, str) and last_reasoning_effort:
+                normalized["last_reasoning_effort"] = last_reasoning_effort
         elif isinstance(entry, str) and entry:
             normalized["session_id"] = entry
         if "session_id" in normalized:
@@ -164,6 +178,8 @@ def _write_mapping_file(
     session_id: str,
     workspace_dir: str,
     created_at: str,
+    last_model: str | None = None,
+    last_reasoning_effort: str | None = None,
 ) -> bool:
     try:
         mapping_file.parent.mkdir(parents=True, exist_ok=True)
@@ -193,7 +209,12 @@ def _write_mapping_file(
         else:
             aliases = {}
 
-        aliases[alias] = {"session_id": session_id, "created_at": created_at}
+        entry: dict[str, str] = {"session_id": session_id, "created_at": created_at}
+        if isinstance(last_model, str) and last_model:
+            entry["last_model"] = last_model
+        if isinstance(last_reasoning_effort, str) and last_reasoning_effort:
+            entry["last_reasoning_effort"] = last_reasoning_effort
+        aliases[alias] = entry
         data["workspace_dir"] = workspace_dir
         data["aliases"] = aliases
 
@@ -204,6 +225,70 @@ def _write_mapping_file(
         return True
     except Exception as e:  # noqa: BLE001
         sys.stderr.write(f"[WARN] Failed to write mapping file {mapping_file}: {e}\n")
+        return False
+
+
+def _update_last_call_metadata(
+    mapping_file: Path,
+    *,
+    alias: str,
+    session_id: str,
+    workspace_dir: str,
+    last_model: str | None,
+    last_reasoning_effort: str | None,
+) -> bool:
+    if last_model is None and last_reasoning_effort is None:
+        return True
+
+    try:
+        mapping_file.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            data = _load_mapping_json(mapping_file)
+        except Exception as e:  # noqa: BLE001
+            backup = mapping_file.with_name(mapping_file.name + f".bad.{os.getpid()}")
+            try:
+                if mapping_file.exists():
+                    mapping_file.replace(backup)
+                sys.stderr.write(
+                    f"[WARN] Mapping file was invalid JSON; moved to {backup} and recreated: {e}\n"
+                )
+            except Exception as backup_error:  # noqa: BLE001
+                sys.stderr.write(
+                    f"[WARN] Failed to read/backup mapping file {mapping_file}: {backup_error}\n"
+                )
+                return False
+            data = {"workspace_dir": workspace_dir, "aliases": {}}
+
+        stored_workspace_dir = data.get("workspace_dir")
+        if not isinstance(stored_workspace_dir, str) or not stored_workspace_dir:
+            data["workspace_dir"] = workspace_dir
+
+        aliases = data.get("aliases")
+        if not isinstance(aliases, dict):
+            aliases = {}
+
+        entry = aliases.get(alias)
+        if not isinstance(entry, dict):
+            entry = {}
+
+        entry["session_id"] = session_id
+        if "created_at" not in entry:
+            entry["created_at"] = datetime.now(timezone.utc).isoformat()
+        if isinstance(last_model, str) and last_model:
+            entry["last_model"] = last_model
+        if isinstance(last_reasoning_effort, str) and last_reasoning_effort:
+            entry["last_reasoning_effort"] = last_reasoning_effort
+
+        aliases[alias] = entry
+        data["aliases"] = aliases
+
+        payload = json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+        tmp_path = mapping_file.with_name(mapping_file.name + f".tmp.{os.getpid()}")
+        tmp_path.write_text(payload, encoding="utf-8")
+        os.replace(tmp_path, mapping_file)
+        return True
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"[WARN] Failed to update mapping file {mapping_file}: {e}\n")
         return False
 
 
@@ -221,14 +306,23 @@ def _validate_deadline_seconds(deadline_seconds: float | None) -> None:
         raise ValueError("--deadline-seconds must be > 0 when provided.")
 
 
+def _normalize_nonempty_str(value: str | None, *, flag_name: str) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError(f"--{flag_name} cannot be empty.")
+    return stripped
+
+
 def _resolve_claude_cmd(raw: str | None) -> list[str]:
     """Resolve a claude-compatible command (wrapper) into argv tokens.
 
     Notes
     -----
     - The wrapper must be compatible with the `claude` CLI flags used here:
-      `-p`, `--output-format`, `--resume`, and (for streaming) `--verbose`,
-      `--include-partial-messages`.
+      `-p`, `--output-format`, `--resume`, `--model`, `--reasoning-effort`, and
+      (for streaming) `--verbose`, `--include-partial-messages`.
     - Shell aliases are not supported (this uses subprocess without a shell).
     """
 
@@ -278,12 +372,18 @@ def create_session(
     alias: str,
     init_prompt: str,
     claude_cmd: list[str],
+    model: str | None = None,
+    reasoning_effort: str | None = None,
     extra_env: dict[str, str] | None = None,
     deadline_seconds: float | None = None,
 ) -> SessionInfo:
     """Create a new Claude Code session and return session metadata."""
 
     cmd = ["-p", init_prompt, "--output-format", "json"]
+    if isinstance(model, str) and model:
+        cmd.extend(["--model", model])
+    if isinstance(reasoning_effort, str) and reasoning_effort:
+        cmd.extend(["--reasoning-effort", reasoning_effort])
     proc = _run_claude(claude_cmd, cmd, extra_env=extra_env, timeout_seconds=deadline_seconds)
 
     if proc.returncode != 0:
@@ -315,10 +415,47 @@ def resolve_session(
     """Resolve a session selector to a concrete `session_id`."""
 
     if isinstance(session_id, str) and session_id.strip():
+        stripped_id = session_id.strip()
+
+        # Best-effort: if the session_id is already present in the workspace mapping,
+        # reuse the stored metadata defaults (model/reasoning effort) and enable
+        # updating the entry after the call.
+        workspace_dir = str(Path.cwd().resolve())
+        mapping_path = mapping_file or _default_mapping_file(workspace_dir)
+        if mapping_path.exists():
+            try:
+                data = _load_mapping_json(mapping_path)
+                aliases = data.get("aliases")
+                if isinstance(aliases, dict):
+                    for alias_name in sorted(a for a in aliases.keys() if isinstance(a, str)):
+                        entry = aliases.get(alias_name)
+                        if not isinstance(entry, dict):
+                            continue
+                        if entry.get("session_id") != stripped_id:
+                            continue
+                        last_model = entry.get("last_model")
+                        if not isinstance(last_model, str) or not last_model:
+                            last_model = None
+                        last_reasoning_effort = entry.get("last_reasoning_effort")
+                        if not isinstance(last_reasoning_effort, str) or not last_reasoning_effort:
+                            last_reasoning_effort = None
+                        return ResolvedSession(
+                            session_id=stripped_id,
+                            alias=alias_name,
+                            mapping_file=str(mapping_path),
+                            last_model=last_model,
+                            last_reasoning_effort=last_reasoning_effort,
+                            source="mapping_file_by_session_id",
+                        )
+            except Exception:  # noqa: BLE001
+                pass
+
         return ResolvedSession(
-            session_id=session_id.strip(),
+            session_id=stripped_id,
             alias=None,
             mapping_file=None,
+            last_model=None,
+            last_reasoning_effort=None,
             source="session_id",
         )
 
@@ -345,10 +482,19 @@ def resolve_session(
             "Create it first with the creation stage."
         )
 
+    last_model = entry.get("last_model")
+    if not isinstance(last_model, str) or not last_model:
+        last_model = None
+    last_reasoning_effort = entry.get("last_reasoning_effort")
+    if not isinstance(last_reasoning_effort, str) or not last_reasoning_effort:
+        last_reasoning_effort = None
+
     return ResolvedSession(
         session_id=resolved_id,
         alias=chosen_alias,
         mapping_file=str(mapping_path),
+        last_model=last_model,
+        last_reasoning_effort=last_reasoning_effort,
         source="mapping_file",
     )
 
@@ -375,6 +521,17 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         "--claude-cmd",
         default=None,
         help="Optional claude-compatible wrapper command (default: CLAUDE_CMD env var or `claude`).",
+    )
+    common_call.add_argument(
+        "--model",
+        default=None,
+        help="Optional model to request (persisted per alias as last_model).",
+    )
+    common_call.add_argument(
+        "--reasoning-effort",
+        dest="reasoning_effort",
+        default=None,
+        help="Optional reasoning effort to request (persisted per alias as last_reasoning_effort).",
     )
     common_call.add_argument(
         "--deadline-seconds",
@@ -445,6 +602,8 @@ def main(argv: list[str]) -> int:
 
         extra_env = _read_env_vars_file(ns.env_file) if ns.env_file else None
         claude_cmd = _resolve_claude_cmd(ns.claude_cmd)
+        model = _normalize_nonempty_str(getattr(ns, "model", None), flag_name="model")
+        reasoning_effort = _normalize_nonempty_str(getattr(ns, "reasoning_effort", None), flag_name="reasoning-effort")
         _validate_deadline_seconds(ns.deadline_seconds)
         if ns.fake_session_id:
             created_at = datetime.now(timezone.utc).isoformat()
@@ -461,6 +620,8 @@ def main(argv: list[str]) -> int:
                 alias=alias,
                 init_prompt=init_prompt,
                 claude_cmd=claude_cmd,
+                model=model,
+                reasoning_effort=reasoning_effort,
                 extra_env=extra_env,
                 deadline_seconds=ns.deadline_seconds,
             )
@@ -472,6 +633,8 @@ def main(argv: list[str]) -> int:
             session_id=info.session_id,
             workspace_dir=info.workspace_dir,
             created_at=info.created_at,
+            last_model=model,
+            last_reasoning_effort=reasoning_effort,
         )
 
         if ns.print_session_id:
@@ -485,6 +648,8 @@ def main(argv: list[str]) -> int:
                         "session_id": info.session_id,
                         "workspace_dir": info.workspace_dir,
                         "created_at": info.created_at,
+                        "last_model": model,
+                        "last_reasoning_effort": reasoning_effort,
                         "mapping_file": str(mapping_file),
                         "mapping_file_written": wrote_mapping,
                     },
@@ -515,6 +680,8 @@ def main(argv: list[str]) -> int:
                     "session_id": resolved.session_id,
                     "alias": resolved.alias,
                     "mapping_file": resolved.mapping_file,
+                    "last_model": resolved.last_model,
+                    "last_reasoning_effort": resolved.last_reasoning_effort,
                     "source": resolved.source,
                 },
                 ensure_ascii=False,
@@ -570,6 +737,10 @@ def main(argv: list[str]) -> int:
 
     extra_env = _read_env_vars_file(ns.env_file) if ns.env_file else None
     claude_cmd = _resolve_claude_cmd(ns.claude_cmd)
+    explicit_model = _normalize_nonempty_str(getattr(ns, "model", None), flag_name="model")
+    explicit_reasoning_effort = _normalize_nonempty_str(
+        getattr(ns, "reasoning_effort", None), flag_name="reasoning-effort"
+    )
     deadline_seconds = getattr(ns, "deadline_seconds", None)
     _validate_deadline_seconds(deadline_seconds)
 
@@ -580,12 +751,28 @@ def main(argv: list[str]) -> int:
         alias=ns.alias,
         mapping_file=ns.mapping_file,
     )
+    effective_model = explicit_model or resolved.last_model
+    effective_reasoning_effort = explicit_reasoning_effort or resolved.last_reasoning_effort
 
     if ns.cmd == "resume-json":
         cmd = ["-p", ns.prompt, "--resume", resolved.session_id, "--output-format", "json"]
+        if effective_model:
+            cmd.extend(["--model", effective_model])
+        if effective_reasoning_effort:
+            cmd.extend(["--reasoning-effort", effective_reasoning_effort])
         proc = _run_claude(claude_cmd, cmd, extra_env=extra_env, timeout_seconds=deadline_seconds)
         if proc.returncode != 0:
             raise RuntimeError(f"claude failed rc={proc.returncode}: {proc.stderr.strip()}")
+
+        if resolved.alias and resolved.mapping_file:
+            _update_last_call_metadata(
+                Path(resolved.mapping_file),
+                alias=resolved.alias,
+                session_id=resolved.session_id,
+                workspace_dir=str(Path.cwd().resolve()),
+                last_model=effective_model,
+                last_reasoning_effort=effective_reasoning_effort,
+            )
 
         if not ns.print_result and not ns.print_session_id:
             sys.stdout.write(proc.stdout)
@@ -600,6 +787,10 @@ def main(argv: list[str]) -> int:
 
     if ns.cmd == "resume-stream":
         cmd = claude_cmd + ["-p", ns.prompt, "--output-format", "stream-json", "--resume", resolved.session_id]
+        if effective_model:
+            cmd.extend(["--model", effective_model])
+        if effective_reasoning_effort:
+            cmd.extend(["--reasoning-effort", effective_reasoning_effort])
         if ns.verbose:
             cmd.append("--verbose")
         if ns.include_partials:
@@ -661,6 +852,15 @@ def main(argv: list[str]) -> int:
         if rc != 0:
             err = (proc.stderr.read() if proc.stderr else "").strip()
             raise RuntimeError(f"claude failed rc={rc}: {err}")
+        if resolved.alias and resolved.mapping_file:
+            _update_last_call_metadata(
+                Path(resolved.mapping_file),
+                alias=resolved.alias,
+                session_id=resolved.session_id,
+                workspace_dir=str(Path.cwd().resolve()),
+                last_model=effective_model,
+                last_reasoning_effort=effective_reasoning_effort,
+            )
         return 0
 
     raise AssertionError(f"Unhandled cmd: {ns.cmd}")

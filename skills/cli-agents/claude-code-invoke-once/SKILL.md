@@ -1,9 +1,9 @@
 ---
-name: call-claude-code
+name: claude-code-invoke-once
 description: Programmatically invoke Claude Code via the `claude` CLI (headless `-p`, `--output-format json|stream-json`, `--resume`/`--continue`) to automate tasks like producing code review reports for specific files/dirs, investigating an issue, or drafting an implementation plan. Use when you need scriptable, machine-readable output and/or session-persistent multi-turn workflows with Claude Code.
 ---
 
-# Call Claude Code
+# Claude Code Invoke Once
 
 ## Quick start (shell)
 

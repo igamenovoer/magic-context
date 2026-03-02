@@ -1,6 +1,6 @@
 ---
 name: claude-code-invoke-persist
-description: Create and resume Claude Code CLI sessions with a persistent alias-to-session_id mapping stored in a workspace-scoped JSON file under system temp. Use when the user wants deterministic, session-persistent Claude Code automation across turns and processes.
+description: Create and resume Claude Code CLI sessions with a persistent alias-to-session_id mapping (plus last-used model and reasoning effort) stored in a workspace-scoped JSON file under system temp. Use when the user wants deterministic, session-persistent Claude Code automation across turns and processes.
 ---
 
 # Claude Code Invoke Persist
@@ -11,7 +11,7 @@ Invoke this skill explicitly by name (`$claude-code-invoke-persist`) because it 
 
 ## Claude wrappers
 
-If the user provides a claude-compatible wrapper command (drop-in replacement for `claude`, like in `call-claude-code`), use it by passing `--claude-cmd "<wrapper command...>"` to `scripts/invoke_persist.py` (or set `CLAUDE_CMD`). The wrapper must be an executable command (not a shell alias) and must accept the `claude` flags used here (`-p`, `--output-format`, `--resume`, and streaming flags).
+If the user provides a claude-compatible wrapper command (drop-in replacement for `claude`), use it by passing `--claude-cmd "<wrapper command...>"` to `scripts/invoke_persist.py` (or set `CLAUDE_CMD`). The wrapper must be an executable command (not a shell alias) and must accept the `claude` flags used here (`-p`, `--output-format`, `--resume`, `--model`, `--reasoning-effort`, and streaming flags).
 
 ## Heartbeats and deadlines
 
@@ -37,9 +37,9 @@ The skill itself is triggered by name, but once invoked, pick a stage based on u
 
 ## Stages (sub-skills)
 
-- Creation (`create-session`): required `session name` / `session alias` (legacy fallback: `alias`); keywords like "create session", "start new chat", "save as <name>"; writes the workspace mapping JSON (may create `.bad.<pid>` and `.tmp.<pid>` files during safe writes); supports `--claude-cmd`/`CLAUDE_CMD` if the user provides a wrapper.
-- Invocation (`resolve`, `resume-json`, `resume-stream`): required `prompt` plus `session_id` or `session name`/`session alias` (legacy fallback: `alias`); keywords like "continue latest chat" / "continue last chat"; reads the workspace mapping JSON (unless `session_id` is given) and runs `claude --resume <session_id>` (or wrapper via `--claude-cmd`/`CLAUDE_CMD`); supports `--deadline-seconds` only when the user requested a time limit.
-- Listing (`list-sessions`): required input: none (defaults to current workspace); optional `workspace dir` or explicit `mapping file`; keywords like "list sessions", "show aliases"; reads the workspace mapping JSON and returns an empty list if it does not exist yet.
+- Creation (`create-session`): required `session name` / `session alias` (legacy fallback: `alias`); keywords like "create session", "start new chat", "save as <name>"; writes the workspace mapping JSON (may create `.bad.<pid>` and `.tmp.<pid>` files during safe writes); supports optional `--model`/`--reasoning-effort` (persisted as defaults for later); supports `--claude-cmd`/`CLAUDE_CMD` if the user provides a wrapper.
+- Invocation (`resolve`, `resume-json`, `resume-stream`): required `prompt` plus `session_id` or `session name`/`session alias` (legacy fallback: `alias`); keywords like "continue latest chat" / "continue last chat"; reads the workspace mapping JSON (unless `session_id` is given) and runs `claude --resume <session_id>` (or wrapper via `--claude-cmd`/`CLAUDE_CMD`); if `--model`/`--reasoning-effort` are not provided, defaults to the stored `last_model`/`last_reasoning_effort` for that session; after a successful call, updates those stored defaults; supports `--deadline-seconds` only when the user requested a time limit.
+- Listing (`list-sessions`): required input: none (defaults to current workspace); optional `workspace dir` or explicit `mapping file`; keywords like "list sessions", "show aliases"; reads the workspace mapping JSON (including each alias entry's `last_model`/`last_reasoning_effort`) and returns an empty list if it does not exist yet.
 
 - Management file (alias mapping JSON): `<system-tmp>/agent-sessions/<workspace-basename>-<md5(abs-workspace-dir)>/claude-code-alias-mapping.json` (override with `--mapping-file`).
 
@@ -54,6 +54,12 @@ The skill itself is triggered by name, but once invoked, pick a stage based on u
 - Prefer the user's `session name` / `session alias` if provided (fallback legacy: `alias`).
 - If the user provides a `session_id`, always use it as the resume target.
 - If the user says "continue latest chat", "continue last chat", or similar, reuse the most recently referenced `session_id` or session name/alias in this conversation. If none exists, ask which session to use.
+
+## Model and reasoning-effort persistence
+
+- The manifest (alias mapping JSON) stores `last_model` and `last_reasoning_effort` per session alias.
+- On reuse: if the user does not specify `--model` / `--reasoning-effort`, use the stored `last_model` / `last_reasoning_effort`.
+- On override: if the user explicitly specifies `--model` and/or `--reasoning-effort`, use those values for this call and persist them as the new `last_*` defaults for next time.
 
 ## Resources
 

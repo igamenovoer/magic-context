@@ -16,6 +16,12 @@ Prefer machine-readable JSON output and store the returned `session_id`:
 python3 scripts/invoke_persist.py create-session --session-alias "review-src" --print-mapping-json
 ```
 
+Optional: if the user explicitly chooses a Claude model and/or reasoning effort, pass them at creation time so they become the stored defaults for later resumes:
+
+```bash
+python3 scripts/invoke_persist.py create-session --session-alias "review-src" --model "MODEL" --reasoning-effort "EFFORT" --print-mapping-json
+```
+
 Credentials: ensure the `claude` CLI is on PATH and authenticated. To load env vars from a file, pass `--env-file /path/to/vars.env` (KEY=VALUE lines).
 
 If the user provides a claude-compatible wrapper command (executable, drop-in replacement for `claude`), pass it via `--claude-cmd` (or set `CLAUDE_CMD`):
@@ -35,7 +41,7 @@ python3 scripts/invoke_persist.py create-session --session-alias "review-src" --
 By default, this skill writes a workspace-scoped JSON file under system temp:
 
 - Path: `<system-tmp>/agent-sessions/<workspace-basename>-<md5(abs-workspace-dir)>/claude-code-alias-mapping.json`
-- Shape: top-level `workspace_dir` plus `aliases` mapping alias->{`session_id`, `created_at`}
+- Shape: top-level `workspace_dir` plus `aliases` mapping alias->{`session_id`, `created_at`, optional `last_model`, optional `last_reasoning_effort`}
 - Overwrite behavior: overwrite alias entries unconditionally
 
 The default path depends on your current working directory. Run from the same workspace directory across create/resume, or pass `--mapping-file` explicitly.
