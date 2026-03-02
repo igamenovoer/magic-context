@@ -34,6 +34,12 @@ claude -p "Continue that review" --resume "$session_id" --output-format json
 2. Need realtime progress: use `--output-format stream-json` and parse one JSON object per stdout line.
 3. Need multi-turn state: persist `.session_id` and call `--resume <session_id>` for subsequent turns (prefer over `--continue` in automation).
 
+## Session handling (must follow)
+
+- If the user provides a `session_id`, always use `--resume <session_id>` for the next Claude Code call.
+- If the user says “continue latest chat”, “continue last chat”, or similar, use the most recently captured `session_id` from this conversation.
+- If the user does not provide a `session_id` and does not explicitly request a continuation, determine from context whether they want to persist the previous Claude session. If unclear, start a new session.
+
 ## Example prompts (to trigger this skill)
 
 - “Use Claude Code to make a review report of `src/` and `tests/`.”

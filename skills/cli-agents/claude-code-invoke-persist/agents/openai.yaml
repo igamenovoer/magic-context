@@ -1,0 +1,7 @@
+interface:
+  display_name: "Claude Code Invoke Persist"
+  short_description: "Persist and resume Claude sessions"
+  default_prompt: "Use $claude-code-invoke-persist to create (persist) and resume Claude Code sessions via the `claude` CLI."
+
+policy:
+  allow_implicit_invocation: false

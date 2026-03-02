@@ -1,0 +1,7 @@
+interface:
+  display_name: "Claude Code Session Call"
+  short_description: "Resume Claude session by alias"
+  default_prompt: "Use $claude-code-session-call to resume a Claude Code session by session name/session alias (from the mapping created by $claude-code-create-session) and run a prompt via `claude --resume`."
+
+policy:
+  allow_implicit_invocation: false
