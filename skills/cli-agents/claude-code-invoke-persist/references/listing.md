@@ -1,6 +1,6 @@
 # Listing stage (list existing sessions)
 
-Goal: list session aliases (and their stored `session_id` metadata) for a given workspace.
+Goal: list session names (and their stored `session_id` metadata) for a given workspace.
 
 ## Default behavior
 

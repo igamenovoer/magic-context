@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenSpec Review Plan"
+  short_description: "Review an OpenSpec change plan"
+  default_prompt: "Use $openspec-ext-review-plan to review the current OpenSpec change and write a review report under its change directory."

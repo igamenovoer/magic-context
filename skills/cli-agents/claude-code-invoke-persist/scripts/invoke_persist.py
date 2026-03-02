@@ -6,8 +6,10 @@ This is a thin wrapper around the `claude` CLI intended for deterministic
 automation. It supports:
 
 - create-session: create a new session and persist alias->session_id mapping
-- resolve: resolve a session alias to session_id (no Claude call)
-- list-sessions: list aliases for a workspace mapping file (no Claude call)
+- resolve: resolve a session name to session_id (no Claude call)
+- list-sessions: list session names for a workspace mapping file (no Claude call)
+- delete-session: delete an alias entry from the mapping file (no Claude call)
+- delete-all-sessions: delete the mapping file for a workspace (no Claude call)
 - resume-json: resume and run a prompt with JSON output
 - resume-stream: resume and run a prompt with streaming JSONL output
 
@@ -23,19 +25,25 @@ The default alias mapping file path is workspace-scoped under system temp:
 Examples
 --------
 Create a session and print the session_id:
-  python3 scripts/invoke_persist.py create-session --session-alias review-src --print-session-id
+  python3 scripts/invoke_persist.py create-session --session-name review-src --print-session-id
 
 Create a session and print a JSON summary (includes mapping file path):
-  python3 scripts/invoke_persist.py create-session --session-alias review-src --print-mapping-json
+  python3 scripts/invoke_persist.py create-session --session-name review-src --print-mapping-json
 
 Resolve an alias to a session_id (no Claude call):
-  python3 scripts/invoke_persist.py resolve --session-alias review-src --print-session-id
+  python3 scripts/invoke_persist.py resolve --session-name review-src --print-session-id
 
 List known aliases for the current workspace:
   python3 scripts/invoke_persist.py list-sessions --print-aliases
 
+Delete one alias from the mapping file:
+  python3 scripts/invoke_persist.py delete-session --session-name review-src
+
+Delete the workspace mapping file:
+  python3 scripts/invoke_persist.py delete-all-sessions
+
 Resume and run a prompt (JSON output):
-  python3 scripts/invoke_persist.py resume-json --session-alias review-src --prompt "Continue"
+  python3 scripts/invoke_persist.py resume-json --session-name review-src --prompt "Continue"
 """
 
 from __future__ import annotations
@@ -89,6 +97,10 @@ def _read_env_vars_file(path: Path) -> dict[str, str]:
         if key:
             env[key] = value
     return env
+
+
+def _read_text_file(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
 
 
 def _workspace_dir_key(workspace_dir: str) -> str:
@@ -292,11 +304,11 @@ def _update_last_call_metadata(
         return False
 
 
-def _select_alias(*, session_name: str | None, session_alias: str | None, alias: str | None) -> str | None:
-    for value in (session_name, session_alias, alias):
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
+def _normalize_optional_str(value: str | None) -> str | None:
+    if not isinstance(value, str):
+        return None
+    stripped = value.strip()
+    return stripped if stripped else None
 
 
 def _validate_deadline_seconds(deadline_seconds: float | None) -> None:
@@ -321,7 +333,7 @@ def _resolve_claude_cmd(raw: str | None) -> list[str]:
     Notes
     -----
     - The wrapper must be compatible with the `claude` CLI flags used here:
-      `-p`, `--output-format`, `--resume`, `--model`, `--reasoning-effort`, and
+      `-p`, `--output-format`, `--resume`, `--model`, `--effort`, `--append-system-prompt`, and
       (for streaming) `--verbose`, `--include-partial-messages`.
     - Shell aliases are not supported (this uses subprocess without a shell).
     """
@@ -372,6 +384,7 @@ def create_session(
     alias: str,
     init_prompt: str,
     claude_cmd: list[str],
+    append_system_prompt: str | None = None,
     model: str | None = None,
     reasoning_effort: str | None = None,
     extra_env: dict[str, str] | None = None,
@@ -380,10 +393,12 @@ def create_session(
     """Create a new Claude Code session and return session metadata."""
 
     cmd = ["-p", init_prompt, "--output-format", "json"]
+    if isinstance(append_system_prompt, str) and append_system_prompt:
+        cmd.extend(["--append-system-prompt", append_system_prompt])
     if isinstance(model, str) and model:
         cmd.extend(["--model", model])
     if isinstance(reasoning_effort, str) and reasoning_effort:
-        cmd.extend(["--reasoning-effort", reasoning_effort])
+        cmd.extend(["--effort", reasoning_effort])
     proc = _run_claude(claude_cmd, cmd, extra_env=extra_env, timeout_seconds=deadline_seconds)
 
     if proc.returncode != 0:
@@ -408,8 +423,6 @@ def resolve_session(
     *,
     session_id: str | None,
     session_name: str | None,
-    session_alias: str | None,
-    alias: str | None,
     mapping_file: Path | None,
 ) -> ResolvedSession:
     """Resolve a session selector to a concrete `session_id`."""
@@ -459,11 +472,9 @@ def resolve_session(
             source="session_id",
         )
 
-    chosen_alias = _select_alias(session_name=session_name, session_alias=session_alias, alias=alias)
-    if not chosen_alias:
-        raise ValueError(
-            "Missing session selector: provide --session-id or --session-name/--session-alias/--alias."
-        )
+    chosen_name = _normalize_optional_str(session_name)
+    if not chosen_name:
+        raise ValueError("Missing session selector: provide --session-id or --session-name.")
 
     workspace_dir = str(Path.cwd().resolve())
     mapping_path = mapping_file or _default_mapping_file(workspace_dir)
@@ -472,13 +483,13 @@ def resolve_session(
     if not isinstance(aliases, dict):
         aliases = {}
 
-    entry = aliases.get(chosen_alias)
+    entry = aliases.get(chosen_name)
     if not isinstance(entry, dict):
         entry = {}
     resolved_id = entry.get("session_id")
     if not isinstance(resolved_id, str) or not resolved_id:
         raise KeyError(
-            f"Session alias '{chosen_alias}' not found in mapping file: {mapping_path}. "
+            f"Session name '{chosen_name}' not found in mapping file: {mapping_path}. "
             "Create it first with the creation stage."
         )
 
@@ -491,7 +502,7 @@ def resolve_session(
 
     return ResolvedSession(
         session_id=resolved_id,
-        alias=chosen_alias,
+        alias=chosen_name,
         mapping_file=str(mapping_path),
         last_model=last_model,
         last_reasoning_effort=last_reasoning_effort,
@@ -506,8 +517,8 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     selector = argparse.ArgumentParser(add_help=False)
     selector.add_argument("--session-id", help="Resume a specific Claude session_id (preferred if provided).")
     selector.add_argument("--session-name", help="Session name to resolve via the mapping file.")
-    selector.add_argument("--session-alias", help="Session alias to resolve via the mapping file.")
-    selector.add_argument("--alias", help="Legacy alias name to resolve via the mapping file.")
+    selector.add_argument("--session-alias", dest="session_name", help=argparse.SUPPRESS)
+    selector.add_argument("--alias", dest="session_name", help=argparse.SUPPRESS)
     selector.add_argument(
         "--mapping-file",
         type=Path,
@@ -533,6 +544,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         default=None,
         help="Optional reasoning effort to request (persisted per alias as last_reasoning_effort).",
     )
+    common_call.add_argument("--effort", dest="reasoning_effort", default=None, help=argparse.SUPPRESS)
     common_call.add_argument(
         "--deadline-seconds",
         type=float,
@@ -540,7 +552,26 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         help="Optional overall deadline in seconds. Do not set unless the user requested a time limit.",
     )
 
+    workspace_ops = argparse.ArgumentParser(add_help=False)
+    workspace_ops.add_argument(
+        "--workspace-dir",
+        default=None,
+        help="Workspace directory to operate on (defaults to current working directory).",
+    )
+    workspace_ops.add_argument(
+        "--mapping-file",
+        type=Path,
+        default=None,
+        help="Optional alias mapping JSON file path. If set, overrides --workspace-dir.",
+    )
+
     create = sub.add_parser("create-session", parents=[selector, common_call], help="Create a new Claude session.")
+    create.add_argument(
+        "--role-definition-md",
+        type=Path,
+        default=None,
+        help="Optional Markdown file whose contents are appended to the default system prompt.",
+    )
     create.add_argument(
         "--init-prompt",
         default=None,
@@ -571,6 +602,27 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     )
     list_sessions.add_argument("--print-aliases", action="store_true", help="Print only alias names (one per line).")
 
+    delete_session = sub.add_parser(
+        "delete-session",
+        parents=[common_call, workspace_ops],
+        help="Delete a saved session entry from the workspace mapping file (no Claude call).",
+    )
+    delete_session.add_argument("--session-id", help="Delete entries matching this session_id (if no alias provided).")
+    delete_session.add_argument("--session-name", help="Session name to delete from the mapping file.")
+    delete_session.add_argument("--session-alias", dest="session_name", help=argparse.SUPPRESS)
+    delete_session.add_argument("--alias", dest="session_name", help=argparse.SUPPRESS)
+    delete_session.add_argument(
+        "--print-mapping-json",
+        action="store_true",
+        help="Include the mapping JSON in the output (even if unchanged).",
+    )
+
+    delete_all = sub.add_parser(
+        "delete-all-sessions",
+        parents=[common_call, workspace_ops],
+        help="Delete the workspace mapping file entirely (no Claude call).",
+    )
+
     resume_json = sub.add_parser(
         "resume-json",
         parents=[selector, common_call],
@@ -596,30 +648,39 @@ def main(argv: list[str]) -> int:
     ns = _parse_args(argv)
 
     if ns.cmd == "create-session":
-        alias = _select_alias(session_name=ns.session_name, session_alias=ns.session_alias, alias=ns.alias)
-        if not alias:
-            raise ValueError("Missing session name/alias: provide --session-name, --session-alias, or --alias.")
+        session_name = _normalize_optional_str(getattr(ns, "session_name", None))
+        if not session_name:
+            raise ValueError("Missing session name: provide --session-name.")
 
         extra_env = _read_env_vars_file(ns.env_file) if ns.env_file else None
         claude_cmd = _resolve_claude_cmd(ns.claude_cmd)
         model = _normalize_nonempty_str(getattr(ns, "model", None), flag_name="model")
         reasoning_effort = _normalize_nonempty_str(getattr(ns, "reasoning_effort", None), flag_name="reasoning-effort")
         _validate_deadline_seconds(ns.deadline_seconds)
+        append_system_prompt: str | None = None
+        if ns.role_definition_md is not None:
+            role_path = ns.role_definition_md
+            if role_path.suffix.lower() != ".md":
+                raise ValueError("--role-definition-md must point to a .md file.")
+            if not role_path.exists():
+                raise FileNotFoundError(f"Role definition file not found: {role_path}")
+            append_system_prompt = _read_text_file(role_path)
         if ns.fake_session_id:
             created_at = datetime.now(timezone.utc).isoformat()
             workspace_dir = str(Path.cwd().resolve())
             info = SessionInfo(
-                alias=alias,
+                alias=session_name,
                 session_id=str(ns.fake_session_id),
                 created_at=created_at,
                 workspace_dir=workspace_dir,
             )
         else:
-            init_prompt = ns.init_prompt or f"Initialize a new session named '{alias}'. Reply only: OK"
+            init_prompt = ns.init_prompt or f"Initialize a new session named '{session_name}'. Reply only: OK"
             info = create_session(
-                alias=alias,
+                alias=session_name,
                 init_prompt=init_prompt,
                 claude_cmd=claude_cmd,
+                append_system_prompt=append_system_prompt,
                 model=model,
                 reasoning_effort=reasoning_effort,
                 extra_env=extra_env,
@@ -667,8 +728,6 @@ def main(argv: list[str]) -> int:
         resolved = resolve_session(
             session_id=ns.session_id,
             session_name=ns.session_name,
-            session_alias=ns.session_alias,
-            alias=ns.alias,
             mapping_file=ns.mapping_file,
         )
         if ns.print_session_id:
@@ -735,6 +794,143 @@ def main(argv: list[str]) -> int:
         )
         return 0
 
+    if ns.cmd == "delete-session":
+        workspace_dir = ns.workspace_dir or str(Path.cwd().resolve())
+        mapping_path = ns.mapping_file or _default_mapping_file(workspace_dir)
+
+        requested_session_name = _normalize_optional_str(ns.session_name)
+        requested_session_id = ns.session_id.strip() if isinstance(ns.session_id, str) and ns.session_id.strip() else None
+        if not requested_session_name and not requested_session_id:
+            raise ValueError(
+                "Missing delete selector: provide --session-name or --session-id."
+            )
+
+        data: dict[str, Any] = {"workspace_dir": workspace_dir, "aliases": {}}
+        stored_workspace_dir = ""
+        mapping_file_existed = mapping_path.exists()
+        recreated_from_invalid = False
+        wrote_mapping = False
+        removed_aliases: list[str] = []
+        aliases_before = 0
+        aliases_after = 0
+
+        if mapping_file_existed:
+            try:
+                data = _load_mapping_json(mapping_path)
+            except Exception as e:  # noqa: BLE001
+                backup = mapping_path.with_name(mapping_path.name + f".bad.{os.getpid()}")
+                try:
+                    if mapping_path.exists():
+                        mapping_path.replace(backup)
+                    sys.stderr.write(
+                        f"[WARN] Mapping file was invalid JSON; moved to {backup} and recreated: {e}\n"
+                    )
+                except Exception as backup_error:  # noqa: BLE001
+                    raise RuntimeError(
+                        f"Failed to read/backup mapping file {mapping_path}: {backup_error}"
+                    ) from backup_error
+                data = {"workspace_dir": workspace_dir, "aliases": {}}
+                recreated_from_invalid = True
+
+            stored_workspace_dir = data.get("workspace_dir", "") if isinstance(data.get("workspace_dir"), str) else ""
+            aliases = data.get("aliases")
+            if not isinstance(aliases, dict):
+                aliases = {}
+            aliases_before = len(aliases)
+
+            if requested_session_name:
+                if requested_session_name in aliases:
+                    removed_aliases.append(requested_session_name)
+                    aliases.pop(requested_session_name, None)
+            else:
+                assert requested_session_id is not None
+                for alias_name in sorted(a for a in list(aliases.keys()) if isinstance(a, str)):
+                    entry = aliases.get(alias_name)
+                    if not isinstance(entry, dict):
+                        continue
+                    if entry.get("session_id") != requested_session_id:
+                        continue
+                    removed_aliases.append(alias_name)
+                    aliases.pop(alias_name, None)
+
+            if not isinstance(data.get("workspace_dir"), str) or not data.get("workspace_dir"):
+                data["workspace_dir"] = workspace_dir
+            data["aliases"] = aliases
+
+            if removed_aliases or recreated_from_invalid:
+                payload = json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+                tmp_path = mapping_path.with_name(mapping_path.name + f".tmp.{os.getpid()}")
+                tmp_path.write_text(payload, encoding="utf-8")
+                os.replace(tmp_path, mapping_path)
+                wrote_mapping = True
+
+            aliases_after = len(aliases)
+
+        if ns.print_mapping_json and not mapping_file_existed:
+            data = {"workspace_dir": workspace_dir, "aliases": {}}
+
+        sys.stdout.write(
+            json.dumps(
+                {
+                    "workspace_dir": workspace_dir,
+                    "mapping_file": str(mapping_path),
+                    "mapping_file_existed": mapping_file_existed,
+                    "stored_workspace_dir": stored_workspace_dir,
+                    "requested_session_name": requested_session_name,
+                    "requested_session_id": requested_session_id,
+                    "removed_aliases": removed_aliases,
+                    "removed_count": len(removed_aliases),
+                    "alias_count_before": aliases_before,
+                    "alias_count_after": aliases_after,
+                    "mapping_file_written": wrote_mapping,
+                    "mapping_recreated_from_invalid_json": recreated_from_invalid,
+                    "mapping": data if ns.print_mapping_json else None,
+                },
+                ensure_ascii=False,
+            )
+            + "\n"
+        )
+        return 0
+
+    if ns.cmd == "delete-all-sessions":
+        workspace_dir = ns.workspace_dir or str(Path.cwd().resolve())
+        mapping_path = ns.mapping_file or _default_mapping_file(workspace_dir)
+
+        existed = mapping_path.exists()
+        deleted = False
+        deleted_parent_dir = False
+        if existed:
+            try:
+                mapping_path.unlink()
+                deleted = True
+            except FileNotFoundError:
+                existed = False
+                deleted = False
+            except Exception as e:  # noqa: BLE001
+                raise RuntimeError(f"Failed to delete mapping file {mapping_path}: {e}") from e
+
+        if deleted:
+            try:
+                mapping_path.parent.rmdir()
+                deleted_parent_dir = True
+            except OSError:
+                deleted_parent_dir = False
+
+        sys.stdout.write(
+            json.dumps(
+                {
+                    "workspace_dir": workspace_dir,
+                    "mapping_file": str(mapping_path),
+                    "mapping_file_existed": existed,
+                    "mapping_file_deleted": deleted,
+                    "mapping_parent_dir_deleted_if_empty": deleted_parent_dir,
+                },
+                ensure_ascii=False,
+            )
+            + "\n"
+        )
+        return 0
+
     extra_env = _read_env_vars_file(ns.env_file) if ns.env_file else None
     claude_cmd = _resolve_claude_cmd(ns.claude_cmd)
     explicit_model = _normalize_nonempty_str(getattr(ns, "model", None), flag_name="model")
@@ -747,8 +943,6 @@ def main(argv: list[str]) -> int:
     resolved = resolve_session(
         session_id=ns.session_id,
         session_name=ns.session_name,
-        session_alias=ns.session_alias,
-        alias=ns.alias,
         mapping_file=ns.mapping_file,
     )
     effective_model = explicit_model or resolved.last_model
@@ -759,7 +953,7 @@ def main(argv: list[str]) -> int:
         if effective_model:
             cmd.extend(["--model", effective_model])
         if effective_reasoning_effort:
-            cmd.extend(["--reasoning-effort", effective_reasoning_effort])
+            cmd.extend(["--effort", effective_reasoning_effort])
         proc = _run_claude(claude_cmd, cmd, extra_env=extra_env, timeout_seconds=deadline_seconds)
         if proc.returncode != 0:
             raise RuntimeError(f"claude failed rc={proc.returncode}: {proc.stderr.strip()}")
@@ -790,7 +984,7 @@ def main(argv: list[str]) -> int:
         if effective_model:
             cmd.extend(["--model", effective_model])
         if effective_reasoning_effort:
-            cmd.extend(["--reasoning-effort", effective_reasoning_effort])
+            cmd.extend(["--effort", effective_reasoning_effort])
         if ns.verbose:
             cmd.append("--verbose")
         if ns.include_partials:
