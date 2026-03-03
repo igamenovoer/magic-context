@@ -31,7 +31,8 @@ claude -p "Continue that review" --resume "$session_id" --output-format json
 ## Heartbeats and deadlines
 
 - For long-running work, prefer streaming (`--output-format stream-json`, optionally with `--include-partial-messages`) so stdout emits a steady heartbeat (one JSON object per line).
-- Do not add timeouts or terminate the Claude process while it is still working unless the user explicitly requested a deadline (for example: "up to 5 minutes").
+- Do not add timeouts or terminate the Claude process while it is still working unless one of these applies: (1) the user explicitly requested a deadline (for example: "up to 5 minutes"), (2) the process is clearly stalled, or (3) the process is in an error state (for example: lost connection, timeout, invalid API key, non-zero exit failure).
+- Do not interrupt simply because intermediate output appears to drift from the prompt; let Claude run to normal completion and evaluate the final result afterward.
 
 ## Workflow decision
 

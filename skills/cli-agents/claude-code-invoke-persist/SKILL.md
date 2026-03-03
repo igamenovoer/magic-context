@@ -16,7 +16,8 @@ If the user provides a claude-compatible wrapper command (drop-in replacement fo
 ## Heartbeats and deadlines
 
 - For long-running work, prefer streaming (`resume-stream`) so stdout emits a steady heartbeat (one JSON object per line).
-- Do not add timeouts or terminate the Claude process while it is still working unless the user explicitly requested a deadline (for example: "up to 5 minutes"). If a deadline is requested, pass `--deadline-seconds` to the helper.
+- Do not add timeouts or terminate the Claude process while it is still working unless one of these applies: (1) the user explicitly requested a deadline (for example: "up to 5 minutes"), (2) the process is clearly stalled, or (3) the process is in an error state (for example: lost connection, timeout, invalid API key, non-zero exit failure). If a deadline is requested, pass `--deadline-seconds` to the helper.
+- Do not interrupt simply because intermediate output appears to drift from the prompt; let Claude run to normal completion and evaluate the final result afterward.
 
 ## Example triggers (user intent -> stage)
 
@@ -62,6 +63,7 @@ The skill itself is triggered by name, but once invoked, pick a stage based on u
     - Runs `claude --resume <session_id>` (or wrapper via `--claude-cmd`/`CLAUDE_CMD`)
     - Defaults `--model` / `--reasoning-effort` from stored `last_model` / `last_reasoning_effort` when not explicitly provided
     - Persists the effective model/effort as the new `last_*` values after a successful call
+    - Lets the Claude process run to natural completion unless deadline/stall/error criteria are met
   - **Deadlines:** support `--deadline-seconds` only when the user explicitly requested a time limit
   - **Keywords:** "continue latest chat", "continue last chat", "resume session"
 

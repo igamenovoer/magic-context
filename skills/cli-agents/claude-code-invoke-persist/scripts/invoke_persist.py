@@ -16,8 +16,10 @@ automation. It supports:
 If you use a claude-compatible wrapper command (drop-in replacement for `claude`),
 pass it via `--claude-cmd "..."` or set `CLAUDE_CMD`.
 
-Do not terminate the Claude process due to timeouts unless the user explicitly
-requested a deadline. If they did, pass `--deadline-seconds`.
+Do not terminate a running Claude call unless one of these applies: an explicit
+user-requested deadline, a confirmed stall, or a hard error state.
+Do not terminate only because intermediate output appears off-prompt; let it
+run to completion and evaluate the final result.
 
 The default alias mapping file path is workspace-scoped under system temp:
   agent-sessions/<workspace-basename>-<md5(abs-workspace-dir)>/claude-code-alias-mapping.json

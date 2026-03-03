@@ -48,6 +48,8 @@ Do not set deadlines unless the user explicitly requested a time limit. If they 
 python3 scripts/invoke_persist.py create-session --session-name "review-src" --print-mapping-json --deadline-seconds 30
 ```
 
+Do not interrupt a running create/resume Claude call just because intermediate output appears to drift from the prompt. Let the process finish unless deadline, stall, or hard error criteria are met.
+
 ## Persist the alias mapping (system temp)
 
 By default, this skill writes a workspace-scoped JSON file under system temp:

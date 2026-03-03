@@ -63,7 +63,8 @@ python3 scripts/invoke_persist.py resume-json --session-name "review-src" --prom
 ## Heartbeat and deadlines
 
 - Prefer `resume-stream` for long-running work. Each JSONL line on stdout can be treated as a heartbeat.
-- Do not terminate the Claude process due to lack of output unless the user explicitly requested a deadline. If they did, pass `--deadline-seconds` (example: "up to 5 minutes" -> `--deadline-seconds 300`).
+- Do not terminate the Claude process due to lack of output unless the user explicitly requested a deadline, the process is clearly stalled, or the process is in a hard error state (for example: lost connection, timeout, invalid API key, non-zero exit failure). If a deadline is requested, pass `--deadline-seconds` (example: "up to 5 minutes" -> `--deadline-seconds 300`).
+- Do not interrupt simply because intermediate output appears to drift from the prompt; let Claude run to normal completion and evaluate the final result afterward.
 
 Examples:
 

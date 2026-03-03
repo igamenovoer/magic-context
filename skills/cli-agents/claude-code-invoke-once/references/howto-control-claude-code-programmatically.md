@@ -99,6 +99,8 @@ Notes:
 2. For robust automation, prefer `--output-format json` or `--output-format stream-json` over plain text parsing.
 3. If you need multi-turn state, persist the `session_id` and use `--resume`.
 4. If you use a wrapper command, replace `"claude"` with that executable (or pass it as a parameter).
+5. Do not interrupt a running Claude process only because partial output seems off-prompt; let it reach normal completion, then assess the final result.
+6. Early termination is reserved for explicit deadlines requested by the user, confirmed stalls, or hard error states (for example: lost connection, timeout, invalid API key, process failure).
 
 ## Optional: running Claude Code as an MCP server (tools, not chat)
 
