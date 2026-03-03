@@ -28,6 +28,11 @@ session_id="$(claude -p "Start a review" --output-format json | jq -r '.session_
 claude -p "Continue that review" --resume "$session_id" --output-format json
 ```
 
+## Heartbeats and deadlines
+
+- For long-running work, prefer streaming (`--output-format stream-json`, optionally with `--include-partial-messages`) so stdout emits a steady heartbeat (one JSON object per line).
+- Do not add timeouts or terminate the Claude process while it is still working unless the user explicitly requested a deadline (for example: "up to 5 minutes").
+
 ## Workflow decision
 
 1. Need a single final answer: use `--output-format json` and parse `.result`.
