@@ -9,6 +9,16 @@ Review an OpenSpec change and produce a concrete, thread-friendly review report.
 
 **Output:** Write to `CHANGE_DIR/review/review-YYYYMMDD-HHMMSS.md` (create `review/` if missing).
 
+## Prerequisites
+
+This skill depends on these companion skills for external reviewer invocation:
+
+- `$claude-code-invoke-once`
+- `$copilot-invoke-once`
+
+Before running, verify both skills are discoverable/readable in the current environment.
+If either dependency is missing, refuse to run this skill and return a clear error listing the missing skill(s).
+
 ## Workflow
 
 ### 1) Select The Change To Review
@@ -154,10 +164,33 @@ Follow the open-questions format from `magic-context/instructions/planning/discu
 2) <concrete next step>
 ```
 
+## External Review Agent Support
+
+When the user asks to run this workflow via an external coding agent, support these commands:
+
+- `claude-yunwu`
+- `copilot`
+
+Default reviewer selection:
+
+- Default to `copilot` for external review.
+- Use Claude Code (`claude-yunwu`) only when the user explicitly requests Claude.
+
+Agent-specific requirements:
+
+- For Claude Code, use the `claude-yunwu` wrapper with an Opus model.
+- Invocation details for Claude Code are delegated to `$claude-code-invoke-once`; follow that skill for exact command/session/flag handling.
+- For `copilot`, use the latest Opus model with high reasoning effort.
+- Invocation details for `copilot` are delegated to `$copilot-invoke-once`; follow that skill for exact command/config composition.
+
 ## Guardrails
 
 - Do not silently switch changes; always confirm the chosen change when selection was ambiguous.
 - Prefer actionable feedback over vague opinions; cite concrete artifacts/paths.
 - Keep “Open Questions” as a separate section and include a proposed default for each question.
-- If the user asks to run this review via another coding agent (for example `claude` / `codex` / `gemini` CLIs), do NOT assume that agent has this skill installed or can read files from this repo.
+- If the user asks to run this review via another coding agent, default to `copilot` unless the user explicitly requests Claude.
+- If the user requests Claude Code, require the `claude-yunwu` wrapper + Opus model, and defer exact invocation mechanics to `$claude-code-invoke-once`.
+- If the user requests `copilot`, require latest Opus model + high reasoning effort, and defer exact invocation mechanics to `$copilot-invoke-once`.
+- If `$claude-code-invoke-once` or `$copilot-invoke-once` is unavailable, refuse to run and report missing dependencies instead of attempting ad-hoc fallback commands.
+- Do NOT assume an external agent has this skill installed or can read files from this repo.
   - Construct a plain prompt that includes all instructions from this skill (paste the contents of this `SKILL.md`), plus the selected change name (if known), and ask the other agent to execute the workflow and produce the review report at the specified output path.

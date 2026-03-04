@@ -1,4 +1,4 @@
 interface:
   display_name: "GitHub Copilot Invoke Once"
   short_description: "Programmatic GitHub Copilot CLI calls"
-  default_prompt: "Use $copilot-invoke-once to show one-shot, streaming, and resume patterns for the `copilot` CLI."
+  default_prompt: "Use $copilot-invoke-once to compose a temp Copilot config from presets, then show one-shot, streaming, and resume patterns for the `copilot` CLI."

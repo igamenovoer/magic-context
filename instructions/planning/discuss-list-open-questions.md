@@ -52,6 +52,21 @@ The doc should explicitly identify:
 - **Deferrable decisions** (safe to postpone to a later version),
 - **Assumptions** (what you’re assuming if a decision is deferred).
 
+In this repo, prefer making this explicit by labeling **every question** as either:
+
+- `Blocking`: must be decided before implementation starts
+- `Deferrable`: safe to decide later (and what you assume until then)
+
+The discuss doc SHOULD also include a short **Response format / response contract**
+section near the top so reviewers know how to respond consistently (for example,
+where to place `DECISION` blockquotes and what shape they must take).
+
+For each open question, include code-grounded explanation of:
+
+- why this question arises,
+- how each option would be implemented (pseudo code when appropriate),
+- and the user-facing differences between options (behavior/output/error UX/ops impact).
+
 ---
 
 ## Naming and placement (context-dependent)
@@ -135,17 +150,51 @@ Use this template as the default structure:
 
 ---
 
+## Response format (how to respond)
+
+When responding to this doc, edit this file and insert a `DECISION` blockquote
+for each question using this exact format:
+
+```markdown
+> **DECISION: <one-line summary>.**
+> Rationale: <codebase-grounded justification>.
+```
+
+Rationale contract:
+
+- Ground the rationale in the repo with concrete evidence (file paths + line numbers when possible).
+
+Placement contract:
+
+- Insert the `DECISION` blockquote immediately after the final `Pros / Cons (Proposal)` section for that question.
+- Keep any “Notes / Follow-ups” after the `DECISION` blockquote so decisions are easy to scan.
+
+---
+
 ## Q1) <question phrased crisply>
+
+<!-- Classification: mark each question as Blocking or Deferrable -->
+- Decision: `Blocking` | `Deferrable`
 
 ### Why this matters
 
 - <bullet: what will go wrong if undecided>
 - <bullet: what it affects (API, storage, tests, ops, etc.)>
 
+### Why this question arises in code
+
+- <bullet: where the ambiguity appears in current/proposed code paths>
+- <bullet: what branch/condition/state transition is currently undecided>
+- <optional pseudo code (if appropriate): short sketch showing the decision point>
+
 ### Options
 
 **Option A: <name>**
 
+- Code impact (pseudo code, if appropriate):
+  - <how this option maps into code paths/branches/data flow>
+- User-facing difference:
+  - <what a user/operator/client would observe differently>
 - Pros:
   - ...
 - Cons:
@@ -153,6 +202,10 @@ Use this template as the default structure:
 
 **Option B: <name>**
 
+- Code impact (pseudo code, if appropriate):
+  - <how this option maps into code paths/branches/data flow>
+- User-facing difference:
+  - <what a user/operator/client would observe differently>
 - Pros:
   - ...
 - Cons:
@@ -169,7 +222,10 @@ Use this template as the default structure:
 - Cons:
   - ...
 
-<Optional: “Notes / Follow-ups” subsection for any deferred details.>
+<!-- DECISION blockquote is inserted here during decision capture -->
+<!-- See: magic-context/instructions/planning/discuss-propose-decision.md -->
+
+<Optional: “Notes / Follow-ups” subsection for any deferred details (keep it after the DECISION blockquote).>
 
 ---
 
@@ -183,6 +239,7 @@ Use this template as the default structure:
 - Keep options mutually exclusive; avoid “Option C: combine A and B” unless it’s truly distinct.
 - Include **implementation implications** when relevant (new error type, schema change, migration need).
 - If a question depends on another, cross-reference it (e.g., “depends on Q7 auth decision”).
+- Explicitly describe the code-level decision point that causes the question.
 
 ### Guidelines for pros/cons
 
@@ -193,6 +250,13 @@ Use this template as the default structure:
   - test surface area,
   - performance risks,
   - future extensibility.
+
+### Guidelines for pseudo code and user-facing differences
+
+- Add pseudo code when it helps clarify control flow, branching, state transitions, or API behavior.
+- Keep pseudo code short and decision-focused (show only the branch/contract change relevant to the question).
+- For each option, state user-facing impact explicitly (API payload/status differences, CLI output changes, error messages, latency/reliability expectations, migration effects).
+- If there is no meaningful user-facing difference, explicitly say so and explain why.
 
 ### Guidelines for proposals
 
@@ -207,12 +271,17 @@ Proposals should be concrete:
 ## Quality checklist (before you finalize)
 
 - The doc has a short **Summary of recommended defaults** at the top.
+- The doc includes a short **Response format (how to respond)** section near the top.
 - Every question has:
+  - `Blocking`/`Deferrable` classification
   - “Why this matters”
+  - “Why this question arises in code”
   - Options (A/B/…)
+  - Code impact and pseudo code (when appropriate) for each option
+  - User-facing difference for each option
   - Proposal (recommended)
   - Pros/cons for the proposal
-- Blocking vs deferrable decisions are explicit.
+- Blocking vs deferrable decisions are explicit (prefer per-question labels).
 - The doc is readable by someone who hasn’t been in your head:
   - minimal jargon
   - concrete examples where helpful
@@ -228,6 +297,11 @@ If you want a structured follow-up, have a reviewer (human or agent) read this d
 > **DECISION: Accept Option B (<short summary>).**
 > Rationale: <codebase-grounded justification>.
 ```
+
+Placement guidance:
+
+- Insert the `DECISION` blockquote immediately after each question’s final `Pros / Cons (Proposal)` section.
+- Keep any “Notes / Follow-ups” after the decision blockquote so the decision is easy to scan.
 
 This keeps the discuss doc as both:
 

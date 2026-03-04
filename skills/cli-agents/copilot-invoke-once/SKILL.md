@@ -7,13 +7,37 @@ description: Programmatically invoke GitHub Copilot CLI via the `copilot` comman
 
 ## Quick start (shell)
 
-One-shot (script-friendly final response):
+One-shot (script-friendly final response with a high-reasoning preset):
 
 ```bash
-copilot -p "Summarize this repo" --yolo --no-ask-user --silent --stream on
+skill_dir=".codex/skills/copilot-invoke-once"
+tmp_cfg="$(python3 "$skill_dir/scripts/compose_config.py" --preset "$skill_dir/presets/reasoning-high.json")"
+trap 'rm -rf "$tmp_cfg"' EXIT
+copilot --config-dir "$tmp_cfg" -p "Summarize this repo" --yolo --no-ask-user --silent --stream on
 ```
 
-## Copilot wrappers (preset envs)
+## Dynamic config overlays (must follow)
+
+- Copilot CLI does not expose every model-control setting via CLI flags (for example `reasoning_effort`), so always generate a temporary config directory per invocation and run Copilot with `--config-dir <temp-dir>`.
+- Use `scripts/compose_config.py` (this skill) to compose:
+  1. base config: `~/.copilot/config.json` (or `--base-config-dir`)
+  2. preset overlay: `presets/*.json`
+  3. optional runtime overlays: `--overlay-file` and/or `--overlay-json`
+- Merge rule: recursive object merge, with overlay values replacing base values on key conflicts.
+- The helper links non-`config.json` entries from the base config dir into the temp dir (for example `mcp-config.json`, session state) so behavior/auth remains consistent.
+- The helper prints the generated config directory path on stdout; clean it up after the command (`rm -rf "$tmp_cfg"`).
+
+## Presets
+
+Preset overlays live in `presets/`:
+
+- `presets/reasoning-high.json`
+- `presets/reasoning-medium.json`
+- `presets/reasoning-low.json`
+
+Default behavior: use `presets/reasoning-high.json` unless the user explicitly requests a different reasoning level or a custom overlay.
+
+## Copilot wrappers
 
 If the user provides a Copilot wrapper command (drop-in replacement for `copilot` that sets preset env vars), use it by substituting it for `copilot` in all examples and invocations.
 
@@ -32,20 +56,20 @@ If the user provides a Copilot wrapper command (drop-in replacement for `copilot
 Streaming progress (heartbeat on stdout):
 
 ```bash
-copilot -p "Explain recursion with examples" --yolo --no-ask-user --silent --stream on
+copilot --config-dir "$tmp_cfg" -p "Explain recursion with examples" --yolo --no-ask-user --silent --stream on
 ```
 
 Continue a multi-turn session:
 
 ```bash
-copilot -p "Start a review of src/" --yolo --no-ask-user --silent --stream on
-copilot -p "Continue the same review and focus on tests/" --continue --yolo --no-ask-user --silent --stream on
+copilot --config-dir "$tmp_cfg" -p "Start a review of src/" --yolo --no-ask-user --silent --stream on
+copilot --config-dir "$tmp_cfg" -p "Continue the same review and focus on tests/" --continue --yolo --no-ask-user --silent --stream on
 ```
 
 Resume by explicit session ID:
 
 ```bash
-copilot -p "Continue that review" --resume "<session-id>" --yolo --no-ask-user --silent --stream on
+copilot --config-dir "$tmp_cfg" -p "Continue that review" --resume "<session-id>" --yolo --no-ask-user --silent --stream on
 ```
 
 ## Heartbeats and deadlines
@@ -59,6 +83,7 @@ copilot -p "Continue that review" --resume "<session-id>" --yolo --no-ask-user -
 - Per-invocation: pass `--model <model>` (preferred for deterministic automation).
 - Environment default: set `COPILOT_MODEL=<model>` (overridden by `--model`).
 - Interactive: start `copilot` and use `/model` to select a model (may persist in `~/.copilot/config.json`).
+- Config overlay: set model- or reasoning-related keys in a preset/overlay JSON when no matching CLI flag exists.
 - If the user specifies a model by a short name or alias (for example "opus", "sonnet", "gpt-5"), resolve it to an exact `copilot --model <model>` choice.
 - If the exact model name is not obvious from chat context, check the locally installed Copilot CLI for its supported model IDs (for example by running `copilot --help` and reading the `--model` choices, or by using interactive `/model`).
 - Do not guess a model ID when multiple choices could match; ask the user to pick the exact model string or choose the closest unambiguous match.
@@ -103,3 +128,5 @@ Ensure the command can authenticate in your environment (for example: `copilot l
 ## Resources
 
 - Full guide: `references/howto-control-github-copilot-cli-programmatically.md`
+- Helper: `scripts/compose_config.py`
+- Presets: `presets/`
