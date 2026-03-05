@@ -29,6 +29,14 @@ For each question in the discussion document:
 > Rationale: <concrete justification grounded in codebase evidence>.
 ```
 
+### Reviewer stance (critical, not deferential)
+
+Treat every "Proposal (Recommended)" as a hypothesis to test, not an answer to trust.
+
+- **Do not naively trust recommended solutions.** The recommendation may be incomplete, outdated, or incorrect.
+- **Do not assume the discussion doc author is highly experienced.** Evaluate the proposal on evidence, not perceived authority.
+- **Actively look for failure modes and hidden costs.** Check edge cases, migration impact, operational risk, and consistency with existing architecture before accepting.
+
 ---
 
 ## How to investigate before deciding
