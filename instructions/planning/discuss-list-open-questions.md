@@ -64,6 +64,8 @@ where to place `DECISION` blockquotes and what shape they must take).
 For each open question, include code-grounded explanation of:
 
 - why this question arises,
+- at least one concrete example that makes the ambiguity visible,
+- proposed solutions/options and the recommended proposal,
 - how each option would be implemented (pseudo code when appropriate),
 - and the user-facing differences between options (behavior/output/error UX/ops impact).
 
@@ -181,17 +183,23 @@ Placement contract:
 - <bullet: what will go wrong if undecided>
 - <bullet: what it affects (API, storage, tests, ops, etc.)>
 
+### Examples
+
+- <example scenario #1: concrete input/context and observed/expected behavior>
+- <example scenario #2 (optional): edge case that highlights tradeoffs>
+
 ### Why this question arises in code
 
 - <bullet: where the ambiguity appears in current/proposed code paths>
 - <bullet: what branch/condition/state transition is currently undecided>
-- <optional pseudo code (if appropriate): short sketch showing the decision point>
+- <optional pseudo code (if appropriate): short sketch showing the decision point, wrapped in a fenced code block (prefer `python`)>
 
 ### Options
 
 **Option A: <name>**
 
 - Code impact (pseudo code, if appropriate):
+  - <wrap pseudo code in fenced code block; prefer `python` for readability>
   - <how this option maps into code paths/branches/data flow>
 - User-facing difference:
   - <what a user/operator/client would observe differently>
@@ -203,6 +211,7 @@ Placement contract:
 **Option B: <name>**
 
 - Code impact (pseudo code, if appropriate):
+  - <wrap pseudo code in fenced code block; prefer `python` for readability>
   - <how this option maps into code paths/branches/data flow>
 - User-facing difference:
   - <what a user/operator/client would observe differently>
@@ -240,6 +249,7 @@ Placement contract:
 - Include **implementation implications** when relevant (new error type, schema change, migration need).
 - If a question depends on another, cross-reference it (e.g., “depends on Q7 auth decision”).
 - Explicitly describe the code-level decision point that causes the question.
+- Include concrete examples per question so reviewers can validate behavior against real scenarios.
 
 ### Guidelines for pros/cons
 
@@ -254,6 +264,7 @@ Placement contract:
 ### Guidelines for pseudo code and user-facing differences
 
 - Add pseudo code when it helps clarify control flow, branching, state transitions, or API behavior.
+- Always wrap pseudo code in fenced code blocks, preferably with a `python` language fence.
 - Keep pseudo code short and decision-focused (show only the branch/contract change relevant to the question).
 - For each option, state user-facing impact explicitly (API payload/status differences, CLI output changes, error messages, latency/reliability expectations, migration effects).
 - If there is no meaningful user-facing difference, explicitly say so and explain why.
@@ -275,9 +286,11 @@ Proposals should be concrete:
 - Every question has:
   - `Blocking`/`Deferrable` classification
   - “Why this matters”
+  - Concrete examples
   - “Why this question arises in code”
   - Options (A/B/…)
   - Code impact and pseudo code (when appropriate) for each option
+  - Pseudo code wrapped in fenced code blocks (prefer `python`)
   - User-facing difference for each option
   - Proposal (recommended)
   - Pros/cons for the proposal

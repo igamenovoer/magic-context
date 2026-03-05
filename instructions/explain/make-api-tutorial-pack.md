@@ -88,10 +88,10 @@ The README is the entry point. It should be a **step-by-step usage tutorial**, n
 #### How to write tutorials effectively
 
 *   **Start with a goal**: State the “question”/problem this tutorial answers and what success looks like.
-*   **Make it runnable**: Provide copy/paste commands in the exact order to run the demo (`run_demo.sh`).
+*   **Make it runnable**: Do **not** just say "run `run_demo.sh` and observe the result"—that is unhelpful. Instead, **inline the meaningful steps** of `run_demo.sh` directly in the tutorial body as numbered commands with explanations: show what each command does, why it exists, what flags matter, and what output to expect. The script is a convenience wrapper; the README must make the underlying steps transparent even to someone who does not run the script.
 *   **No hidden state**: Do not assume prior workspace artifacts; every dependency should be called out in prerequisites or packaged in `inputs/`.
 *   **Explain the steps**: Use numbered steps and brief explanations so a reader knows *why* each command exists.
-*   **Show expected outputs**: Include representative snippets (or paths to generated artifacts) so users can sanity-check quickly.
+*   **Show expected outputs**: Do **not** just say "see the output file" or "read the generated report"—that is unhelpful. **Inline the critical results** (key JSON fields, representative table rows, summary numbers, or terminal output snippets) directly in the tutorial body, formatted in a code block. Only point to a file path for content that is genuinely too large to inline; in that case, still quote the most important lines.
 *   **Include “verify” instructions**: Explain how to compare current outputs to `expected_report/`.
 *   **Keep examples minimal but complete**: Code blocks should include imports, env var names, and fully specified request payloads.
 *   **Prefer deterministic docs**: Avoid embedding timestamps/absolute paths; when unavoidable, explain how they are sanitized.
@@ -104,11 +104,12 @@ At minimum, the README should include:
 2.  **Prerequisites (checklist)**: service running, env ready, required env vars, sample data assumptions.
 3.  **Implementation Idea**: a high-level approach, as an ordered list of steps.
 4.  **Critical Example Code**: copy/pasteable examples (Python SDK and/or REST cURL) with **rich inline comments** explaining each step.
-5.  **Input and Output**: show concrete example payloads and expected outputs (include sample JSON; keep it minimal and readable). If the tutorial involves images: embed ≤5 images directly; otherwise list image paths.
+5.  **Input and Output**: **Inline the critical input content** (example payloads, key CSV rows, representative JSON) directly as formatted code blocks—do **not** just say "see `inputs/`". Likewise, **inline the critical output content** (key fields, summary rows, representative snippets) directly—do **not** just reference a file path. If the full input or output is large, quote the most important lines and then reference the file for the remainder.
 6.  **Run + Verify**:
-    - How to run `run_demo.sh` end-to-end.
-    - How to compare outputs with `expected_report/`.
-    - How to refresh `expected_report/` using the snapshot flag (e.g., `--snapshot-report`) when behavior changes intentionally.
+    - Walk through each step that `run_demo.sh` performs—workspace setup, input copying, each individual command with its flags—**as explicit numbered tutorial steps**, not as a black-box "run the script" instruction. The script is a convenience entry point; the README must expose every meaningful action.
+    - Show expected terminal output or key lines **inlined as a code block** after each step so the reader can verify progress without opening any file.
+    - Explain how to compare final outputs with `expected_report/` (e.g., `diff -r`).
+    - Explain how to refresh `expected_report/` using the snapshot flag (e.g., `--snapshot-report`) when behavior changes intentionally.
 7.  **Appendix**:
     - A table of key parameters configured/assumed by the tutorial (**name**, **value**, **explanation**).
     - A complete list of tutorial **input files** (tracked inputs) and **output files** (generated artifacts and/or tracked expected outputs), with paths.
