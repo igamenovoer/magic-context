@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenSpec Revise By Decision"
+  short_description: "Apply review decisions to OpenSpec artifacts"
+  default_prompt: "Use $openspec-ext-revise-by-decision to read a review document with questions and DECISION blocks, map each final decision to the relevant OpenSpec artifacts, and revise those artifacts coherently."

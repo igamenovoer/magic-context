@@ -94,14 +94,27 @@ Use this header (and keep it stable so reviews are easy to diff/scan):
   - <path>
   - ...
 
-## How To Respond (Blockquote Protocol)
+## Response Format (Decision Contract)
 
-Use blockquotes so replies are visually distinct and easy to thread:
+When responding to open questions in this review, use a `DECISION` blockquote immediately after each question's final `Pros / Cons (Proposal)` subsection:
 
-> AUTHOR-r1: <response to a specific bullet/question>
-> REVIEWER-r1: <follow-up / acknowledgement>
+```markdown
+> **DECISION: <one-line decision summary>.**
+> Rationale: <codebase-grounded justification with concrete evidence>.
+```
 
-Use `r2`, `r3`, ... for later rounds.
+Rationale contract:
+
+- Ground decisions in repository evidence (specific paths, symbols, and line numbers when possible).
+- Explain why the chosen option fits existing architecture/patterns better than alternatives.
+- Call out implementation implications (new fields/errors/tests/migrations) when applicable.
+- When useful, include concise Markdown fenced code blocks to show the exact branch, API shape, or state transition under discussion.
+- Keep rationale concise and concrete (typically 2-5 sentences).
+
+Placement contract:
+
+- Insert the `DECISION` blockquote directly after `Pros / Cons (Proposal)` for that question.
+- Keep any follow-ups after the decision block so outcomes remain easy to scan.
 
 ## Summary
 
@@ -128,18 +141,34 @@ Use `r2`, `r3`, ... for later rounds.
 
 ## Open Questions (With Proposed Defaults)
 
-Follow the open-questions format from `magic-context/instructions/planning/discuss-list-open-questions.md`.
-
 ### Q1) <crisp question>
+
+<!-- Classification: mark every question -->
+- Decision: `Blocking` | `Deferrable`
 
 #### Why this matters
 
 - ...
 
+#### Examples
+
+- <concrete scenario showing ambiguity in behavior/output>
+- <optional edge case highlighting tradeoffs>
+
+#### Why this question arises in code
+
+- <where ambiguity appears: files/modules/code paths>
+- <which branch/condition/state transition is currently undecided>
+- <include a short fenced Markdown code block when it clarifies the decision point>
+
 #### Options
 
 **Option A: ...**
 
+- Code impact:
+  - <how this maps to code paths/data flow; include short pseudo code in a fenced Markdown code block when helpful>
+- User-facing difference:
+  - <observable UX/output/error/ops difference>
 - Pros:
   - ...
 - Cons:
@@ -147,6 +176,10 @@ Follow the open-questions format from `magic-context/instructions/planning/discu
 
 **Option B: ...**
 
+- Code impact:
+  - <how this maps to code paths/data flow; include short pseudo code in a fenced Markdown code block when helpful>
+- User-facing difference:
+  - <observable UX/output/error/ops difference>
 - Pros:
   - ...
 - Cons:
@@ -162,6 +195,9 @@ Follow the open-questions format from `magic-context/instructions/planning/discu
   - ...
 - Cons:
   - ...
+
+> **DECISION: <one-line decision summary>.**
+> Rationale: <codebase-grounded justification with concrete evidence>.
 
 ## Suggested Next Steps
 
