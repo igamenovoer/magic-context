@@ -11,13 +11,18 @@ Review an OpenSpec change and produce a concrete, thread-friendly review report.
 
 ## Prerequisites
 
-This skill depends on these companion skills for external reviewer invocation:
+No external agent is required by default.
 
-- `$claude-code-invoke-once`
-- `$copilot-invoke-once`
+Run the review directly in the current agent unless the user explicitly asks to use an external reviewer.
 
-Before running, verify both skills are discoverable/readable in the current environment.
-If either dependency is missing, refuse to run this skill and return a clear error listing the missing skill(s).
+If (and only if) the user explicitly requests external review:
+
+- `claude`, `claude code`, and `claude-<suffix>` require `$claude-code-invoke-once`
+- `copilot` and `copilot-<suffix>` require `$copilot-invoke-once`
+
+Treat `claude-<suffix>` as Claude Code with wrapper handling, and treat `copilot-<suffix>` as Copilot with wrapper handling.
+
+If the requested external dependency (after normalization to Claude or Copilot family) is missing, report a clear error listing the missing skill and do not attempt an ad-hoc fallback command.
 
 ## Workflow
 
@@ -166,31 +171,35 @@ Follow the open-questions format from `magic-context/instructions/planning/discu
 
 ## External Review Agent Support
 
-When the user asks to run this workflow via an external coding agent, support these commands:
+Use external review agents only when the user explicitly requests them.
 
-- `claude-yunwu`
+Supported external reviewer commands:
+
+- `claude` / `claude code`
 - `copilot`
+- `claude-<suffix>` (alias of Claude Code with wrapper handling)
+- `copilot-<suffix>` (alias of Copilot with wrapper handling)
 
-Default reviewer selection:
+If the user does not specify an external reviewer, perform the review directly in the current agent.
 
-- Default to `copilot` for external review.
-- Use Claude Code (`claude-yunwu`) only when the user explicitly requests Claude.
+Agent-specific requirements (only when explicitly requested):
 
-Agent-specific requirements:
-
-- For Claude Code, use the `claude-yunwu` wrapper with an Opus model.
+- For Claude (`claude`, `claude code`, or `claude-<suffix>`), use Claude Code with an Opus model.
 - Invocation details for Claude Code are delegated to `$claude-code-invoke-once`; follow that skill for exact command/session/flag handling.
-- For `copilot`, use the latest Opus model with high reasoning effort.
+- For Copilot (`copilot` or `copilot-<suffix>`), use the latest Opus model with high reasoning effort.
 - Invocation details for `copilot` are delegated to `$copilot-invoke-once`; follow that skill for exact command/config composition.
+- For wrapper-style reviewer names (for example, `claude-<suffix>` / `copilot-<suffix>`), rely on the underlying invocation skill to resolve and handle wrapper-specific command details.
 
 ## Guardrails
 
 - Do not silently switch changes; always confirm the chosen change when selection was ambiguous.
 - Prefer actionable feedback over vague opinions; cite concrete artifacts/paths.
 - Keep “Open Questions” as a separate section and include a proposed default for each question.
-- If the user asks to run this review via another coding agent, default to `copilot` unless the user explicitly requests Claude.
-- If the user requests Claude Code, require the `claude-yunwu` wrapper + Opus model, and defer exact invocation mechanics to `$claude-code-invoke-once`.
-- If the user requests `copilot`, require latest Opus model + high reasoning effort, and defer exact invocation mechanics to `$copilot-invoke-once`.
-- If `$claude-code-invoke-once` or `$copilot-invoke-once` is unavailable, refuse to run and report missing dependencies instead of attempting ad-hoc fallback commands.
+- Default behavior is in-agent review (no external reviewer) unless the user explicitly requests an external reviewer.
+- Normalize reviewer aliases before dispatch: `claude-<suffix>` -> Claude Code family; `copilot-<suffix>` -> Copilot family.
+- If the user requests Claude (`claude`, `claude code`, or `claude-<suffix>`), require Claude Code + Opus model, and defer exact invocation mechanics to `$claude-code-invoke-once`.
+- If the user requests Copilot (`copilot` or `copilot-<suffix>`), require latest Opus model + high reasoning effort, and defer exact invocation mechanics to `$copilot-invoke-once`.
+- For wrapper-style reviewer names, let the underlying invocation skill handle wrapper-specific execution details.
+- If the requested external invocation skill is unavailable for the normalized family, refuse that external path and report the missing dependency instead of attempting ad-hoc fallback commands.
 - Do NOT assume an external agent has this skill installed or can read files from this repo.
   - Construct a plain prompt that includes all instructions from this skill (paste the contents of this `SKILL.md`), plus the selected change name (if known), and ask the other agent to execute the workflow and produce the review report at the specified output path.
