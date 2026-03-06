@@ -8,14 +8,15 @@ The `context/` directory serves as a centralized knowledge base for AI assistant
 
 ## Directory Structure
 
-A `context/` directory should always be created at the project root. Each top-level subdirectory under `context/` (for example, `context/design`, `context/hints`, `context/issues`, etc.) should contain a `README.md` that briefly explains what that directory is for and how it should be used.
+A `context/` directory should always be created at the project root. Each top-level subdirectory under `context/` (for example, `context/design`, `context/hints`, `context/issues`, etc.) should contain a `README.md` that briefly explains what that directory is for and how it should be used. For `context/skills/`, each skill package should also include a `SKILL.md` entrypoint.
 
 ```
 context/
 ├── design/          # Technical specifications and architecture
 ├── hints/           # How-to guides and troubleshooting tips
 ├── instructions/    # Reusable prompt snippets and commands
-├── issues/          # Known and fixed issues
+├── issues/          # Feature requests, known issues, and fixed issues
+│   ├── features/    # Proposed feature requests and enhancement ideas
 │   ├── known/       # Ongoing, unfixed issues and limitations
 │   └── resolved/    # Fixed issues and their resolutions
 ├── logs/            # Development session records and outcomes
@@ -25,6 +26,11 @@ context/
 │   ├── role1/       # Role-specific subdirectory
 │   └── role2/       # Another role-specific subdirectory
 ├── rules/           # Task-specific rules for AI coding agents
+├── skills/          # Reusable AI skill packages and workflows
+│   ├── skill-a/     # One skill package
+│   │   ├── SKILL.md # Skill instructions/entrypoint
+│   │   └── refs/    # Optional references, templates, or scripts
+│   └── skill-b/     # Another skill package
 ├── summaries/       # Knowledge base and analysis documents
 ├── tasks/           # Current and planned work items
 │   ├── working/     # Tasks currently being worked on
@@ -60,7 +66,8 @@ Recommended status vocabulary for `context/design/**` (UPPERCASE):
 
 **instructions/** - Store reusable prompt snippets, command templates, and standardized instruction patterns that can be referenced across the project. Useful for maintaining consistency in AI interactions.
 
-**issues/** - Track known and fixed issues for the project:
+**issues/** - Track feature requests, known limitations, and fixed issues:
+  - **features/** - Proposed feature requests and enhancement ideas
   - **known/** - Ongoing, unfixed issues and current limitations
   - **resolved/** - Issues that have been fixed, with notes on the resolution
 
@@ -73,6 +80,8 @@ Recommended status vocabulary for `context/design/**` (UPPERCASE):
 **roles/** - Contains role-based system prompts, memory, and context for different AI assistant personas. Each role has its own subdirectory with specialized prompts and accumulated knowledge for that specific role or domain expertise.
 
 **rules/** - Store task-specific rules and constraints for AI coding agents. Use these files to capture environment limits, behavioral guardrails, validation expectations, or local conventions for a given task. Reference them from the related document in `context/tasks/`.
+
+**skills/** - Store reusable skill packages that define scoped workflows for AI assistants. Each skill lives in its own folder and should include a `SKILL.md` entrypoint, with optional supporting files like `references/`, `agents/`, templates, scripts, or metadata.
 
 **summaries/** - Maintain analysis documents, project knowledge summaries, and consolidated findings from research or implementation work.
 
@@ -102,11 +111,18 @@ Recommended status vocabulary for `context/design/**` (UPPERCASE):
 - `snippet-error-handling-pattern.md`
 - `template-feature-documentation.md`
 
-**Issues** - Use status-based organization and descriptive filenames:
+**Issues** - Use category-based organization and descriptive filenames:
+- `features/feat-shadow-parser-unexpected-interactive-recovery.md`
+- `features/feat-versioned-shadow-parser-superset.md`
 - `known/issue-gpu-oom-large-batch.md`
 - `known/issue-slow-startup-on-windows.md`
 - `resolved/issue-fixed-dataloader-deadlock.md`
 - `resolved/issue-resolved-cuda-version-mismatch.md`
+
+**Skills** - Use one directory per skill with a clear entrypoint:
+- `skills/cuda-profiling/SKILL.md`
+- `skills/openspec-ext-discuss-open-question/SKILL.md`
+- `skills/profile-with-mlsys-starter-kit/skill.md` (allowed when inheriting existing conventions)
 
 **Roles** - Use role-based directory and file structure:
 - `roles/backend-developer/system-prompt.md`
@@ -167,7 +183,7 @@ Example header format:
 
 ## Best Practices
 
-1. **Include README.md in each directory** explaining its specific purpose and contents
+1. **Include README.md in each directory** explaining its specific purpose and contents (for `skills/<name>/`, include `SKILL.md` as the entrypoint in addition to any README)
 2. **Use consistent prefixes** as shown in naming patterns above
 3. **Include status indicators** in filenames when relevant (success/failed/complete)
 4. **Start every document with HEADER section** providing essential metadata
