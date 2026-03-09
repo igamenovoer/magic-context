@@ -1,0 +1,7 @@
+interface:
+  display_name: "Claude Code Install"
+  short_description: "Install Claude Code and configure login/API launcher"
+  default_prompt: "Use $claude-code-install to install Claude Code, skip onboarding, and configure a custom API-key launcher."
+
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Codex CLI Install"
+  short_description: "Install Codex and configure auth bypass/API launcher"
+  default_prompt: "Use $codex-cli-install to install Codex CLI, disable built-in login with a custom provider, and configure a custom API-key launcher."
+
+policy:
+  allow_implicit_invocation: false
