@@ -94,27 +94,37 @@ Use this header (and keep it stable so reviews are easy to diff/scan):
   - <path>
   - ...
 
-## Response Format (Decision Contract)
+## Response Format (Proposal / Decision Contract)
 
-When responding to open questions in this review, use a `DECISION` blockquote immediately after each question's final `Pros / Cons (Proposal)` subsection:
+When responding to open questions in this review, use paired `PROPOSED` and `DECISION` blockquotes immediately after each question's `Options` subsection:
 
 ```markdown
-> **DECISION: <one-line decision summary>.**
+> **PROPOSED: <one-line recommended answer>.**
 > Rationale: <codebase-grounded justification with concrete evidence>.
+>
+> **DECISION: _To be filled by developer._**
+> Rationale: _To be filled by developer._
 ```
 
 Rationale contract:
 
-- Ground decisions in repository evidence (specific paths, symbols, and line numbers when possible).
-- Explain why the chosen option fits existing architecture/patterns better than alternatives.
+- Ground the `PROPOSED` rationale in repository evidence (specific paths, symbols, and line numbers when possible).
+- Explain why the proposed option fits existing architecture/patterns better than alternatives.
+- Summarize the key tradeoffs directly in the `PROPOSED` rationale instead of using a separate pros/cons subsection.
 - Call out implementation implications (new fields/errors/tests/migrations) when applicable.
 - When useful, include concise Markdown fenced code blocks to show the exact branch, API shape, or state transition under discussion.
 - Keep rationale concise and concrete (typically 2-5 sentences).
 
+Reviewer / developer ownership contract:
+
+- The reviewing agent must fill only the `PROPOSED` blockquote.
+- The reviewing agent must leave the `DECISION` blockquote as a developer-owned placeholder.
+- The developer fills the `DECISION` blockquote later, after choosing whether to accept, modify, or reject the proposal.
+
 Placement contract:
 
-- Insert the `DECISION` blockquote directly after `Pros / Cons (Proposal)` for that question.
-- Keep any follow-ups after the decision block so outcomes remain easy to scan.
+- Insert both blockquotes directly after the `Options` subsection for that question.
+- Keep any follow-ups after the `DECISION` block so outcomes remain easy to scan.
 
 ## Summary
 
@@ -139,7 +149,7 @@ Placement contract:
 - Existing pattern(s) observed: <paths / modules>
 - Proposed design alignment: <aligns/mismatches + concrete suggestions>
 
-## Open Questions (With Proposed Defaults)
+## Open Questions (Reviewer Proposal / Developer Decision)
 
 ### Q1) <crisp question>
 
@@ -185,19 +195,11 @@ Placement contract:
 - Cons:
   - ...
 
-#### Proposal (Recommended)
-
-<recommended decision with concrete details>
-
-#### Pros / Cons (Proposal)
-
-- Pros:
-  - ...
-- Cons:
-  - ...
-
-> **DECISION: <one-line decision summary>.**
+> **PROPOSED: <one-line recommended answer>.**
 > Rationale: <codebase-grounded justification with concrete evidence>.
+>
+> **DECISION: _To be filled by developer._**
+> Rationale: _To be filled by developer._
 
 ## Suggested Next Steps
 
@@ -230,7 +232,7 @@ Agent-specific requirements (only when explicitly requested):
 
 - Do not silently switch changes; always confirm the chosen change when selection was ambiguous.
 - Prefer actionable feedback over vague opinions; cite concrete artifacts/paths.
-- Keep “Open Questions” as a separate section and include a proposed default for each question.
+- Keep “Open Questions” as a separate section and include both a reviewer-filled `PROPOSED` block and a developer-owned `DECISION` placeholder for each question.
 - Default behavior is in-agent review (no external reviewer) unless the user explicitly requests an external reviewer.
 - Normalize reviewer aliases before dispatch: `claude-<suffix>` -> Claude Code family; `copilot-<suffix>` -> Copilot family.
 - If the user requests Claude (`claude`, `claude code`, or `claude-<suffix>`), require Claude Code + Opus model, and defer exact invocation mechanics to `$claude-code-invoke-once`.
