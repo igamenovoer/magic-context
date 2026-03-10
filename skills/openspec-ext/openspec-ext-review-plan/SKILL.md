@@ -114,11 +114,14 @@ Rationale contract:
 - Call out implementation implications (new fields/errors/tests/migrations) when applicable.
 - When useful, include concise Markdown fenced code blocks to show the exact branch, API shape, or state transition under discussion.
 - Keep rationale concise and concrete (typically 2-5 sentences).
+- Do not add reviewer rationale anywhere under `DECISION`; all reviewer explanation belongs in `PROPOSED`.
 
 Reviewer / developer ownership contract:
 
 - The reviewing agent must fill only the `PROPOSED` blockquote.
+- The reviewing agent must explain its reasoning only in the `PROPOSED` blockquote.
 - The reviewing agent must leave the `DECISION` blockquote as a developer-owned placeholder.
+- The reviewing agent must not edit the `DECISION` summary or its rationale placeholder text.
 - The developer fills the `DECISION` blockquote later, after choosing whether to accept, modify, or reject the proposal.
 
 Placement contract:
