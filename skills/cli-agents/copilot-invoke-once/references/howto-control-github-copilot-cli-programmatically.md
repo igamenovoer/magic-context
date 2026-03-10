@@ -48,6 +48,12 @@ copilot --config-dir "$tmp_cfg" -p "Review this repository for performance issue
 
 Typical use: consume stdout continuously so the caller can observe progress while the run is active.
 
+## Run completion and query usage
+
+- GitHub Copilot subscriptions are query-count based, so once the CLI accepts a prompt and begins processing, wait for the run to reach a terminal state: success, error, or a caller-defined timeout/deadline.
+- Do not terminate the Copilot process early just because the streamed output already contains enough information. Interrupting an in-flight run still spends the query and wastes quota.
+- If the caller needs a hard deadline, decide that deadline before launch and treat it as the run's intended terminal condition rather than killing a healthy run early for convenience.
+
 ## Maintaining conversational state (multi-turn across invocations)
 
 ### Continue the latest conversation
@@ -135,9 +141,10 @@ Notes:
 
 1. Treat `stdout` as the primary machine channel and `stderr` as diagnostics.
 2. Prefer `--stream on` for long jobs where heartbeat/progress visibility matters.
-3. Use `--continue` for "latest session" and `--resume <session-id>` when the caller has a specific target session.
-4. Output format is text-oriented; parse defensively.
-5. Remove the temp config dir after invocation when you no longer need it.
+3. After Copilot accepts the prompt and starts processing, wait for the process to reach its terminal state instead of terminating it early; early termination still burns the query.
+4. Use `--continue` for "latest session" and `--resume <session-id>` when the caller has a specific target session.
+5. Output format is text-oriented; parse defensively.
+6. Remove the temp config dir after invocation when you no longer need it.
 
 ## Sources
 

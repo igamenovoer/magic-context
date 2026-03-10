@@ -76,7 +76,10 @@ copilot --config-dir "$tmp_cfg" -p "Continue that review" --resume "<session-id>
 
 - Always run with `--stream on` so stdout emits a steady progress heartbeat while Copilot is still working.
 - In automation, treat streaming output as a heartbeat signal: only surface minimal progress (for example, log one short "still running" line periodically) instead of printing the full streamed content.
-- Avoid relying on timeouts to determine liveness; prefer streaming heartbeats. Do not terminate the Copilot process while it is still working unless the user explicitly requested a deadline (for example: "up to 5 minutes").
+- Avoid relying on timeouts to determine liveness; prefer streaming heartbeats.
+- GitHub Copilot subscriptions are query-count based. After Copilot accepts a prompt and starts processing it, let that invocation reach a terminal state: normal completion, an error, or a caller-defined timeout/deadline.
+- Do not terminate an in-flight Copilot process just because partial streamed output already looks sufficient. Ending the run early still spends the query and wastes the user's quota.
+- If the user explicitly requested a deadline (for example: "up to 5 minutes"), enforce that deadline as the planned terminal state for the run instead of manually stopping it early for convenience.
 
 ## Model selection
 
