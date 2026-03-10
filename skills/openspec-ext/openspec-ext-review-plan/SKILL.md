@@ -102,7 +102,7 @@ When responding to open questions in this review, use paired `PROPOSED` and `DEC
 > **PROPOSED: <one-line recommended answer>.**
 > Rationale: <codebase-grounded justification with concrete evidence>.
 >
-> **DECISION: _To be filled by developer._**
+> **DECISION: _(pick PROPOSED solution if not filled by developer)_**
 > Rationale: _To be filled by developer._
 ```
 
@@ -201,7 +201,7 @@ Placement contract:
 > **PROPOSED: <one-line recommended answer>.**
 > Rationale: <codebase-grounded justification with concrete evidence>.
 >
-> **DECISION: _To be filled by developer._**
+> **DECISION: _(pick PROPOSED solution if not filled by developer)_**
 > Rationale: _To be filled by developer._
 
 ## Suggested Next Steps
