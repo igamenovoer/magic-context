@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create Git Worktree"
+  short_description: "Create clean worktrees with shared local state"
+  default_prompt: "Use $create-git-worktree to create a clean worktree for this repo under `.shadow-repo/` or a path I specify, and symlink the untracked local agent home directories I want there."
