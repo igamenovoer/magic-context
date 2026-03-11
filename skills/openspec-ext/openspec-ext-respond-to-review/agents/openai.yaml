@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenSpec Respond To Review"
+  short_description: "Record final decisions in a review"
+  default_prompt: "Use $openspec-ext-respond-to-review to read this OpenSpec review report critically, decide each open question, and write the chosen decisions back into the review file."
