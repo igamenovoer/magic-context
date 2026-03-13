@@ -79,6 +79,12 @@ When uncertain, be explicit about uncertainty and turn it into an open question 
 Create `CHANGE_DIR/review/` if missing, then write `review-YYYYMMDD-HHMMSS.md` using a UTC timestamp.
 Include an ISO-8601 timestamp in the header for machine readability.
 
+When the review is performed by the current agent, write the file directly yourself.
+
+When the user explicitly requests an external reviewer, instruct that external agent to create the review directory if needed and write the review file itself at the exact target path. Prefer this direct-write flow over asking the external agent to return one giant Markdown blob for the calling agent to re-write.
+
+After an external review run completes, verify that the expected review file now exists and contains plausible review content before reporting success.
+
 ## Review Report Template
 
 Use this header (and keep it stable so reviews are easy to diff/scan):
@@ -231,6 +237,22 @@ Agent-specific requirements (only when explicitly requested):
 - Invocation details for `copilot` are delegated to `$copilot-invoke-once`; follow that skill for exact command/config composition.
 - For wrapper-style reviewer names (for example, `claude-<suffix>` / `copilot-<suffix>`), rely on the underlying invocation skill to resolve and handle wrapper-specific command details.
 
+External-agent prompt contract:
+
+- Tell the external agent the exact absolute output path it must write.
+- Tell the external agent to create the parent `review/` directory if needed.
+- Tell the external agent to write the review incrementally if it prefers; do not require it to return the full review as one final response.
+- Ask the external agent to return a short completion message only, ideally confirming the written path and any notable caveat.
+- After the invocation, locally verify the file exists instead of assuming success from the external agent's text response alone.
+
+External-agent runtime policy:
+
+- Use a default timeout budget of 20 minutes for the external review run unless the user explicitly requests a different deadline.
+- Treat that timeout as a check-in threshold, not an automatic kill threshold.
+- If the external agent is still running at the timeout threshold and has not entered an error state, leave it running in the background and ask the user whether they want to terminate it or let it continue.
+- Do not kill a long-running external review agent merely because the timeout budget elapsed; external-agent runs consume paid/query-limited tokens, so killing an otherwise healthy run is wasteful.
+- Only terminate automatically when the external agent has clearly fallen into an error state such as connection loss, process death, authentication failure, or rate-limit failure.
+
 ## Guardrails
 
 - Do not silently switch changes; always confirm the chosen change when selection was ambiguous.
@@ -243,4 +265,9 @@ Agent-specific requirements (only when explicitly requested):
 - For wrapper-style reviewer names, let the underlying invocation skill handle wrapper-specific execution details.
 - If the requested external invocation skill is unavailable for the normalized family, refuse that external path and report the missing dependency instead of attempting ad-hoc fallback commands.
 - Do NOT assume an external agent has this skill installed or can read files from this repo.
-  - Construct a plain prompt that includes all instructions from this skill (paste the contents of this `SKILL.md`), plus the selected change name (if known), and ask the other agent to execute the workflow and produce the review report at the specified output path.
+  - Construct a plain prompt that includes all instructions from this skill (paste the contents of this `SKILL.md`), plus the selected change name (if known), and ask the other agent to execute the workflow and write the review report directly at the specified output path.
+- Do not prefer a "return the full Markdown review in stdout" pattern for external review unless direct file writing is impossible in that agent environment.
+- Treat external review success as `file written and verified`, not merely `agent said it finished`.
+- For external review runs, default the timeout budget to 20 minutes and do not convert timeout expiry into automatic termination.
+- If timeout is reached without an error state, background the run if needed, preserve its session/process identity, and ask the user whether termination should proceed.
+- Only auto-terminate external review processes when they are already in a hard failure state and cannot continue usefully.
