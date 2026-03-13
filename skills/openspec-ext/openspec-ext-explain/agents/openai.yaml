@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenSpec Explain Q&A"
+  short_description: "Create OpenSpec explain Q&A docs"
+  default_prompt: "Use $openspec-ext-explain to create or update a Q&A doc under an OpenSpec change explain/ directory."
