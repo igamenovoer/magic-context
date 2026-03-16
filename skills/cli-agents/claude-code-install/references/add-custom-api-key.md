@@ -6,6 +6,17 @@ Use this subskill when the user wants a custom launcher or shell/profile functio
 
 Create a reusable local entrypoint such as `claude-kimi` that sets environment variables and then runs `claude --dangerously-skip-permissions`.
 
+## Known provider names
+
+The skill keeps a registry of known Anthropic-compatible providers in `references/known-providers.json`. Users can refer to those providers by name instead of giving a full base URL when using the helper scripts.
+
+Current entries:
+
+- `yunwu-global` -> `https://yunwu.ai`
+- `yunwu-china` -> `https://api3.wlai.vip`
+
+When a provider is not in that file yet, either add it there first or fall back to an explicit base URL.
+
 ## Environment-first workflow
 
 1. Confirm `claude` is already installed.
@@ -29,6 +40,9 @@ Prefer names that clearly match the target provider or a generic Anthropic-compa
 - `ANTHROPIC_API_KEY`
 - `KIMI_ANTHROPIC_KEY`
 - `MOONSHOT_API_KEY`
+- `YUNWU_API_KEY`
+- `YUNWU_GLOBAL_API_KEY`
+- `YUNWU_CHINA_API_KEY`
 - `CLAUDE_API_KEY`
 - other obvious provider-specific names ending with `_KEY` or `_API_KEY`
 
@@ -127,6 +141,12 @@ chmod +x "$HOME/.local/bin/claude-kimi"
 Optional helper script:
 
 ```bash
+sh scripts/config-custom-api-key.sh --alias-name claude-yunwu --provider yunwu-global --api-key-env YUNWU_API_KEY
+```
+
+Or with an explicit URL when the provider is not in the registry:
+
+```bash
 sh scripts/config-custom-api-key.sh --alias-name claude-kimi --base-url "https://api.moonshot.cn/anthropic" --api-key-env KIMI_ANTHROPIC_KEY
 ```
 
@@ -181,6 +201,12 @@ If the user explicitly wants a plain-text key in profile content, the same funct
 If the user typed the key directly or asked you to read it from a plain text file, embedding that resolved key into profile content is allowed when that is the user's chosen path.
 
 Optional helper script:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/config-custom-api-key.ps1 -AliasName claude-yunwu -Provider yunwu-china -ApiKeyEnv YUNWU_CHINA_API_KEY
+```
+
+Or with an explicit URL when needed:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/config-custom-api-key.ps1 -AliasName claude-kimi -BaseUrl "https://api.moonshot.cn/anthropic" -ApiKeyEnv KIMI_ANTHROPIC_KEY

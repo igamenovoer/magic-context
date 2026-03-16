@@ -12,6 +12,7 @@ read it from an environment variable at runtime.
 param(
     [switch]$NoExit,
     [string]$AliasName,
+    [string]$Provider,
     [string]$BaseUrl,
     [string]$ApiKey,
     [string]$ApiKeyEnv,
@@ -41,6 +42,26 @@ try {
     }
     if ($AliasName -notmatch '^[A-Za-z0-9_-]+$') {
         throw "AliasName contains invalid characters."
+    }
+    if ($Provider -and $BaseUrl) {
+        throw "Use either Provider or BaseUrl, not both."
+    }
+    if ($Provider) {
+        $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+        $providersPath = Join-Path $scriptDir "..\references\known-providers.json"
+        if (-not (Test-Path $providersPath)) {
+            throw "Known providers file not found: $providersPath"
+        }
+
+        $providersData = Get-Content -Path $providersPath -Raw | ConvertFrom-Json
+        $providerEntry = $providersData.providers | Where-Object { $_.name -eq $Provider } | Select-Object -First 1
+        if (-not $providerEntry) {
+            throw "Unknown provider '$Provider'. Add it to $providersPath or pass BaseUrl explicitly."
+        }
+        if (-not $providerEntry.base_url) {
+            throw "Provider '$Provider' is missing base_url in $providersPath."
+        }
+        $BaseUrl = $providerEntry.base_url
     }
     if ($BaseUrl -and $BaseUrl -notmatch '^https?://') {
         throw "BaseUrl must start with http:// or https:// when provided."
@@ -106,6 +127,11 @@ try {
     if ($DryRun) {
         foreach ($target in $profileTargets) {
             Write-Host "Dry-run: would update profile $($target.Path)"
+        }
+        if ($Provider) {
+            Write-Host "Dry-run: resolved provider $Provider -> $BaseUrl"
+        } elseif ($BaseUrl) {
+            Write-Host "Dry-run: would use base URL $BaseUrl"
         }
         Exit-WithWait 0
     }

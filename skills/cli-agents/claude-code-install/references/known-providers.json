@@ -1,0 +1,12 @@
+{
+  "providers": [
+    {
+      "name": "yunwu-global",
+      "base_url": "https://yunwu.ai"
+    },
+    {
+      "name": "yunwu-china",
+      "base_url": "https://api3.wlai.vip"
+    }
+  ]
+}

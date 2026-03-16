@@ -10,6 +10,7 @@ environment variables and then runs claude.
 
 Options:
   --alias-name NAME         Launcher name to create
+  --provider NAME           Known provider name from ../references/known-providers.json
   --base-url URL            Optional custom Anthropic-compatible endpoint
   --api-key KEY             Store the API key in the launcher file
   --api-key-env ENV_NAME    Read the API key from ENV_NAME at runtime
@@ -37,13 +38,54 @@ die() {
   exit 1
 }
 
+resolve_provider_base_url() {
+  provider_name="$1"
+  providers_file="$2"
+
+  if has_cmd python3; then
+    python_cmd=python3
+  elif has_cmd python; then
+    python_cmd=python
+  else
+    die "Resolving --provider requires python3 or python to parse $providers_file"
+  fi
+
+  resolved_base_url="$("$python_cmd" - "$providers_file" "$provider_name" <<'PY'
+import json
+import sys
+
+providers_path = sys.argv[1]
+provider_name = sys.argv[2]
+
+with open(providers_path, "r", encoding="utf-8") as handle:
+    data = json.load(handle)
+
+for provider in data.get("providers", []):
+    if provider.get("name") == provider_name:
+        print(provider.get("base_url", ""))
+        break
+else:
+    sys.exit(1)
+PY
+)" || die "Unknown provider '$provider_name'. Add it to $providers_file or pass --base-url explicitly"
+
+  [ -n "$resolved_base_url" ] || die "Provider '$provider_name' is missing a base_url in $providers_file"
+  printf '%s\n' "$resolved_base_url"
+}
+
 alias_name=''
+provider_name=''
 base_url=''
 api_key=''
 api_key_env=''
 primary_model=''
 secondary_model=''
 dry_run=0
+
+script_dir=$(
+  CDPATH='' cd -- "$(dirname -- "$0")" >/dev/null 2>&1 && pwd
+)
+providers_file="$script_dir/../references/known-providers.json"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -53,6 +95,14 @@ while [ $# -gt 0 ]; do
       ;;
     --alias-name=*)
       alias_name="${1#*=}"
+      shift
+      ;;
+    --provider)
+      provider_name="${2-}"
+      shift 2
+      ;;
+    --provider=*)
+      provider_name="${1#*=}"
       shift
       ;;
     --base-url)
@@ -115,6 +165,15 @@ has_cmd claude || die "claude is not on PATH. Install Claude Code first."
 [ -n "$alias_name" ] || die "--alias-name is required"
 printf '%s' "$alias_name" | grep -Eq '^[A-Za-z0-9_-]+$' || die "Alias name may only contain letters, digits, underscores, and hyphens"
 
+if [ -n "$provider_name" ] && [ -n "$base_url" ]; then
+  die "Use either --provider or --base-url, not both"
+fi
+
+if [ -n "$provider_name" ]; then
+  [ -f "$providers_file" ] || die "Known providers file not found: $providers_file"
+  base_url="$(resolve_provider_base_url "$provider_name" "$providers_file")"
+fi
+
 if [ -n "$base_url" ]; then
   printf '%s' "$base_url" | grep -Eq '^https?://' || die "--base-url must start with http:// or https://"
 fi
@@ -140,6 +199,11 @@ launcher_path="$bin_dir/$alias_name"
 
 if [ "$dry_run" -eq 1 ]; then
   log "Dry-run: would create launcher at $launcher_path"
+  if [ -n "$provider_name" ]; then
+    log "Dry-run: resolved provider $provider_name -> $base_url"
+  elif [ -n "$base_url" ]; then
+    log "Dry-run: would use base URL $base_url"
+  fi
   exit 0
 fi
 

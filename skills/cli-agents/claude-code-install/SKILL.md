@@ -40,12 +40,13 @@ This skill has exactly three subskills.
    Create a custom launcher or shell/profile function that injects an Anthropic-compatible API key and optional base URL/model overrides.
    Primary guide: `references/add-custom-api-key.md`
    Optional helpers: `scripts/config-custom-api-key.sh`, `scripts/config-custom-api-key.ps1`, `scripts/config-custom-api-key.bat`
+   Known provider registry: `references/known-providers.json`
 
 ## Subskill selection
 
 - If the user wants Claude Code installed, use `installation`.
 - If Claude is already installed but the user wants to bypass onboarding or login prompts on this host, use `skip-login-config`.
-- If the user wants a wrapper such as `claude-kimi`, a custom base URL, or a custom API key, use `add-custom-api-key`.
+- If the user wants a wrapper such as `claude-kimi`, a custom base URL, a known provider name such as `yunwu-global`, or a custom API key, use `add-custom-api-key`.
 - If the user wants a complete setup, run the subskills in this order: `installation`, then `skip-login-config`, then `add-custom-api-key`.
 
 ## How to execute each subskill
@@ -64,7 +65,7 @@ For each subskill:
 
 - "Use the Claude Code install skill to install Claude Code on this machine."
 - "Use the skip-login subskill so Claude no longer shows onboarding on this host."
-- "Use the custom API key subskill to make a `claude-kimi` launcher that reads the key from an environment variable."
+- "Use the custom API key subskill to make a `claude-yunwu` launcher that reads the key from an environment variable and targets `yunwu-global`."
 - "Set up Claude Code fully, and adapt the steps if the bundled scripts do not work in this environment."
 
 ## Resources
@@ -72,4 +73,5 @@ For each subskill:
 - Installation guide: `references/installation.md`
 - Skip-login guide: `references/skip-login-config.md`
 - Custom API-key guide: `references/add-custom-api-key.md`
+- Known provider registry: `references/known-providers.json`
 - Helper scripts: `scripts/`
