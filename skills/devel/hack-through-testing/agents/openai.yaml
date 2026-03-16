@@ -1,0 +1,7 @@
+interface:
+  display_name: "Hack Through Testing"
+  short_description: "Patch forward through broken flows"
+  default_prompt: "Use $hack-through-testing to snapshot the current repo into a throwaway worktree, keep patching forward through failures, write logs under .agent-run-logs/hacktest in the main workspace, and finish with a review of the full problem set."
+
+policy:
+  allow_implicit_invocation: false

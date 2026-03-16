@@ -1,9 +1,11 @@
 ---
 name: create-git-worktree
-description: Create a clean git worktree for the current repository and symlink reusable local tool-state directories into it. Use when the user asks to create a shadow worktree or shadow repo, spin up a clean checkout of the current branch or another branch without carrying over uncommitted changes, prepare an isolated checkout for an agent, or reuse untracked local homes such as `.claude`, `.codex`, `.gemini`, `.github`, or `.pixi` in the new worktree.
+description: Manual invocation only; use only when the user explicitly requests `create-git-worktree` by exact name. Create a clean git worktree for the current repository and symlink reusable local tool-state directories into it.
 ---
 
 # Create Git Worktree
+
+Manual invocation only: use this skill only when the user explicitly requests `create-git-worktree` by exact name.
 
 Create a fresh worktree from the current repository while leaving the active checkout untouched. Prefer the bundled script so branch handling, default paths, and safe symlink rules stay consistent.
 
