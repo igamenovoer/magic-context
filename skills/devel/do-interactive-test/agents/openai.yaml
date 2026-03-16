@@ -1,0 +1,7 @@
+interface:
+  display_name: "Do Interactive Test"
+  short_description: "Inspect a target dir and test it stepwise"
+  default_prompt: "Use $do-interactive-test to inspect the directory I point to, run the interactive test step by step, report issues before changing anything, and only create issue or step logs if I explicitly ask."
+
+policy:
+  allow_implicit_invocation: false
