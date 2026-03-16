@@ -76,14 +76,50 @@ When uncertain, be explicit about uncertainty and turn it into an open question 
 
 ### 4) Write The Review Report
 
-Create `CHANGE_DIR/review/` if missing, then write `review-YYYYMMDD-HHMMSS.md` using a UTC timestamp.
-Include an ISO-8601 timestamp in the header for machine readability.
+1. **Prepare the output path.**
+   - Ensure `CHANGE_DIR/review/` exists.
+   - Target `review-YYYYMMDD-HHMMSS.md` using a UTC timestamp.
+   - Include an ISO-8601 timestamp in the report header.
 
-When the review is performed by the current agent, write the file directly yourself.
+2. **If the review is local, write it directly.**
+   - The current agent writes the review file itself.
 
-When the user explicitly requests an external reviewer, instruct that external agent to create the review directory if needed and write the review file itself at the exact target path. Prefer this direct-write flow over asking the external agent to return one giant Markdown blob for the calling agent to re-write.
+3. **If the user explicitly requested an external reviewer, prefer direct-write first.**
+   - Instruct the external reviewer, in strong and explicit terms, to write the review file directly at the exact target path.
+   - Tell it to create the parent `review/` directory if needed.
+   - Ask it to return only a short completion message after writing the file.
 
-After an external review run completes, verify that the expected review file now exists and contains plausible review content before reporting success.
+4. **Use fallback persistence only when needed.**
+   - If the external reviewer writes the file directly, verify the file and finish.
+   - If the external reviewer returns usable review content via stdout/chat instead of writing the file, persist that content yourself at the expected review path.
+   - If the external reviewer reports a real write blocker, record that blocker and use the same fallback path when review content is available.
+
+5. **Do not report success until the file exists and looks plausible.**
+   - If the expected file exists and contains review content, the run succeeded.
+   - If no file exists and no usable review content was returned, treat the run as incomplete or failed.
+
+```mermaid
+flowchart TD
+    A[Start<br/>Section 4] --> B[Create review dir<br/>and target path]
+    B --> C{External reviewer<br/>requested?}
+    C -->|No| D[Current agent<br/>writes review file]
+    C -->|Yes| E[Strongly instruct reviewer<br/>to write file directly]
+    D --> F[Verify file exists<br/>and looks plausible]
+    E --> G{Did external reviewer<br/>write file directly?}
+    G -->|Yes| F
+    G -->|No| H{Did reviewer return<br/>usable review content?}
+    H -->|Yes| I[Current agent persists review<br/>to the target path]
+    H -->|No| J{Did reviewer report<br/>a write blocker?}
+    J -->|Yes| K[Record blocker and use fallback<br/>if content is available]
+    J -->|No| L[Mark run<br/>incomplete or failed]
+    K --> M{Was review content<br/>available?}
+    M -->|Yes| I
+    M -->|No| L
+    I --> F
+    F --> N{File exists and content<br/>is plausible?}
+    N -->|Yes| O[Report success]
+    N -->|No| L
+```
 
 ## Review Report Template
 
@@ -241,9 +277,18 @@ External-agent prompt contract:
 
 - Tell the external agent the exact absolute output path it must write.
 - Tell the external agent to create the parent `review/` directory if needed.
+- Tell the external agent, in strong and explicit terms, that it should write the review report directly to disk at that path instead of returning the full Markdown to the caller.
+- Tell the external agent that direct file writing is the preferred primary output mode, and that if it cannot do that it should either report the blocker explicitly or return the completed review content for fallback persistence.
 - Tell the external agent to write the review incrementally if it prefers; do not require it to return the full review as one final response.
 - Ask the external agent to return a short completion message only, ideally confirming the written path and any notable caveat.
 - After the invocation, locally verify the file exists instead of assuming success from the external agent's text response alone.
+
+External-agent fallback policy:
+
+- If the external agent reports a real write blocker, capture that blocker explicitly in your own notes or response before considering any fallback.
+- If the file was not written but the external agent returned usable review content in stdout/chat output, treat that content as fallback material and persist it yourself at the expected review path.
+- Prefer direct-write first, but do not discard a good external review just because it arrived through stdout instead of a file write.
+- When fallback writing is used, note in your own final response whether the external agent wrote the file directly or whether you persisted its returned review content.
 
 External-agent runtime policy:
 
