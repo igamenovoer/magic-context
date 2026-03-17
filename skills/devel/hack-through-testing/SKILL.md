@@ -16,10 +16,11 @@ If the developer wants testing without code changes, use `test-and-log` instead.
 Unless the developer says otherwise, use these defaults:
 
 - Topic slug: derive from the target and normalize to hyphen-case
+- HTT home (`htt-home`): helper-generated default unless the developer explicitly sets `htt-home=...`
 - Throwaway branch (`htt-branch`): `hacktest/<topic-slug>`
-- Throwaway worktree: helper-generated default unless `--path` is provided
-- Log root: helper-generated default under the target repository
-- Runs root: helper-generated default under the target repository
+- Throwaway worktree: `<htt-home>/repo` unless `--path` is provided
+- Log root: `<htt-home>/logs`
+- Runs root: `<htt-home>/runs`
 - Session log path: `<log-root>/<ts>.md`
 - Issue note path: `<log-root>/issues/<ts>-<what>.md`
 - Run artifact path: `<runs-root>/<run-ts>/`
@@ -27,13 +28,15 @@ Unless the developer says otherwise, use these defaults:
 - Issue IDs: `HT-01`, `HT-02`, ...
 - Commit message format: `hack-through: <issue-id> <short workaround>`
 
-> Default note: the bundled helper currently resolves the default throwaway worktree to `<repo-root>/.agent-automation/hacktest/<topic-slug>/repo`, the default log root to `<repo-root>/.agent-automation/hacktest/<topic-slug>/logs`, and the default runs root to `<repo-root>/.agent-automation/hacktest/<topic-slug>/runs`.
+> Default note: the bundled helper currently resolves the default `htt-home` to `<repo-root>/.agent-automation/hacktest/<topic-slug>`. From there it derives the default throwaway worktree as `<htt-home>/repo`, the default log root as `<htt-home>/logs`, and the default runs root as `<htt-home>/runs`.
 >
 > Issue note note: save each underlying issue as its own file under `<log-root>/issues/`, using a timestamp plus short hyphen-case description, for example `<log-root>/issues/20260317-154500-missing-config.md`. If the same issue later needs another fix or a prior fix is overturned, keep appending to the same issue note instead of creating a new one.
 >
 > Reference note: do not point issue logs at files under the throwaway worktree path. Refer to changed files as repo-relative paths on `<htt-branch>` and use commit SHAs so the logs stay useful even after the worktree is deleted.
+>
+> Experienced override note: if the developer says `htt-home=<some-dir>`, treat that as the explicit `htt-home` for this session. Use `<htt-home>/repo`, `<htt-home>/logs`, and `<htt-home>/runs` unless the developer also overrides them more specifically.
 
-If the repository ignore rules do not already exclude the helper-managed log directory, add a single ignore entry so the logs stay out of commits.
+If this skill creates `.agent-automation/hacktest/`, add `.agent-automation/hacktest/` to the repository `.gitignore` so the helper-managed hacktest tree stays out of commits. If `.gitignore` already has commented `.agent-automation/hacktest` entries, treat that as a user signal not to auto-add the ignore rule.
 
 ## Workflow
 
@@ -43,6 +46,7 @@ Identify before touching Git:
 
 - the command, script, or entrypoint to run
 - the topic slug that should name `htt-branch`
+- whether the developer explicitly set `htt-home=...`
 - what counts as "far enough" or "done"
 - whether there is a time budget, issue budget, or both
 - whether external services, network calls, or persistent state are in scope
@@ -50,6 +54,8 @@ Identify before touching Git:
 If the developer does not set a stopping rule, use the first successful end-to-end run, 10 distinct issues, or 90 minutes, whichever comes first.
 
 Derive `<topic-slug>` from the target, make it concise, and keep it stable for the whole session. Example: `hacktest/login-cli-startup`.
+
+If the developer explicitly says `htt-home=<some-dir>`, use that exact directory as `htt-home` for the session.
 
 ### 2. Snapshot the current state without disturbing the active checkout
 
@@ -64,17 +70,19 @@ bash ./scripts/create_snapshot_worktree.sh --topic TOPIC_SLUG
 Optional arguments:
 
 ```bash
-bash ./scripts/create_snapshot_worktree.sh --repo PATH --topic TOPIC_SLUG --branch hacktest/TOPIC_SLUG --path WORKTREE_PATH
+bash ./scripts/create_snapshot_worktree.sh --repo PATH --topic TOPIC_SLUG --branch hacktest/TOPIC_SLUG --htt-home HTT_HOME --path WORKTREE_PATH
 ```
 
 The script creates:
 
 - a snapshot commit from the current repository state, including untracked files
+- `htt-home`, which defaults to `.agent-automation/hacktest/<topic-slug>` unless overridden
 - `htt-branch`, which should normally be named `hacktest/<topic-slug>`
-- a separate worktree checked out at `htt-branch`
-- a dedicated log root outside the throwaway branch
+- a separate worktree at `<htt-home>/repo` unless overridden
+- a dedicated log root at `<htt-home>/logs`
 - an `issues/` directory under the log root for per-issue notes
-- a `runs/` directory under the topic root for copied run artifacts
+- a `runs/` directory at `<htt-home>/runs` for copied run artifacts
+- a `.gitignore` entry for `.agent-automation/hacktest/` when this skill created that directory and `.gitignore` does not contain commented `.agent-automation/hacktest` lines
 
 Read [references/git-snapshot-plumbing.md](./references/git-snapshot-plumbing.md) only when you need the underlying Git plumbing or must adjust the helper script.
 
@@ -86,7 +94,7 @@ Keep the logs outside `htt-branch` so they survive branch cleanup and are not pa
 
 Use [references/log-template.md](./references/log-template.md) for the session record and [references/issue-template.md](./references/issue-template.md) for each issue note. Record:
 
-- repository root, original `HEAD`, `htt-branch`, and throwaway worktree path
+- repository root, original `HEAD`, `htt-home`, `htt-branch`, and throwaway worktree path
 - the helper-reported log root, runs root, session log path, and issue note directory
 - test target and stopping rule
 - an issue ledger that maps issue IDs to issue note files, latest verification state, workaround commits, and status
@@ -198,6 +206,7 @@ The workaround commits are disposable. The logs stay in the main workspace, so t
 - Never combine multiple distinct underlying issues into a single issue note.
 - Never cite changed files in logs using absolute paths under the throwaway worktree.
 - Never leave important generated artifacts only inside the throwaway worktree; copy them to `<runs-root>/<run-ts>/`.
+- Never override commented `.agent-automation/hacktest` entries in `.gitignore`; treat them as an intentional signal from the developer.
 
 ## Resources
 
@@ -211,3 +220,4 @@ The workaround commits are disposable. The logs stay in the main workspace, so t
 - `Use $hack-through-testing on this CLI and keep patching forward until the happy path finishes.`
 - `Use $hack-through-testing on the demo under scripts/demo/foo, stop after 8 blockers, and give me a synthesis of the real fixes afterward.`
 - `Use $hack-through-testing, but pause if the only workaround would change the protocol or persistent data format.`
+- `Use $hack-through-testing with htt-home=/tmp/my-htt-home so the whole session state is easy to revisit later.`

@@ -11,6 +11,7 @@ Use this template for one underlying issue at a time. Save each issue as its own
 **Issue file:** <absolute-path>
 **Session log:** <absolute-path to session log>
 **Issue ID:** <HT-01>
+**HTT home:** <absolute-path>
 **Reference branch:** <hacktest/topic-slug>
 **Repo path(s):** <repo-relative-path>, <repo-relative-path>
 **Latest verified:** yes / no
@@ -93,4 +94,5 @@ Repeat another `## Fix Attempt N` section here when the same underlying issue re
 - Append later fix attempts and additional commits for the same issue to this file instead of opening a new one.
 - Record changed files as repo-relative paths on the issue branch, not as absolute paths under the throwaway worktree.
 - Copy generated outputs to `<runs-root>/<run-ts>/` before referencing them here.
+- Record `htt-home` explicitly so the per-issue context is easy to relocate or revisit later.
 - Keep this note valid even if the throwaway worktree is later deleted.

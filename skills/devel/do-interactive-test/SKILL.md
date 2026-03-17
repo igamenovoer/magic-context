@@ -77,6 +77,16 @@ By default, create no extra logs at all. The only logging that should happen by 
 
 Derive `<demo-slug>` from the target directory name by normalizing it to lowercase hyphen-case.
 
+If the developer says `demo-root=<some-dir>`, use that exact directory as `<demo-root>` for this session.
+
+Otherwise, when this skill uses its default logging layout, resolve `<repo-root>` as the main Git repository root that owns the target under test and define:
+
+- `<demo-root>`: `<repo-root>/.agent-automation/demos/<demo-slug>`
+
+If this skill creates `.agent-automation/demos/`, add `.agent-automation/demos/` to the main repository `.gitignore` so helper-managed demo artifacts stay out of commits. If `.gitignore` already has commented `.agent-automation/demos` entries, treat that as a developer signal not to auto-add the ignore rule.
+
+If the developer specifies `demo-root=<some-dir>`, treat that as a user-chosen location and do not modify `.gitignore` unless the developer explicitly asks.
+
 ### Issue Logging
 
 Enable issue logging only when the developer says things like:
@@ -88,11 +98,11 @@ Enable issue logging only when the developer says things like:
 
 Default issue-log directory:
 
-- `<pwd>/.agent-run-logs/<demo-slug>/issues`
+- `<demo-root>/issues`
 
 If the developer specifies a location directory, use that directory instead of the default issue-log directory.
 
-If the default `.agent-run-logs/` root is used and the repository has a `.gitignore` file that does not already ignore `.agent-run-logs/`, add `.agent-run-logs/` to `.gitignore`.
+If the default issue-log directory is used, create `<demo-root>/issues` as needed. When `<demo-root>` is the default helper-managed root and creating that path also creates `.agent-automation/demos/`, add `.agent-automation/demos/` to the main repository `.gitignore` unless commented `.agent-automation/demos` entries are already present.
 
 If the developer specifies a logging directory, do not touch `.gitignore`.
 
@@ -121,9 +131,11 @@ Enable step logging only when the developer says things like:
 
 Default step-log directory:
 
-- `<pwd>/.agent-run-logs/<demo-slug>/steps`
+- `<demo-root>/steps`
 
 If the developer specifies a location directory, use that directory instead of the default step-log directory.
+
+If the default step-log directory is used, create `<demo-root>/steps` as needed. When `<demo-root>` is the default helper-managed root and creating that path also creates `.agent-automation/demos/`, add `.agent-automation/demos/` to the main repository `.gitignore` unless commented `.agent-automation/demos` entries are already present.
 
 If the developer specifies a logging directory, do not touch `.gitignore`.
 
@@ -190,5 +202,6 @@ If the likely fix is outside demo-specific code, say so clearly and stop before 
 - "Use `$do-interactive-test` on this directory and tell me what is implemented before I give more steps."
 - "Be prepared to test `openspec/changes/add-foo`; read what is there first and wait for my instructions."
 - "Use `$do-interactive-test` for `scripts/demo/bar-pack`, and log the issues."
+- "Use `$do-interactive-test` for this demo, `demo-root=tmp/demo-logs`, and log the issues."
 - "Use `$do-interactive-test` for this demo, log the process under `tmp/test-logs`."
 - "Interactively test this tutorial pack, but do not modify system source if it breaks."

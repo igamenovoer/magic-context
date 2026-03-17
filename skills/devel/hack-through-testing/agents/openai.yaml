@@ -1,7 +1,7 @@
 interface:
   display_name: "Hack Through Testing"
   short_description: "Patch forward through broken flows"
-  default_prompt: "Use $hack-through-testing to snapshot the current repo into a throwaway worktree, keep patching forward through failures, save each issue under the helper-created log directory, refer to changed files using repo-relative paths on the throwaway branch instead of worktree paths, copy generated artifacts to the helper-created runs directory, verify each workaround before committing it, and finish with a review of the full problem set."
+  default_prompt: "Use $hack-through-testing to snapshot the current repo into a throwaway worktree, honor htt-home=<dir> if the developer provides it, keep patching forward through failures, save each issue under the helper-created log directory, refer to changed files using repo-relative paths on the throwaway branch instead of worktree paths, copy generated artifacts to the helper-created runs directory, verify each workaround before committing it, and finish with a review of the full problem set."
 
 policy:
   allow_implicit_invocation: false

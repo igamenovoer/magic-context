@@ -11,6 +11,7 @@ Use this template for the session record in the helper-created log directory, no
 **Timestamp:** <YYYYMMDD-HHMMSS> UTC
 **Repo root:** <absolute-path>
 **Original HEAD:** <sha>
+**HTT home:** <absolute-path>
 **HTT branch:** <hacktest/topic-slug>
 **Snapshot commit:** <sha>
 **Throwaway worktree:** <absolute-path>
@@ -109,6 +110,7 @@ Use this template for the session record in the helper-created log directory, no
 - Cite changed files as repo-relative paths on `htt-branch`, not as absolute paths under the throwaway worktree.
 - Copy generated outputs into `<runs-root>/<run-ts>/` before referring to them in logs.
 - Keep the log valid even if the throwaway worktree is later deleted.
+- If the developer supplied `htt-home=...`, record that exact `htt-home` path here so later readers can recover the session layout quickly.
 - If the session stops early, record the furthest confirmed point reached and why progress stopped.
 - Keep `htt-branch` and its worktree until the review is done, but keep the session log outside the throwaway branch.
-- Ignore the helper-managed log directory in Git so the session notes do not get committed accidentally.
+- Ignore `.agent-automation/hacktest/` in Git so the helper-managed hacktest tree does not get committed accidentally, unless commented `.agent-automation/hacktest` entries in `.gitignore` indicate the developer wants to manage that path manually.
