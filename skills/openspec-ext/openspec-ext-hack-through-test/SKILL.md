@@ -1,6 +1,6 @@
 ---
 name: openspec-ext-hack-through-test
-description: "Manual invocation only. OpenSpec-specific hack-through-testing workflow with three subskills: `propose` to propose an HTT-drivable implementation design from chat and repository context without creating an OpenSpec change, `revise` to update an existing OpenSpec change so its artifacts support hack-through-testing-driven implementation and testing, and `run` to exercise an implemented OpenSpec change in a disposable snapshot worktree using the full hack-through-testing loop. Use when the user explicitly asks for `openspec-ext-hack-through-test`, points to `openspec/changes/...` while asking to propose, revise, run, exercise, or prepare work under hack-through-testing principles, or wants OpenSpec work shaped for fast blocker discovery through patch-forward testing."
+description: "Manual invocation only. OpenSpec-specific hack-through-testing workflow targeting production-level end-to-end paths using real data and real user workflows — not CI smoke/unit/integration tests. Three subskills: `propose` to propose an HTT-drivable implementation design from chat and repository context without creating an OpenSpec change, `revise` to update an existing OpenSpec change so its artifacts support hack-through-testing-driven implementation and testing, and `run` to exercise an implemented OpenSpec change in a disposable snapshot worktree using the full hack-through-testing loop. Use when the user explicitly asks for `openspec-ext-hack-through-test`, points to `openspec/changes/...` while asking to propose, revise, run, exercise, or prepare work under hack-through-testing principles, or wants OpenSpec work shaped for fast blocker discovery through patch-forward testing."
 ---
 
 # OpenSpec Extension: Hack Through Test
@@ -16,6 +16,16 @@ It has three subskills:
 - `run`: drive an implemented OpenSpec change through the full hack-through-testing loop in a disposable snapshot worktree
 
 This skill is self-contained. Use only the files bundled inside this skill directory for its workflow and references.
+
+## Testing Philosophy: Production-Level End-to-End, Not CI
+
+Hack-through-testing targets **production-level end-to-end paths**: real data, real user workflows, real API calls, real output artifacts. It is not a CI smoke run, not a unit test harness, and not a mock-based integration check.
+
+In all three subskills, the canonical path to propose, revise for, or run must be a **real production user scenario** — the full flow a real user would perform, end to end. Do not treat existing CI test suites, smoke tests, or mock-based integration tests as the target.
+
+**If the only testable surface you can identify from the change artifacts or repository context is CI-style**, stop and ask the user what the real production user path or end-to-end scenario is before proceeding. For example:
+
+> I can see unit/smoke/integration tests already covered by CI. What's the real production user path you want to exercise — the end-to-end scenario, the live data workflow, or a specific user journey?
 
 ## Mode Selection
 
@@ -81,7 +91,9 @@ Use `propose` to design work that will be easy to drive with hack-through-testin
 
 ### Goal
 
-Produce a concrete implementation design that favors one canonical runnable path, fail-fast behavior, realistic but safe test inputs, explicit artifact capture, and an implementation order that supports patch-forward discovery.
+Produce a concrete implementation design centered on one canonical **production-level end-to-end user path**: the full flow a real user would perform with real data, from input to output. The design must favor fail-fast behavior, explicit artifact capture, and an implementation order that supports patch-forward discovery.
+
+If the feature intent from context does not make the real user path obvious, ask the user to describe it before designing. Do not default to designing a CI-style test harness.
 
 ### Output
 
@@ -144,7 +156,9 @@ Use `run` when the OpenSpec change is already implemented and the user wants the
 
 ### Goal
 
-Drive the implemented change forward in a disposable snapshot worktree, patching around blockers just enough to reach later failures quickly, while keeping every workaround reviewable and ending with a synthesis of the real fixes.
+Drive the implemented change forward in a disposable snapshot worktree along the **real production user path** — using real data and real service calls within safe limits — patching around blockers just enough to reach later failures quickly, while keeping every workaround reviewable and ending with a synthesis of the real fixes.
+
+Do not target existing CI tests, unit tests, or smoke scripts as the canonical path. If the implementation's only runnable surface is CI-oriented, stop and ask the user what the real end-to-end user scenario looks like before starting the loop.
 
 ### Output
 
@@ -212,3 +226,4 @@ Pointing to a file or directory under `openspec/` counts as the same trigger sig
 - Do not present temporary workarounds discovered in `run` mode as the final fix.
 - Do not encode disposable-worktree mechanics as permanent product requirements when using `propose` or `revise`.
 - Do not keep going silently once the remaining path forward would require high-risk product changes or unsafe external side effects.
+- Do not target CI-style tests (unit, smoke, mock-based integration) as the canonical path. Ask the user for the real production user path if it is not clear from context.

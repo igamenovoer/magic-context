@@ -1,6 +1,6 @@
 ---
 name: impl-via-git-worktree
-description: Manual invocation only; use only when the developer explicitly requests `impl-via-git-worktree` or asks for implementation in a fresh local branch/worktree. Snapshot the current repository state into a new local `feature/topic-slug` or `fix/topic-slug` branch, create a separate git worktree, bridge the ignored local resources that worktree needs, implement and test there, and commit the result without pushing.
+description: Manual invocation only; use only when the developer explicitly requests `impl-via-git-worktree` or asks for implementation in a fresh local branch/worktree. Snapshot the current repository state into a new local `feature/topic-slug` or `fix/topic-slug` branch, create a separate git worktree, bridge the ignored local resources that worktree needs, implement and test there, and commit the result without pushing. If the target is an OpenSpec change or a path under `openspec/changes/`, derive the change from that target and, once inside the worktree, use OpenSpec tooling plus `openspec-apply-change` there instead of manually assuming artifact paths.
 ---
 
 # Implement via Git Worktree
@@ -30,8 +30,17 @@ If this skill creates `.agent-automation/impl-branches/`, add it to `.gitignore`
 
 - Identify the exact change to implement and the verification commands you expect to use.
 - Choose the branch kind: `fix` for repairs, `feature` for new behavior or refactors.
-- Derive a stable topic slug from the target.
+- Derive a stable topic slug from the target; normalize it to hyphen-case and keep it stable for the whole session.
 - Decide whether the task obviously depends on extra local directories beyond the helper defaults.
+
+#### Special case: OpenSpec target
+
+When the target is an OpenSpec change, use this special-case path instead of assuming a normal repository task flow.
+
+- Treat a path under `openspec/` that clearly points to a change, especially `openspec/changes/<change-name>/...`, as an explicit OpenSpec target signal.
+- Prefer deriving the change name directly from that path. If the path is not enough to identify the change confidently, confirm it with `openspec list --json` before proceeding.
+- Prefer the resolved change name as the topic slug unless the developer asks for a different slug.
+- Plan to run the OpenSpec commands from inside the worktree and hand implementation flow to `$openspec-apply-change` there.
 
 ### 2. Create the isolated branch and worktree
 
@@ -74,6 +83,7 @@ If the helper reports that the branch or path already exists, stop and choose wh
 - `cd` into the `WORKTREE` path returned by the helper.
 - After that point, read files, edit files, run builds, and run tests from the worktree only.
 - Do not switch branches or patch files in the original checkout once the isolated worktree exists.
+- For OpenSpec targets, this also becomes the only place where you run `openspec` commands or edit change artifacts.
 
 ### 5. Implement and verify in the isolated tree
 
@@ -81,6 +91,15 @@ If the helper reports that the branch or path already exists, stop and choose wh
 - Run the most relevant tests, linters, or build steps there, using the repository's normal workflow.
 - If a missing local resource blocks verification, bridge it into the worktree and rerun from there.
 - Keep focus on the requested change; do not clean unrelated problems unless they directly block delivery.
+
+#### Special case: OpenSpec target
+
+When the target is an OpenSpec change, use this special-case path instead of assuming a normal repository implementation flow.
+
+- Do not assume files such as `proposal.md`, `design.md`, or `tasks.md` exist just because the user pointed at an OpenSpec-looking path.
+- First gather authoritative context in the worktree with OpenSpec tooling such as `openspec status --change "<change-name>" --json`.
+- Then use `$openspec-apply-change` inside the worktree to drive the implementation loop.
+- Let `$openspec-apply-change` own artifact discovery, context-file reading, task progression, and checkbox updates while this skill continues to own the isolated branch/worktree boundary.
 
 ### 6. Commit locally on the new branch
 
@@ -99,9 +118,11 @@ If the helper reports that the branch or path already exists, stop and choose wh
 
 - Never switch branches in the developer's original checkout.
 - Never keep implementing in the original checkout after the isolated worktree exists.
+- For OpenSpec targets, never update the change artifacts from the original checkout; use OpenSpec tooling and `$openspec-apply-change` from inside the worktree.
 - Never push, open a PR, or delete the branch/worktree unless the developer explicitly asks.
 - Never copy the repository manually; use `git worktree`.
 - Never treat a missing local resource as a product bug before checking whether it should simply be bridged into the worktree.
+- For OpenSpec targets, never bypass OpenSpec CLI discovery by hard-coding the artifact layout when the tool output can tell you what artifacts actually exist.
 
 ## Resources
 
@@ -112,3 +133,4 @@ If the helper reports that the branch or path already exists, stop and choose wh
 - `Use $impl-via-git-worktree to implement this feature in a fresh local worktree and commit it there without pushing.`
 - `Use $impl-via-git-worktree to fix the failing runtime bug on a local fix branch, run the relevant tests from inside that worktree, and leave the branch local for review.`
 - `Use $impl-via-git-worktree for this refactor, keep my active checkout untouched, and tell me which extra local directories had to be linked into the worktree.`
+- `Use $impl-via-git-worktree on openspec/changes/<change-name>, create a local worktree for it, and then use $openspec-apply-change inside that worktree to implement the remaining tasks.`

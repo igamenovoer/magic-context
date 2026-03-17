@@ -1,6 +1,6 @@
 ---
 name: hack-through-testing
-description: Manual invocation only. Drive a crashy, hanging, or half-broken system forward by applying temporary unblockers in a disposable snapshot worktree so later failures can be discovered quickly.
+description: Manual invocation only. Drive a crashy, hanging, or half-broken system forward along a real production user path using real data, applying temporary unblockers in a disposable snapshot worktree so later failures can be discovered quickly. Not for CI-oriented unit, smoke, or mock-based integration tests.
 ---
 
 # Hack Through Testing
@@ -12,6 +12,21 @@ Drive a fragile system to the end by patching forward in a disposable snapshot i
 The target can be anything from a single script to a multi-step test sequence that the agent drives by invoking multiple commands, inspecting intermediate state, and exercising different surfaces of the system under test. A "run" is not limited to launching one program — it is whatever sequence of actions is needed to reach the next blocker or confirm a workaround.
 
 If the developer wants testing without code changes, use `test-and-log` instead. If the developer wants a slow, stepwise session with approval before each action, use `do-interactive-test` instead.
+
+## Testing Philosophy: Production-Level End-to-End, Not CI
+
+Hack-through-testing targets **production-level end-to-end paths**: real data, real user workflows, real API calls, real output artifacts. It is not a CI smoke run, not a unit test harness, and not a mock-based integration check.
+
+The distinction matters for choosing what to test:
+
+- **Do target**: a full user workflow from input to final output; a real data pipeline with actual inputs; a multi-step interaction flow a real user would perform; an end-to-end scenario covering multiple system components in concert.
+- **Do not target**: existing unit tests, existing smoke tests, isolated module tests, test suites that stub or mock external dependencies — these are already CI's job.
+
+**If the only testable surface you can identify is CI-style** (unit tests, smoke scripts, mock integrations), **stop and ask the developer** what the real production user path or end-to-end scenario is before proceeding. For example:
+
+> I can see unit/smoke/integration tests already covered by CI. What's the real production user path you want to exercise — the end-to-end scenario, the live data workflow, or a specific user journey?
+
+Do not invent a CI-style test run and call it hack-through-testing.
 
 ## Defaults
 
@@ -29,7 +44,7 @@ Unless the developer says otherwise, use these defaults:
 - **Issue IDs**: `HT-01`, `HT-02`, ...
 - **Commit message format**: `hack-through: <issue-id> <short workaround>`
 - **Stopping rule**: first successful end-to-end run, 10 distinct issues, or 90 minutes — whichever comes first
-- **Data realism**: prefer realistic inputs, real data, and real read-only API calls. Only treat the session as a smoke-style run when the developer says so explicitly.
+- **Data realism**: use real data, real inputs, and live API calls wherever safe. This is a production-level E2E run. Synthetic or stubbed inputs are a last resort, not the default. Never default to a CI-style smoke run unless the developer explicitly asks for one.
 - **Path references in logs**: always use repo-relative paths on `htt-branch` plus commit SHAs — never absolute worktree paths. Logs must remain useful after the worktree is deleted.
 
 If this skill creates `.agent-automation/hacktest/`, add it to `.gitignore`. If `.gitignore` already has commented `.agent-automation/hacktest` entries, do not auto-add the rule.
@@ -83,12 +98,14 @@ When reading files for an OpenSpec change, use the OpenSpec tool output to decid
 
 Identify before touching Git:
 
-- the test target: a command, script, test suite, or multi-step interaction sequence (use directory-type guidance above if needed)
+- the test target: a **production-level end-to-end path** — a real user workflow, a live data pipeline, a multi-step scenario — not a CI test suite or smoke script (use directory-type guidance above if needed)
 - the topic slug for `htt-branch`
 - whether the developer set `htt-home=...`
 - what counts as "far enough" or "done" (fall back to the default stopping rule)
 - whether there is a time budget, issue budget, or both
 - whether external services, network calls, or persistent state are in scope
+
+**If the only candidate target is a CI-style test** (unit tests, smoke scripts, mock-based integration tests), do not proceed. Ask the developer what the real production user path or end-to-end scenario is before doing anything else.
 
 ### 2. Snapshot and prepare the worktree
 
