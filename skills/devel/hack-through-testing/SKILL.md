@@ -1,6 +1,6 @@
 ---
 name: hack-through-testing
-description: Manual invocation only; use only when the user explicitly requests `hack-through-testing` by exact name, or asks to drive a crashy, hanging, or half-broken program forward by applying temporary unblockers in a disposable snapshot so later failures can be discovered quickly. Snapshot the current dirty repo state without switching the active checkout, create a throwaway branch named like `hacktest/topic-slug` and its worktree, keep logs and copied run artifacts in helper-created directories outside the throwaway branch so they are not committed with it, commit each verified workaround separately, and end with a cross-cutting review before implementing any real fix.
+description: Manual invocation only. Drive a crashy, hanging, or half-broken program forward by applying temporary unblockers in a disposable snapshot worktree so later failures can be discovered quickly.
 ---
 
 # Hack Through Testing
@@ -15,28 +15,65 @@ If the developer wants testing without code changes, use `test-and-log` instead.
 
 Unless the developer says otherwise, use these defaults:
 
-- Topic slug: derive from the target and normalize to hyphen-case
-- HTT home (`htt-home`): helper-generated default unless the developer explicitly sets `htt-home=...`
-- Throwaway branch (`htt-branch`): `hacktest/<topic-slug>`
-- Throwaway worktree: `<htt-home>/repo` unless `--path` is provided
-- Log root: `<htt-home>/logs`
-- Runs root: `<htt-home>/runs`
-- Session log path: `<log-root>/<ts>.md`
-- Issue note path: `<log-root>/issues/<ts>-<what>.md`
-- Run artifact path: `<runs-root>/<run-ts>/`
-- Issue note rule: one issue note per underlying issue; append later fixes for the same issue to that same note
-- Issue IDs: `HT-01`, `HT-02`, ...
-- Commit message format: `hack-through: <issue-id> <short workaround>`
+- **Topic slug**: derive from the target; normalize to hyphen-case; keep stable for the whole session
+- **HTT home** (`htt-home`): resolved by the helper to `<repo-root>/.agent-automation/hacktest/<topic-slug>` unless the developer explicitly sets `htt-home=<dir>`
+- **Throwaway branch** (`htt-branch`): `hacktest/<topic-slug>`
+- **Throwaway worktree**: `<htt-home>/repo` unless `--path` is provided
+- **Log root**: `<htt-home>/logs`
+- **Runs root**: `<htt-home>/runs`
+- **Session log**: `<log-root>/<ts>.md`
+- **Issue notes**: `<log-root>/issues/<ts>-<what>.md` — one file per underlying issue; append later fixes to the same note rather than creating a new one
+- **Run artifacts**: `<runs-root>/<run-ts>/` — always copy generated artifacts here so they survive worktree deletion
+- **Issue IDs**: `HT-01`, `HT-02`, ...
+- **Commit message format**: `hack-through: <issue-id> <short workaround>`
+- **Stopping rule**: first successful end-to-end run, 10 distinct issues, or 90 minutes — whichever comes first
+- **Data realism**: prefer realistic inputs, real data, and real read-only API calls. Only treat the session as a smoke-style run when the developer says so explicitly.
+- **Path references in logs**: always use repo-relative paths on `htt-branch` plus commit SHAs — never absolute worktree paths. Logs must remain useful after the worktree is deleted.
 
-> Default note: the bundled helper currently resolves the default `htt-home` to `<repo-root>/.agent-automation/hacktest/<topic-slug>`. From there it derives the default throwaway worktree as `<htt-home>/repo`, the default log root as `<htt-home>/logs`, and the default runs root as `<htt-home>/runs`.
->
-> Issue note note: save each underlying issue as its own file under `<log-root>/issues/`, using a timestamp plus short hyphen-case description, for example `<log-root>/issues/20260317-154500-missing-config.md`. If the same issue later needs another fix or a prior fix is overturned, keep appending to the same issue note instead of creating a new one.
->
-> Reference note: do not point issue logs at files under the throwaway worktree path. Refer to changed files as repo-relative paths on `<htt-branch>` and use commit SHAs so the logs stay useful even after the worktree is deleted.
->
-> Experienced override note: if the developer says `htt-home=<some-dir>`, treat that as the explicit `htt-home` for this session. Use `<htt-home>/repo`, `<htt-home>/logs`, and `<htt-home>/runs` unless the developer also overrides them more specifically.
+If this skill creates `.agent-automation/hacktest/`, add it to `.gitignore`. If `.gitignore` already has commented `.agent-automation/hacktest` entries, do not auto-add the rule.
 
-If this skill creates `.agent-automation/hacktest/`, add `.agent-automation/hacktest/` to the repository `.gitignore` so the helper-managed hacktest tree stays out of commits. If `.gitignore` already has commented `.agent-automation/hacktest` entries, treat that as a user signal not to auto-add the ignore rule.
+## Context Gathering By Directory Type
+
+The developer may provide an explicit command, script, or entrypoint, or they may point at a directory and expect this skill to figure out what to run next.
+
+If the target is a directory rather than a concrete command, classify it before reading deeply and use that classification to identify the runnable surface.
+
+Choose the narrowest fitting category:
+
+- **Generic directory**: a normal code or docs directory with no obvious runnable demo wrapper or OpenSpec identity
+- **Demo/tutorial directory**: a directory centered on runnable instructions, demo scripts, inputs, expected outputs, or verification helpers
+- **OpenSpec change directory**: a directory that appears to correspond to an OpenSpec change; do not assume its internal file layout, and use `openspec` commands first
+
+### Generic Directory
+
+- List files and subdirectories.
+- Read the most relevant entrypoints such as `README`, runnable scripts, test files, or config files.
+- Identify the best hack-through target.
+- Avoid loading unrelated parts of the repository.
+
+### Demo Or Tutorial Directory
+
+- Read the local README or run instructions first.
+- Read the runner script, verification helper, and expected output contract if present.
+- Read the tests that exercise the demo flow if they exist.
+- Identify prerequisites, environment variables, output directories, and cleanup behavior.
+- Distinguish convenience wrappers from the underlying manual command flow, then choose the best hack-through target.
+
+### OpenSpec Change Directory
+
+Do not assume files such as `proposal.md` or `design.md` exist just because the target lives under an OpenSpec-looking path.
+
+Use OpenSpec tooling first:
+
+1. Derive the candidate change name from the target directory name.
+2. Confirm it through `openspec list --json`.
+3. Gather structured change context through:
+   - `openspec show --type change --json --no-interactive <change-name>`
+   - `openspec status --change <change-name> --json`
+4. Use `openspec validate --type change --strict --json --no-interactive <change-name>` when validation state matters to the target under test.
+5. Only after that, open specific files that are directly relevant to the runnable surface you plan to hack through.
+
+When reading files for an OpenSpec change, use the OpenSpec tool output to decide what to inspect next. Do not hard-code or assume the artifact layout inside the directory.
 
 ## Workflow
 
@@ -44,20 +81,14 @@ If this skill creates `.agent-automation/hacktest/`, add `.agent-automation/hack
 
 Identify before touching Git:
 
-- the command, script, or entrypoint to run
-- the topic slug that should name `htt-branch`
-- whether the developer explicitly set `htt-home=...`
-- what counts as "far enough" or "done"
+- the command, script, or entrypoint to run (use directory-type guidance above if needed)
+- the topic slug for `htt-branch`
+- whether the developer set `htt-home=...`
+- what counts as "far enough" or "done" (fall back to the default stopping rule)
 - whether there is a time budget, issue budget, or both
 - whether external services, network calls, or persistent state are in scope
 
-If the developer does not set a stopping rule, use the first successful end-to-end run, 10 distinct issues, or 90 minutes, whichever comes first.
-
-Derive `<topic-slug>` from the target, make it concise, and keep it stable for the whole session. Example: `hacktest/login-cli-startup`.
-
-If the developer explicitly says `htt-home=<some-dir>`, use that exact directory as `htt-home` for the session.
-
-### 2. Snapshot the current state without disturbing the active checkout
+### 2. Snapshot and prepare the worktree
 
 Never switch branches in the current worktree. Preserve the developer's exact dirty state, including untracked files.
 
@@ -73,86 +104,64 @@ Optional arguments:
 bash ./scripts/create_snapshot_worktree.sh --repo PATH --topic TOPIC_SLUG --branch hacktest/TOPIC_SLUG --htt-home HTT_HOME --path WORKTREE_PATH
 ```
 
-The script creates:
-
-- a snapshot commit from the current repository state, including untracked files
-- `htt-home`, which defaults to `.agent-automation/hacktest/<topic-slug>` unless overridden
-- `htt-branch`, which should normally be named `hacktest/<topic-slug>`
-- a separate worktree at `<htt-home>/repo` unless overridden
-- a dedicated log root at `<htt-home>/logs`
-- an `issues/` directory under the log root for per-issue notes
-- a `runs/` directory at `<htt-home>/runs` for copied run artifacts
-- a `.gitignore` entry for `.agent-automation/hacktest/` when this skill created that directory and `.gitignore` does not contain commented `.agent-automation/hacktest` lines
-
 Read [references/git-snapshot-plumbing.md](./references/git-snapshot-plumbing.md) only when you need the underlying Git plumbing or must adjust the helper script.
 
 Run the workflow at the Git repo root that actually owns the files you expect to patch. If the interesting changes live inside nested Git repositories, snapshot those repositories separately; the helper can only preserve what the current repository is able to stage.
 
-### 3. Start logs in the main workspace
+**Local resource bridging.** Before the first test run, inspect the target and do a best-effort setup pass. If the target depends on untracked, ignored, external, or otherwise non-snapshotted resources, create the narrowest useful symlink into the worktree so the program can run. This bridging may also happen later when a missing resource is discovered during the run loop. Treat these symlinks as agent-managed test setup, not as workaround commits, and do not record setup gaps as product issues.
 
-Keep the logs outside `htt-branch` so they survive branch cleanup and are not part of throwaway commits.
+### 3. Start logs
 
 Use [references/log-template.md](./references/log-template.md) for the session record and [references/issue-template.md](./references/issue-template.md) for each issue note. Record:
 
 - repository root, original `HEAD`, `htt-home`, `htt-branch`, and throwaway worktree path
 - the helper-reported log root, runs root, session log path, and issue note directory
 - test target and stopping rule
-- an issue ledger that maps issue IDs to issue note files, latest verification state, workaround commits, and status
+- an issue ledger mapping issue IDs to issue note files, latest verification state, workaround commits, and status
 
-Keep live notes concise but factual. Save interpretation for the synthesis section.
-
-When recording file references in session logs or issue notes, cite them as repo-relative paths on `htt-branch`, not as absolute paths under the throwaway worktree. Example: `src/houmao/runtime.py` on `hacktest/login-cli-startup`, not `/tmp/.../repo/src/houmao/runtime.py`.
-
-Assume the throwaway worktree may disappear at any time. The logs should still stand on branch names, commit SHAs, repo-relative paths, and copied run artifacts alone.
+Keep live notes concise but factual. Save interpretation for the synthesis.
 
 ### 4. Loop: run, log, patch forward, verify, commit, repeat
 
-Work only inside the throwaway worktree after the snapshot is created.
+`cd` into the throwaway worktree and do the rest of the session there.
 
 For each issue encountered:
 
-1. Choose a fresh run timestamp `run-ts` and create a run artifact directory at `<runs-root>/<run-ts>/`.
+1. Choose a fresh `run-ts` and create `<runs-root>/<run-ts>/`.
 2. Run the target, preferably with a timeout when hangs are plausible.
-3. Copy any generated artifacts worth keeping into that run directory. Examples: stdout and stderr captures, crash dumps, screenshots, exported files, and program outputs.
-4. Record the command, the failure mode, the furthest point reached, and the run artifact directory.
-5. Decide whether this is a new underlying issue or another manifestation of an existing one.
-6. If it is new, assign the next issue ID and create a dedicated issue note at `<log-root>/issues/<ts>-<what>.md`.
-7. If it is the same underlying issue as an earlier note, reopen that existing issue note and append a new fix attempt to it.
+3. If the failure is just a missing local resource, bridge it and rerun — this is setup, not a product issue.
+4. Copy generated artifacts worth keeping into the run directory.
+5. Record the command, failure mode, furthest point reached, and run artifact directory.
+6. Decide: new underlying issue, or another manifestation of an existing one?
+7. New issue → assign the next `HT-nn` ID and create an issue note. Same issue → append to the existing note.
 8. Apply the smallest reversible workaround that unlocks the next stretch of execution.
-9. Re-run from the nearest meaningful checkpoint, or run the narrowest useful verification command, and confirm that the workaround actually fixes this manifestation of the issue. Use another fresh run timestamp and artifact directory for that rerun if it produces outputs worth keeping.
-10. Commit only after that verification succeeds, using the issue ID in the commit message, and append the commit to the same issue note.
-11. Update the verification record in the issue note so it names the commit SHA on `htt-branch` for which that verification result is known to hold.
-12. Continue from the newly reached point.
+9. Re-run to verify the workaround actually fixes this manifestation. Use another fresh `run-ts` if the rerun produces outputs worth keeping.
+10. Commit only after verification succeeds. Use the issue ID in the commit message and record the commit SHA in the issue note.
+11. Continue from the newly reached point.
 
-Prefer quick unblockers such as:
+If a rerun shows the issue is not actually fixed, or later testing reveals a regression, keep iterating in the same issue note.
+
+**Preferred unblockers:**
 
 - guards around bad inputs or absent state
-- temporary stubs or shims
+- temporary shims around non-essential or already-stubbed integrations
 - force-fail-fast checks instead of hanging behavior
 - narrow skips with loud comments and log entries
 - temporary defaults that keep the path moving while making the compromise obvious
 
 Avoid "real" solution work during the loop. The goal is discovery density, not code quality.
 
-If the rerun shows the issue is not actually fixed, or later testing reveals that an earlier fix fails in another case, keep iterating in the same issue note and do not split that issue across multiple notes.
-
 ### 5. Keep temporary fixes obviously temporary
 
-Use comments sparingly, but when a code marker helps, tag it clearly:
+Tag workaround code clearly when a marker helps:
 
 ```text
 HACK-THROUGH(HT-03): temporary unblocker to continue session
 ```
 
-Keep each commit narrow. One verified workaround step, one commit. Do not refactor unrelated code, rename widely, or fold multiple distinct issues into a single patch.
+One verified workaround step, one commit. Do not refactor unrelated code or fold multiple distinct issues into a single patch.
 
-An issue note should normally accumulate at least one verified workaround commit, and it may accumulate multiple commits if the same issue needs follow-up fixes or a previous fix is replaced.
-
-Prefer loud wrongness over silent wrongness. If a workaround changes behavior in a risky way, make that compromise explicit in logs and code.
-
-Treat the session log as the index and synthesis only. Put the per-issue command transcripts, failure details, fix attempts, verification reruns, and commit history in the dedicated issue file for that issue.
-Keep generated artifacts outside the throwaway worktree by copying them to `<runs-root>/<run-ts>/`, then reference those copied artifacts from the logs.
-For every verification entry, record the commit SHA on `htt-branch` where that verification was workable so later readers know exactly which tested state the result belongs to.
+Prefer loud wrongness over silent wrongness. If a workaround changes behavior in a risky way, make the compromise explicit in logs and code.
 
 ### 6. Pause when the only path forward becomes high-risk
 
@@ -164,7 +173,7 @@ Stop and realign with the developer if moving forward would require any of these
 - speculative fixes that are larger than the blocker itself
 - hiding a correctness problem in a way that would make later findings untrustworthy
 
-At that point, capture the issue, explain why it exceeds hack-through scope, and ask whether to stop, widen scope, or switch to a normal implementation workflow.
+Capture the issue, explain why it exceeds hack-through scope, and ask whether to stop, widen scope, or switch to a normal implementation workflow.
 
 ### 7. Synthesize before implementing real fixes
 
@@ -178,35 +187,27 @@ Write a final synthesis that answers:
 - What real fixes or design changes seem necessary?
 - In what order should the real work happen?
 
-Use the synthesis section from [references/log-template.md](./references/log-template.md), drawing from the per-issue notes under `<log-root>/issues/`. The output should help the next implementation pass solve the set of issues coherently instead of replaying the temporary patches one by one.
+Use the synthesis section from [references/log-template.md](./references/log-template.md), drawing from the per-issue notes under `<log-root>/issues/`.
 
 ### 8. Clean up only after the synthesis is captured
 
-Do not discard `htt-branch` or its worktree until the synthesis is written and the developer has what they need if you can avoid it. If the developer deletes the worktree earlier, the logs should still remain valid because they point at the branch, commit SHAs, repo-relative paths, and copied artifacts rather than worktree-only paths.
-
-When cleanup is requested:
+Do not discard `htt-branch` or its worktree until the synthesis is written. When cleanup is requested:
 
 ```bash
 git worktree remove <worktree-path>
 git branch -D <htt-branch>
 ```
 
-The workaround commits are disposable. The logs stay in the main workspace, so the branch and worktree can be deleted without losing the session record.
+The workaround commits are disposable. The logs stay in the main workspace.
 
 ## Guardrails
 
 - Never lose or overwrite the developer's current uncommitted state.
 - Never perform hack-through edits in the original checkout after the snapshot worktree exists.
-- Never commit helper-managed log artifacts.
-- Never commit a workaround before verifying that it fixes or clearly unblocks the issue.
+- Never commit helper-managed log artifacts to `htt-branch`.
 - Never present a temporary workaround as the final fix.
 - Never keep going silently after a workaround invalidates trust in later observations; log the caveat.
 - Never merge the throwaway branch into real work.
-- Never split the same underlying issue across multiple issue notes.
-- Never combine multiple distinct underlying issues into a single issue note.
-- Never cite changed files in logs using absolute paths under the throwaway worktree.
-- Never leave important generated artifacts only inside the throwaway worktree; copy them to `<runs-root>/<run-ts>/`.
-- Never override commented `.agent-automation/hacktest` entries in `.gitignore`; treat them as an intentional signal from the developer.
 
 ## Resources
 
