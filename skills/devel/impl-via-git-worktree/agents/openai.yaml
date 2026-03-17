@@ -1,0 +1,7 @@
+interface:
+  display_name: "Implement via Git Worktree"
+  short_description: "Implement on a fresh local worktree branch"
+  default_prompt: "Use $impl-via-git-worktree to implement this change in a fresh local `feature/<topic-slug>` or `fix/<topic-slug>` worktree, bridge the ignored local state the worktree needs, run the relevant tests from inside that worktree, and commit the result on the new local branch without pushing."
+
+policy:
+  allow_implicit_invocation: false
