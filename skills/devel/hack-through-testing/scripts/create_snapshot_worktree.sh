@@ -2,19 +2,22 @@
 
 set -euo pipefail
 
+automation_root_rel=".agent-automation/hacktest"
+
 print_usage() {
     cat <<'EOF'
 Usage: create_snapshot_worktree.sh [--repo PATH] [--topic TOPIC_SLUG] [--branch NAME] [--path WORKTREE_PATH]
 
 Create a throwaway snapshot branch from the current repository state, including
 untracked files, without switching the active checkout. Then create a separate
-worktree for that branch and create the main-workspace log root.
+worktree for that branch and create the helper-managed log root, issue-note directory,
+and runs root.
 
 Options:
   --repo PATH        Repository path. Default: current working tree.
   --topic SLUG       Topic slug used for branch and log naming.
   --branch NAME      Throwaway branch name. Default: hacktest/<topic-slug>
-  --path PATH        Worktree path. Default: <repo-root>/.shadow-repo/<branch>
+  --path PATH        Worktree path. Default: <repo-root>/.agent-automation/hacktest/<topic-slug>/repo
   -h, --help         Show this help.
 EOF
 }
@@ -41,11 +44,11 @@ resolve_repo_root() {
 
 resolve_worktree_path() {
     local repo_root="$1"
-    local branch_name="$2"
+    local topic_slug="$2"
     local requested_path="$3"
 
     if [[ -z "$requested_path" ]]; then
-        printf '%s/.shadow-repo/%s\n' "$repo_root" "$branch_name"
+        printf '%s/%s/%s/repo\n' "$repo_root" "$automation_root_rel" "$topic_slug"
         return
     fi
 
@@ -139,7 +142,7 @@ if git -C "$repo_root" show-ref --verify --quiet "refs/heads/$snapshot_branch"; 
     exit 1
 fi
 
-worktree_path="$(resolve_worktree_path "$repo_root" "$snapshot_branch" "$requested_path")"
+worktree_path="$(resolve_worktree_path "$repo_root" "$topic_slug" "$requested_path")"
 
 if [[ -e "$worktree_path" ]]; then
     echo "error: worktree path already exists: $worktree_path" >&2
@@ -149,8 +152,11 @@ fi
 parent_commit="$(git -C "$repo_root" rev-parse HEAD)"
 tmp_index_dir="$(mktemp -d "${TMPDIR:-/tmp}/hack-through-index.XXXXXX")"
 tmp_index="$tmp_index_dir/index"
-log_root_rel=".agent-run-logs/hacktest/$topic_slug"
+log_root_rel="$automation_root_rel/$topic_slug/logs"
 log_root_path="$repo_root/$log_root_rel"
+issues_dir_path="$log_root_path/issues"
+runs_root_rel="$automation_root_rel/$topic_slug/runs"
+runs_root_path="$repo_root/$runs_root_rel"
 
 cleanup() {
     rm -rf "$tmp_index_dir"
@@ -171,6 +177,8 @@ git -C "$repo_root" branch "$snapshot_branch" "$snapshot_commit"
 mkdir -p "$(dirname "$worktree_path")"
 git -C "$repo_root" worktree add "$worktree_path" "$snapshot_branch" >/dev/null
 mkdir -p "$log_root_path"
+mkdir -p "$issues_dir_path"
+mkdir -p "$runs_root_path"
 
 echo "REPO_ROOT=$repo_root"
 echo "SOURCE_HEAD=$parent_commit"
@@ -179,3 +187,5 @@ echo "HTT_BRANCH=$snapshot_branch"
 echo "SNAPSHOT_COMMIT=$snapshot_commit"
 echo "WORKTREE=$worktree_path"
 echo "LOG_ROOT=$log_root_path"
+echo "ISSUES_DIR=$issues_dir_path"
+echo "RUNS_ROOT=$runs_root_path"

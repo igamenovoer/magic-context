@@ -1,10 +1,10 @@
 # Hack-Through Testing Log Template
 
-Use this template for the session record in the main workspace, not inside `htt-branch`. Replace all `<...>` placeholders and delete sections that do not apply.
+Use this template for the session record in the helper-created log directory, not inside `htt-branch`. Replace all `<...>` placeholders and delete sections that do not apply.
 
 ---
 
-```markdown
+````markdown
 # Hack-Through Session: <target>
 
 **Date:** <YYYY-MM-DD>
@@ -14,8 +14,10 @@ Use this template for the session record in the main workspace, not inside `htt-
 **HTT branch:** <hacktest/topic-slug>
 **Snapshot commit:** <sha>
 **Throwaway worktree:** <absolute-path>
-**Log root:** <repo-root>/.agent-run-logs/hacktest/<topic-slug>/
-**Session log:** <repo-root>/.agent-run-logs/hacktest/<topic-slug>/<ts>.md
+**Log root:** <absolute-path reported by helper>
+**Runs root:** <absolute-path reported by helper>
+**Session log:** <absolute-path>
+**Issue directory:** <log-root>/issues/
 **Stopping rule:** <success condition / time budget / issue cap>
 
 ---
@@ -25,69 +27,32 @@ Use this template for the session record in the main workspace, not inside `htt-
 - **Target command:** `<exact command>`
 - **In scope:** <services, environments, data, or dependencies>
 - **Out of scope:** <what was intentionally not touched>
+- **Path reference rule:** use `<repo-relative-path>` on `<hacktest/topic-slug>`, not `<worktree>/...`
 
 ---
 
 ## Issue Ledger
 
-| ID | Step / Command | Symptom | Temporary workaround | Commit | Status |
+| ID | Issue note | Symptom | Latest verified | Commit(s) | Status |
 |---|---|---|---|---|---|
-| HT-01 | `<command>` | <crash / hang / wrong output> | <guard / stub / skip / default> | `<sha>` | advanced / blocked / partial |
-| HT-02 | `<command>` | <symptom> | <workaround> | `<sha>` | <status> |
+| HT-01 | `issues/<ts>-missing-config.md` | <crash / hang / wrong output> | yes | `<sha1>, <sha2>` | advanced / blocked / partial |
+| HT-02 | `issues/<ts>-startup-timeout.md` | <symptom> | no / yes | `<sha or pending>` | <status> |
 
 ---
 
-## Iterations
+## Issue Note Conventions
 
-### HT-01: <short title>
+- Save each underlying issue as its own note at `<log-root>/issues/<ts>-<what>.md`.
+- Keep `<what>` concise and hyphen-case.
+- Link every ledger entry to exactly one issue note.
+- Append multiple commits to the same ledger entry when they belong to the same underlying issue.
+- Only add a commit SHA to the ledger after the issue note records a successful verification rerun for that fix attempt.
 
-**Command:**
-```bash
-<exact command run>
-```
+## Run Artifact Conventions
 
-**Failure observed:**
-```text
-<relevant stderr/stdout excerpt or hang description>
-```
-
-**Temporary workaround:**
-
-- <what changed>
-- <why this was intentionally narrow>
-- <what trust caveat remains>
-
-**Commit:** `<sha>` `hack-through: HT-01 <short workaround>`
-
-**Outcome after re-run:** <what new path became reachable>
-
----
-
-### HT-02: <short title>
-
-**Command:**
-```bash
-<exact command run>
-```
-
-**Failure observed:**
-```text
-<excerpt>
-```
-
-**Temporary workaround:**
-
-- <what changed>
-- <why it was acceptable for discovery>
-- <remaining caveat>
-
-**Commit:** `<sha>` `hack-through: HT-02 <short workaround>`
-
-**Outcome after re-run:** <next blocker or success>
-
----
-
-<!-- Repeat for each blocker -->
+- Copy generated artifacts for each run to `<runs-root>/<run-ts>/`.
+- Use a fresh `run-ts` for each meaningful run or verification rerun.
+- Reference copied artifacts from that run directory, not files left inside the throwaway worktree.
 
 ## Synthesis
 
@@ -129,15 +94,21 @@ Use this template for the session record in the main workspace, not inside `htt-
 - **Throwaway branch kept or deleted:** <state>
 - **Throwaway worktree kept or deleted:** <state>
 - **Anything copied out before cleanup:** <notes>
-```
+````
 
 ---
 
 ## Usage Notes
 
-- Keep one blocker per workaround commit.
+- Keep one verified workaround step per commit.
+- Keep one underlying issue per issue note file at `<log-root>/issues/<ts>-<what>.md`.
 - Prefer exact output excerpts over paraphrases.
 - Record hangs explicitly: include the command, timeout used, and what signal indicated the hang.
+- Only commit after the issue note shows the fix was verified to work.
+- If the same issue reappears later, append the new fix attempt and commit to the existing issue note instead of creating a new one.
+- Cite changed files as repo-relative paths on `htt-branch`, not as absolute paths under the throwaway worktree.
+- Copy generated outputs into `<runs-root>/<run-ts>/` before referring to them in logs.
+- Keep the log valid even if the throwaway worktree is later deleted.
 - If the session stops early, record the furthest confirmed point reached and why progress stopped.
-- Keep `htt-branch` and its worktree until the review is done, but the logs themselves live in the main workspace.
-- Ignore `.agent-run-logs/` in Git so the session notes do not get committed accidentally.
+- Keep `htt-branch` and its worktree until the review is done, but keep the session log outside the throwaway branch.
+- Ignore the helper-managed log directory in Git so the session notes do not get committed accidentally.
