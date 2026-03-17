@@ -1,9 +1,11 @@
 ---
 name: openspec-ext-hack-through-test
-description: "OpenSpec-specific hack-through-testing workflow with three subskills: `propose` to propose an HTT-drivable implementation design from chat and repository context without creating an OpenSpec change, `revise` to update an existing OpenSpec change so its artifacts support hack-through-testing-driven implementation and testing, and `run` to exercise an implemented OpenSpec change in a disposable snapshot worktree using the full hack-through-testing loop. Use when the user explicitly asks for `openspec-ext-hack-through-test`, points to `openspec/changes/...` while asking to propose, revise, run, exercise, or prepare work under hack-through-testing principles, or wants OpenSpec work shaped for fast blocker discovery through patch-forward testing."
+description: "Manual invocation only. OpenSpec-specific hack-through-testing workflow with three subskills: `propose` to propose an HTT-drivable implementation design from chat and repository context without creating an OpenSpec change, `revise` to update an existing OpenSpec change so its artifacts support hack-through-testing-driven implementation and testing, and `run` to exercise an implemented OpenSpec change in a disposable snapshot worktree using the full hack-through-testing loop. Use when the user explicitly asks for `openspec-ext-hack-through-test`, points to `openspec/changes/...` while asking to propose, revise, run, exercise, or prepare work under hack-through-testing principles, or wants OpenSpec work shaped for fast blocker discovery through patch-forward testing."
 ---
 
 # OpenSpec Extension: Hack Through Test
+
+Manual invocation only: use this skill only when the user explicitly wants this workflow.
 
 Use this skill as the OpenSpec-specific version of hack-through-testing.
 
