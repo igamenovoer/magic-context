@@ -1,13 +1,15 @@
 ---
 name: hack-through-testing
-description: Manual invocation only. Drive a crashy, hanging, or half-broken program forward by applying temporary unblockers in a disposable snapshot worktree so later failures can be discovered quickly.
+description: Manual invocation only. Drive a crashy, hanging, or half-broken system forward by applying temporary unblockers in a disposable snapshot worktree so later failures can be discovered quickly.
 ---
 
 # Hack Through Testing
 
 Manual invocation only: use this skill only when the developer explicitly wants this workflow.
 
-Drive a fragile program to the end by patching forward in a disposable snapshot instead of solving each issue cleanly on first contact. Preserve the original checkout, keep each workaround reviewable, and finish with a synthesis that guides the real implementation.
+Drive a fragile system to the end by patching forward in a disposable snapshot instead of solving each issue cleanly on first contact. Preserve the original checkout, keep each workaround reviewable, and finish with a synthesis that guides the real implementation.
+
+The target can be anything from a single script to a multi-step test sequence that the agent drives by invoking multiple commands, inspecting intermediate state, and exercising different surfaces of the system under test. A "run" is not limited to launching one program — it is whatever sequence of actions is needed to reach the next blocker or confirm a workaround.
 
 If the developer wants testing without code changes, use `test-and-log` instead. If the developer wants a slow, stepwise session with approval before each action, use `do-interactive-test` instead.
 
@@ -34,9 +36,9 @@ If this skill creates `.agent-automation/hacktest/`, add it to `.gitignore`. If 
 
 ## Context Gathering By Directory Type
 
-The developer may provide an explicit command, script, or entrypoint, or they may point at a directory and expect this skill to figure out what to run next.
+The developer may provide an explicit command, script, or entrypoint, or they may point at a directory and expect this skill to figure out what to test next. The target may also be a multi-step workflow — a sequence of commands, checks, and interactions that the agent drives rather than a single invocation.
 
-If the target is a directory rather than a concrete command, classify it before reading deeply and use that classification to identify the runnable surface.
+If the target is a directory rather than a concrete command or sequence, classify it before reading deeply and use that classification to identify the testable surface.
 
 Choose the narrowest fitting category:
 
@@ -48,7 +50,7 @@ Choose the narrowest fitting category:
 
 - List files and subdirectories.
 - Read the most relevant entrypoints such as `README`, runnable scripts, test files, or config files.
-- Identify the best hack-through target.
+- Identify the best hack-through target — a single command, a test suite, or a multi-step interaction sequence.
 - Avoid loading unrelated parts of the repository.
 
 ### Demo Or Tutorial Directory
@@ -71,7 +73,7 @@ Use OpenSpec tooling first:
    - `openspec show --type change --json --no-interactive <change-name>`
    - `openspec status --change <change-name> --json`
 4. Use `openspec validate --type change --strict --json --no-interactive <change-name>` when validation state matters to the target under test.
-5. Only after that, open specific files that are directly relevant to the runnable surface you plan to hack through.
+5. Only after that, open specific files that are directly relevant to the testable surface you plan to hack through.
 
 When reading files for an OpenSpec change, use the OpenSpec tool output to decide what to inspect next. Do not hard-code or assume the artifact layout inside the directory.
 
@@ -81,7 +83,7 @@ When reading files for an OpenSpec change, use the OpenSpec tool output to decid
 
 Identify before touching Git:
 
-- the command, script, or entrypoint to run (use directory-type guidance above if needed)
+- the test target: a command, script, test suite, or multi-step interaction sequence (use directory-type guidance above if needed)
 - the topic slug for `htt-branch`
 - whether the developer set `htt-home=...`
 - what counts as "far enough" or "done" (fall back to the default stopping rule)
@@ -108,7 +110,7 @@ Read [references/git-snapshot-plumbing.md](./references/git-snapshot-plumbing.md
 
 Run the workflow at the Git repo root that actually owns the files you expect to patch. If the interesting changes live inside nested Git repositories, snapshot those repositories separately; the helper can only preserve what the current repository is able to stage.
 
-**Local resource bridging.** Before the first test run, inspect the target and do a best-effort setup pass. If the target depends on untracked, ignored, external, or otherwise non-snapshotted resources, create the narrowest useful symlink into the worktree so the program can run. This bridging may also happen later when a missing resource is discovered during the run loop. Treat these symlinks as agent-managed test setup, not as workaround commits, and do not record setup gaps as product issues.
+**Local resource bridging.** Before the first test run, inspect the target and do a best-effort setup pass. If the target depends on untracked, ignored, external, or otherwise non-snapshotted resources, create the narrowest useful symlink into the worktree so the system under test can function. This bridging may also happen later when a missing resource is discovered during the run loop. Treat these symlinks as agent-managed test setup, not as workaround commits, and do not record setup gaps as product issues.
 
 ### 3. Start logs
 
@@ -121,17 +123,19 @@ Use [references/log-template.md](./references/log-template.md) for the session r
 
 Keep live notes concise but factual. Save interpretation for the synthesis.
 
-### 4. Loop: run, log, patch forward, verify, commit, repeat
+### 4. Loop: test, log, patch forward, verify, commit, repeat
 
 `cd` into the throwaway worktree and do the rest of the session there.
+
+Each iteration exercises the target — which may mean running a single command, executing a test suite, or driving a multi-step interaction sequence (invoking commands, inspecting outputs, checking state, calling APIs). The agent decides what to run next based on where the previous iteration stopped.
 
 For each issue encountered:
 
 1. Choose a fresh `run-ts` and create `<runs-root>/<run-ts>/`.
-2. Run the target, preferably with a timeout when hangs are plausible.
+2. Execute the next test step or sequence. Use timeouts when hangs are plausible.
 3. If the failure is just a missing local resource, bridge it and rerun — this is setup, not a product issue.
 4. Copy generated artifacts worth keeping into the run directory.
-5. Record the command, failure mode, furthest point reached, and run artifact directory.
+5. Record the commands executed, failure mode, furthest point reached, and run artifact directory.
 6. Decide: new underlying issue, or another manifestation of an existing one?
 7. New issue → assign the next `HT-nn` ID and create an issue note. Same issue → append to the existing note.
 8. Apply the smallest reversible workaround that unlocks the next stretch of execution.
@@ -220,5 +224,6 @@ The workaround commits are disposable. The logs stay in the main workspace.
 
 - `Use $hack-through-testing on this CLI and keep patching forward until the happy path finishes.`
 - `Use $hack-through-testing on the demo under scripts/demo/foo, stop after 8 blockers, and give me a synthesis of the real fixes afterward.`
+- `Use $hack-through-testing to exercise the full build-then-launch sequence — build a brain, start a session, send a prompt, stop — and patch through every failure.`
 - `Use $hack-through-testing, but pause if the only workaround would change the protocol or persistent data format.`
 - `Use $hack-through-testing with htt-home=/tmp/my-htt-home so the whole session state is easy to revisit later.`
