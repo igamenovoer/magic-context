@@ -1,0 +1,7 @@
+interface:
+  display_name: "OpenSpec Hack-Through Test"
+  short_description: "Propose, revise, or run HTT for OpenSpec"
+  default_prompt: "Use $openspec-ext-hack-through-test in `propose`, `revise`, or `run` mode for this OpenSpec work, following self-contained hack-through-testing guidance with OpenSpec-aware context gathering."
+
+policy:
+  allow_implicit_invocation: false
