@@ -1,18 +1,18 @@
 ---
 name: hack-through-testing
-description: "Manual invocation only. Drive a crashy, hanging, or half-broken system forward along a real production user path using real data. Two stages: `prepare` to analyze the target and create `<htt-home>/autotest/` with automatic scripts and interactive guides, and `run` to drive testing in a disposable snapshot worktree using those artifacts, patching forward through blockers. Supports automatic driving (unattended scripts) and interactive driving (agent executes steps, user observes and decides). Default when ambiguous: both stages with automatic driving. Not for CI-oriented unit, smoke, or mock-based integration tests."
+description: "Manual invocation only. Drive a crashy, hanging, or half-broken system forward along a real production user path using real data. Two stages: `prepare` to analyze the target and create `<htt-home>/autotest/` with automatic scripts and interactive guides, and `run` to drive testing using those artifacts, patching forward through blockers. Run stage operates in-place by default (stash + test on current branch) or in a disposable snapshot worktree when explicitly requested. Supports automatic and interactive driving. Default when ambiguous: both stages, in-place, automatic. Not for CI-oriented unit, smoke, or mock-based integration tests."
 ---
 
 # Hack Through Testing
 
 Manual invocation only: use this skill only when the developer explicitly wants this workflow.
 
-Drive a fragile system to the end by patching forward in a disposable snapshot instead of solving each issue cleanly on first contact. Preserve the original checkout, keep each workaround reviewable, and finish with a synthesis that guides the real implementation.
+Drive a fragile system to the end by patching forward instead of solving each issue cleanly on first contact. Keep each workaround reviewable and finish with a synthesis that guides the real implementation.
 
 It has two stages:
 
 - `prepare`: analyze the target and create `<htt-home>/autotest/` with automatic scripts and interactive guides
-- `run`: drive testing in a disposable snapshot worktree using the autotest artifacts, patching forward through blockers
+- `run`: drive testing using the autotest artifacts, patching forward through blockers (in-place by default, or in a disposable worktree when requested)
 
 The target can be anything from a single script to a multi-step test sequence that the agent drives by invoking multiple commands, inspecting intermediate state, and exercising different surfaces of the system under test. A "run" is not limited to launching one program — it is whatever sequence of actions is needed to reach the next blocker or confirm a workaround.
 
@@ -40,7 +40,12 @@ Determine the stage and driving mode before doing deeper work.
 **Stages:**
 
 - **prepare**: analyze the target, create `<htt-home>/autotest/` with automatic scripts and interactive guides. Does not snapshot or patch forward.
-- **run**: use the autotest artifacts to drive testing in a disposable snapshot worktree, patching forward through blockers.
+- **run**: use the autotest artifacts to drive testing, patching forward through blockers. Operates in-place by default or in a disposable snapshot worktree when requested.
+
+**Run isolation modes (applies to run stage):**
+
+- **in-place** (default): stash uncommitted changes, operate directly in the current workspace on the current branch. Simpler setup, no worktree management.
+- **worktree**: create a disposable snapshot worktree and throwaway branch. Full isolation from the developer's checkout. Use only when the developer explicitly asks for a worktree, shadow repo, temporary repo, or similar.
 
 **Driving modes (applies to run stage):**
 
@@ -53,26 +58,37 @@ Determine the stage and driving mode before doing deeper work.
 - "run", "test", "execute", "drive", "patch forward" with existing autotest artifacts → run only
 - "interactive", "step by step", "I'll watch", "walk me through" → interactive driving
 - "automatic", "unattended", "just run" → automatic driving
-- If the stage or mode cannot be determined → **both stages with automatic driving**
+- "worktree", "shadow repo", "temporary repo", "disposable branch", "snapshot worktree" → worktree isolation
+- If the stage or mode cannot be determined → **both stages, in-place, automatic driving**
 
 ## Defaults
 
 Unless the developer says otherwise, use these defaults:
 
 - **Topic slug**: derive from the target; normalize to hyphen-case; keep stable for the whole session
-- **HTT home** (`htt-home`): resolved by the helper to `<repo-root>/.agent-automation/hacktest/<topic-slug>` unless the developer explicitly sets `htt-home=<dir>`
-- **Throwaway branch** (`htt-branch`): `hacktest/<topic-slug>`
-- **Throwaway worktree**: `<htt-home>/repo` unless `--path` is provided
+- **HTT home** (`htt-home`): `<repo-root>/.agent-automation/hacktest/<topic-slug>` unless the developer explicitly sets `htt-home=<dir>`
 - **Log root**: `<htt-home>/logs`
 - **Runs root**: `<htt-home>/runs`
 - **Session log**: `<log-root>/<ts>.md`
 - **Issue notes**: `<log-root>/issues/<ts>-<what>.md` — one file per underlying issue; append later fixes to the same note rather than creating a new one
-- **Run artifacts**: `<runs-root>/<run-ts>/` — always copy generated artifacts here so they survive worktree deletion
+- **Run artifacts**: `<runs-root>/<run-ts>/` — always copy generated artifacts here so they survive session cleanup
 - **Issue IDs**: `HT-01`, `HT-02`, ...
-- **Commit message format**: `hack-through: <issue-id> <short workaround>`
+- **Commit message format (worktree mode)** / **Stash message format (in-place mode)**: `hack-through: <issue-id> <short workaround>`
 - **Stopping rule**: first successful end-to-end run, 10 distinct issues, or 90 minutes — whichever comes first
 - **Data realism**: use real data, real inputs, and live API calls wherever safe. This is a production-level E2E run. Synthetic or stubbed inputs are a last resort, not the default. Never default to a CI-style smoke run unless the developer explicitly asks for one.
-- **Path references in logs**: always use repo-relative paths on `htt-branch` plus commit SHAs — never absolute worktree paths. Logs must remain useful after the worktree is deleted.
+- **Path references in logs**: always use repo-relative paths plus commit SHAs. Logs must remain useful after the session ends.
+
+**In-place mode additional defaults:**
+
+- **Initial stash message**: `hacktest snapshot <timestamp>`
+- **Workaround stash message**: `hacktest <issue-id>: <short description>`
+- Workarounds are captured as stash snapshots, not commits. The current branch stays clean.
+
+**Worktree mode additional defaults:**
+
+- **Throwaway branch** (`htt-branch`): `hacktest/<topic-slug>`
+- **Throwaway worktree**: `<htt-home>/repo` unless `--path` is provided
+- Path references in logs use repo-relative paths on `htt-branch`.
 
 If this skill creates `.agent-automation/hacktest/`, add it to `.gitignore`. If `.gitignore` already has commented `.agent-automation/hacktest` entries, do not auto-add the rule.
 
@@ -207,7 +223,34 @@ Use this stage to drive testing using the autotest artifacts. If prepare was not
 
 Confirm that `<htt-home>/autotest/` exists and contains the expected case scripts and guides. If missing, run the prepare stage first.
 
-#### 2. Snapshot and prepare the worktree
+#### 2. Snapshot and prepare
+
+**In-place mode (default):**
+
+Stash the developer's uncommitted changes, including untracked files, to preserve them:
+
+```bash
+git stash push --include-untracked -m "hacktest snapshot <timestamp>"
+```
+
+Record the stash ref in the session log. After stash, the workspace is at a clean HEAD state — testing proceeds from here on the current branch.
+
+Each subsequent workaround is also captured as a stash snapshot (not a commit), keeping the current branch clean. Use `git stash create` + `git stash store` to snapshot without disturbing the working tree:
+
+```bash
+stash_sha=$(git stash create)
+git stash store -m "hacktest <issue-id>: <short description>" "$stash_sha"
+```
+
+This creates a stash entry as a reviewable reference while leaving the workaround applied in the working tree. The session maintains a running list of stash refs in the session log.
+
+Create the log and runs directories:
+
+```bash
+mkdir -p <htt-home>/logs/issues <htt-home>/runs
+```
+
+**Worktree mode:**
 
 Never switch branches in the current worktree. Preserve the developer's exact dirty state, including untracked files.
 
@@ -227,22 +270,24 @@ Read [references/git-snapshot-plumbing.md](./references/git-snapshot-plumbing.md
 
 Run the workflow at the Git repo root that actually owns the files you expect to patch. If the interesting changes live inside nested Git repositories, snapshot those repositories separately; the helper can only preserve what the current repository is able to stage.
 
-**Local resource bridging.** Before the first test run, inspect the target and do a best-effort setup pass. If the target depends on untracked, ignored, external, or otherwise non-snapshotted resources, create the narrowest useful symlink into the worktree so the system under test can function. This bridging may also happen later when a missing resource is discovered during the run loop. Treat these symlinks as agent-managed test setup, not as workaround commits, and do not record setup gaps as product issues.
+**Local resource bridging (worktree mode only).** Before the first test run, inspect the target and do a best-effort setup pass. If the target depends on untracked, ignored, external, or otherwise non-snapshotted resources, create the narrowest useful symlink into the worktree so the system under test can function. This bridging may also happen later when a missing resource is discovered during the run loop. Treat these symlinks as agent-managed test setup, not as workaround commits, and do not record setup gaps as product issues.
 
 #### 3. Start logs
 
 Use [references/log-template.md](./references/log-template.md) for the session record and [references/issue-template.md](./references/issue-template.md) for each issue note. Record:
 
-- repository root, original `HEAD`, `htt-home`, `htt-branch`, and throwaway worktree path
-- the helper-reported log root, runs root, session log path, and issue note directory
+- repository root, original `HEAD`, `htt-home`, isolation mode, and stash ref (in-place) or `htt-branch` and worktree path (worktree)
+- the log root, runs root, session log path, and issue note directory
 - test target and stopping rule
-- an issue ledger mapping issue IDs to issue note files, latest verification state, workaround commits, and status
+- an issue ledger mapping issue IDs to issue note files, latest verification state, workaround commits (worktree mode) or stash refs (in-place mode), and status
 
 Keep live notes concise but factual. Save interpretation for the synthesis.
 
 #### 4. Drive testing and patch forward
 
-`cd` into the throwaway worktree and do the rest of the session there.
+**Worktree mode:** `cd` into the throwaway worktree and do the rest of the session there.
+
+**In-place mode:** remain in the current workspace directory.
 
 **Automatic driving:** Execute the harness or individual `case-<id>.<ext>` scripts from `<htt-home>/autotest/`. The agent runs scripts, captures output, and enters the patch-forward loop on failure. Each iteration uses the autotest artifacts to determine what to run next.
 
@@ -259,7 +304,7 @@ For each issue encountered:
 7. New issue → assign the next `HT-nn` ID and create an issue note. Same issue → append to the existing note.
 8. Apply the smallest reversible workaround that unlocks the next stretch of execution.
 9. Re-run to verify the workaround actually fixes this manifestation. Use another fresh `run-ts` if the rerun produces outputs worth keeping.
-10. Commit only after verification succeeds. Use the issue ID in the commit message and record the commit SHA in the issue note.
+10. **Worktree mode:** Commit only after verification succeeds. Use the issue ID in the commit message and record the commit SHA in the issue note. **In-place mode:** After verification succeeds, create a stash snapshot with `git stash create` + `git stash store -m "hacktest <issue-id>: <short description>"`. Record the stash ref in the issue note and session log stash ledger.
 11. Continue from the newly reached point.
 
 If a rerun shows the issue is not actually fixed, or later testing reveals a regression, keep iterating in the same issue note.
@@ -282,7 +327,7 @@ Tag workaround code clearly when a marker helps:
 HACK-THROUGH(HT-03): temporary unblocker to continue session
 ```
 
-One verified workaround step, one commit. Do not refactor unrelated code or fold multiple distinct issues into a single patch.
+One verified workaround step, one commit (worktree mode) or one stash snapshot (in-place mode). Do not refactor unrelated code or fold multiple distinct issues into a single patch.
 
 Prefer loud wrongness over silent wrongness. If a workaround changes behavior in a risky way, make the compromise explicit in logs and code.
 
@@ -314,23 +359,38 @@ Use the synthesis section from [references/log-template.md](./references/log-tem
 
 #### 8. Clean up only after the synthesis is captured
 
-Do not discard `htt-branch` or its worktree until the synthesis is written. When cleanup is requested:
+Do not clean up until the synthesis is written.
+
+**In-place mode:**
+
+The workaround stash snapshots and the working tree contain the cumulative hack-through state. After synthesis, the developer can discard workarounds and restore their original work:
+
+```bash
+git checkout -- .            # discard workaround file changes in working tree
+git clean -fd                # remove any untracked files created by workarounds
+git stash drop <stash@{N}>   # drop each hacktest stash snapshot (repeat per entry)
+git stash pop                # restore original uncommitted work (the initial snapshot)
+```
+
+The stash list serves as the reviewable record of each workaround step.
+
+**Worktree mode:**
 
 ```bash
 git worktree remove <worktree-path>
 git branch -D <htt-branch>
 ```
 
-The workaround commits are disposable. The logs stay in the main workspace.
+The workaround commits (worktree mode) or stash snapshots (in-place mode) are disposable in both modes. The logs stay in `<htt-home>`.
 
 ## Guardrails
 
-- Never lose or overwrite the developer's current uncommitted state.
-- Never perform hack-through edits in the original checkout after the snapshot worktree exists.
-- Never commit helper-managed log or autotest artifacts to `htt-branch`.
+- Never lose or overwrite the developer's current uncommitted state. In in-place mode, always stash before starting and record the stash ref. Never drop the initial stash until the developer explicitly requests cleanup.
+- In worktree mode, never perform hack-through edits in the original checkout after the snapshot worktree exists.
+- Never commit helper-managed log or autotest artifacts to `htt-branch` (worktree mode) or mix them into stash snapshots (in-place mode).
 - Never present a temporary workaround as the final fix.
 - Never keep going silently after a workaround invalidates trust in later observations; log the caveat.
-- Never merge the throwaway branch into real work.
+- In worktree mode, never merge the throwaway branch into real work.
 - Never reduce interactive guides (`case-<id>.md`) to wrappers that just say "run the automatic script"; they must be independent step-by-step procedures.
 - Never skip the prepare stage silently when autotest artifacts are missing and the run stage needs them.
 
@@ -346,7 +406,8 @@ The workaround commits are disposable. The logs stay in the main workspace.
 - `Use $hack-through-testing on this CLI and keep patching forward until the happy path finishes.`
 - `Use $hack-through-testing to prepare autotest cases for the demo under scripts/demo/foo.`
 - `Use $hack-through-testing in run mode with interactive driving — I want to watch each step.`
+- `Use $hack-through-testing with a worktree so my checkout stays clean.`
 - `Use $hack-through-testing to exercise the full build-then-launch sequence — build a brain, start a session, send a prompt, stop — and patch through every failure.`
 - `Use $hack-through-testing, but pause if the only workaround would change the protocol or persistent data format.`
 - `Use $hack-through-testing with htt-home=/tmp/my-htt-home so the whole session state is easy to revisit later.`
-- `Use $hack-through-testing to prepare test cases, then run them automatically, stop after 8 blockers.`
+- `Use $hack-through-testing to prepare test cases, then run them automatically in a shadow repo, stop after 8 blockers.`

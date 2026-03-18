@@ -1,6 +1,6 @@
 ---
 name: openspec-ext-hack-through-test
-description: "Manual invocation only. OpenSpec-specific hack-through-testing workflow targeting production-level end-to-end paths using real data and real user workflows — not CI smoke/unit/integration tests. Three subskills: `propose` to create an OpenSpec change with HTT-ready test cases (automatic scripts and interactive guides) by invoking `openspec-propose` or `openspec-ff-change`, `revise` to update an existing OpenSpec change so its artifacts support hack-through-testing-driven implementation and testing, and `run` to exercise an implemented OpenSpec change in a disposable snapshot worktree using the full hack-through-testing loop. Use when the user explicitly asks for `openspec-ext-hack-through-test`, points to `openspec/changes/...` while asking to propose, revise, run, exercise, or prepare work under hack-through-testing principles, or wants OpenSpec work shaped for fast blocker discovery through patch-forward testing."
+description: "Manual invocation only. OpenSpec-specific hack-through-testing workflow targeting production-level end-to-end paths using real data and real user workflows — not CI smoke/unit/integration tests. Three subskills: `propose` to create an OpenSpec change with HTT-ready test cases (automatic scripts and interactive guides) by invoking `openspec-propose` or `openspec-ff-change`, `revise` to update an existing OpenSpec change so its artifacts support hack-through-testing-driven implementation and testing, and `run` to exercise an implemented OpenSpec change through the full hack-through-testing loop (in-place by default, or in a disposable snapshot worktree when requested). Use when the user explicitly asks for `openspec-ext-hack-through-test`, points to `openspec/changes/...` while asking to propose, revise, run, exercise, or prepare work under hack-through-testing principles, or wants OpenSpec work shaped for fast blocker discovery through patch-forward testing."
 ---
 
 # OpenSpec Extension: Hack Through Test
@@ -13,7 +13,7 @@ It has three subskills:
 
 - `propose`: create an OpenSpec change with HTT-ready test cases (automatic scripts and interactive guides) by invoking `openspec-propose` or `openspec-ff-change`
 - `revise`: revise an existing OpenSpec change so its artifacts support HTT-friendly implementation and testing
-- `run`: drive an implemented OpenSpec change through the full hack-through-testing loop in a disposable snapshot worktree
+- `run`: drive an implemented OpenSpec change through the full hack-through-testing loop (in-place by default, or in a disposable snapshot worktree when requested)
 
 This skill is self-contained. Use only the files bundled inside this skill directory for its workflow and references.
 
@@ -41,6 +41,15 @@ If the request is ambiguous:
 - prefer `run` only when the user clearly wants execution against implementation
 - ask one concise question only if choosing the wrong mode would waste substantial work
 
+### Run Isolation Mode
+
+When using `run`, determine the isolation mode from context:
+
+- **in-place** (default): stash uncommitted changes, operate directly in the current workspace. Workarounds are captured as stash snapshots (not commits) — the current branch stays clean.
+- **worktree**: create a disposable snapshot worktree and throwaway branch. Full isolation from the user's checkout. Use only when the user explicitly asks for a worktree, shadow repo, temporary repo, or similar.
+
+If the user does not specify → default to **in-place**.
+
 ## Internal References
 
 Read `references/hack-through-testing-principles.md` in every mode.
@@ -52,10 +61,10 @@ Then read the mode-specific references:
 
 For `run`, also use these bundled resources:
 
-- `scripts/create_snapshot_worktree.sh`
+- `scripts/create_snapshot_worktree.sh` (worktree mode only)
 - `references/log-template.md`
 - `references/issue-template.md`
-- `references/git-snapshot-plumbing.md`
+- `references/git-snapshot-plumbing.md` (worktree mode only)
 
 ## Shared OpenSpec Context Rules
 
@@ -219,7 +228,9 @@ Use `run` when the OpenSpec change is already implemented and the user wants the
 
 ### Goal
 
-Drive the implemented change forward in a disposable snapshot worktree along the **real production user path** — using real data and real service calls within safe limits — patching around blockers just enough to reach later failures quickly, while keeping every workaround reviewable and ending with a synthesis of the real fixes.
+Drive the implemented change forward along the **real production user path** — using real data and real service calls within safe limits — patching around blockers just enough to reach later failures quickly, while keeping every workaround reviewable and ending with a synthesis of the real fixes.
+
+By default, operate in-place (stash + test on current branch). Use a disposable snapshot worktree only when the user explicitly requests it.
 
 Do not target existing CI tests, unit tests, or smoke scripts as the canonical path. If the implementation's only runnable surface is CI-oriented, stop and ask the user what the real end-to-end user scenario looks like before starting the loop.
 
@@ -228,7 +239,7 @@ Do not target existing CI tests, unit tests, or smoke scripts as the canonical p
 Produce:
 
 - a helper-managed HTT log directory with a session log, issue notes, and saved run artifacts
-- disposable workaround commits on a throwaway branch
+- disposable workaround stash snapshots (in-place mode) or workaround commits on a throwaway branch (worktree mode)
 - a final synthesis that separates throwaway unblockers from durable fixes
 
 ### Workflow
@@ -238,7 +249,34 @@ Produce:
    - the canonical path to exercise
    - the likely implementation entrypoints
    - whether the implementation is complete enough to run
-3. Snapshot the current repository state into a throwaway worktree with the bundled helper:
+3. Snapshot and prepare:
+
+**In-place mode (default):**
+
+Stash the user's uncommitted changes, including untracked files:
+
+```bash
+git stash push --include-untracked -m "hacktest snapshot <timestamp>"
+```
+
+Record the stash ref in the session log. Testing proceeds from clean HEAD on the current branch.
+
+Each subsequent workaround is captured as a stash snapshot without disturbing the working tree:
+
+```bash
+stash_sha=$(git stash create)
+git stash store -m "hacktest <issue-id>: <short description>" "$stash_sha"
+```
+
+Create the log and runs directories:
+
+```bash
+mkdir -p <htt-home>/logs/issues <htt-home>/runs
+```
+
+**Worktree mode:**
+
+Snapshot the current repository state into a throwaway worktree with the bundled helper:
 
 ```bash
 bash ./scripts/create_snapshot_worktree.sh --topic TOPIC_SLUG
@@ -250,13 +288,14 @@ Optional arguments:
 bash ./scripts/create_snapshot_worktree.sh --repo PATH --topic TOPIC_SLUG --branch hacktest/TOPIC_SLUG --htt-home HTT_HOME --path WORKTREE_PATH
 ```
 
-4. Start logs using the bundled templates.
+4. Start logs using the bundled templates. Record isolation mode and stash ref (in-place) or `htt-branch` and worktree path (worktree).
 5. Run the standard hack-through-testing loop:
    - execute the next step in the canonical path
    - record failures and save artifacts
    - apply the smallest reversible workaround that unlocks progress
    - re-run to verify the workaround
-   - commit only verified workaround steps
+   - **worktree mode:** commit only verified workaround steps
+   - **in-place mode:** create a stash snapshot after each verified workaround; record the stash ref in the issue note
    - continue until success, stop-rule exhaustion, or a high-risk boundary
 6. Finish with a synthesis that maps findings back to the OpenSpec change and identifies any needed follow-up in `revise` mode.
 
@@ -276,6 +315,7 @@ If the change is not implemented enough to exercise responsibly, stop and report
 - `Use $openspec-ext-hack-through-test in propose mode and create an OpenSpec change with HTT-ready test cases for this feature.`
 - `Use $openspec-ext-hack-through-test in revise mode on openspec/changes/<change> and update the artifacts for HTT compatibility.`
 - `Use $openspec-ext-hack-through-test in run mode on openspec/changes/<change> and patch forward through the implemented flow.`
+- `Use $openspec-ext-hack-through-test in run mode with a worktree on openspec/changes/<change> so my checkout stays clean.`
 - `Take this OpenSpec change and either revise or run it under hack-through-testing principles, depending on what the current state supports.`
 
 Pointing to a file or directory under `openspec/` counts as the same trigger signal as explicitly saying `openspec`.
@@ -287,6 +327,8 @@ Pointing to a file or directory under `openspec/` counts as the same trigger sig
 - Do not reference workflow files outside this skill directory.
 - Do not present temporary workarounds discovered in `run` mode as the final fix.
 - Do not encode disposable-worktree mechanics as permanent product requirements when using `propose` or `revise`.
+- In in-place mode, always stash before starting and record the stash ref. Never drop the initial stash until the user explicitly requests cleanup.
+- In worktree mode, never merge the throwaway branch into real work.
 - Do not collapse design-phase OpenSpec `testplans/` and implemented `autotest/` artifacts into the same artifact role; keep the design-versus-implementation distinction explicit.
 - Do not hide shared helper logic inside unrelated case scripts when the target implementation has multiple automatic cases; direct shared logic into `autotest/helpers/`.
 - Do not reduce interactive guides (`autotest/case-*.md`) to wrappers that just say "run the automatic script"; they must be independent step-by-step procedures for agent-driven execution with user observation.
