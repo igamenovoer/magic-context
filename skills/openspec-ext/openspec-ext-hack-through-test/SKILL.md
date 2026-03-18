@@ -85,6 +85,50 @@ openspec validate --type change --strict --json --no-interactive "<change-name>"
 
 Do not assume files such as `proposal.md` or `design.md` exist without checking the OpenSpec output first.
 
+## Shared Artifact Conventions For `propose` And `revise`
+
+When the change includes automatic or agent-driven test execution as part of the intended delivery, use these artifact conventions unless the user explicitly asks for a different structure or the target repository already has a stronger local convention:
+
+### Design-phase artifacts inside the OpenSpec change
+
+- Add or revise `openspec/changes/<change>/testplans/`.
+- Store one Markdown plan per automatic case as `testplans/case-<case-id>.md`.
+- Treat these `testplans/` files as design-phase artifacts, not as final implementation docs.
+- Each `case-*.md` should describe:
+  - goal
+  - intended implemented assets
+  - intended runner surface
+  - ordered steps
+  - expected evidence
+  - failure signals
+- Each `case-*.md` should include at least one Mermaid `sequenceDiagram` that shows the canonical flow for that case.
+
+### Implemented artifacts under the target implementation root
+
+- Choose the implementation root based on the feature's owned directory structure. For example, for a tutorial pack or demo pack, prefer a pack-local directory such as `<implementation-root>/autotest/`.
+- Put implemented automatic-test assets under `<implementation-root>/autotest/`.
+- For each case, create:
+  - `autotest/case-<case-id>.<case-script-ext>` as the executable case implementation
+  - `autotest/case-<case-id>.md` as the operator-facing companion/readme for the implemented case
+- Choose `<case-script-ext>` to match the target project, operating system, and execution model. It is not fixed to `.sh`.
+- Do not require the implemented `.md` companion docs to match the design-phase `openspec/.../testplans/` files line by line. They explain the shipped behavior; the change-owned `testplans/` remain the design source of truth.
+
+### Shared implementation helpers
+
+- Put shared automatic-test scripts, shell libraries, and reusable helper functions under `<implementation-root>/autotest/helpers/`.
+- Case implementations should call or source shared logic from `autotest/helpers/` instead of duplicating common behavior.
+
+### Standalone harness script
+
+- Use a standalone harness script rather than bundling HTT case selection into an unrelated operator/demo wrapper.
+- Place the harness under `<implementation-root>/autotest/<project-dependent-harness-script>`.
+- Choose the harness language and extension to match the target project, operating system, and execution model. Use the same reasoning for each implemented case script. Examples:
+  - `.sh` for POSIX shell-first repos
+  - `.ps1` for PowerShell-first Windows automation
+  - `.py` for Python-oriented projects
+  - `.ts` for TypeScript/Node-oriented projects
+- The harness should own case selection, shared preflight orchestration, and dispatch into the implemented `case-*.<case-script-ext>` files.
+
 ## Subskill: `propose`
 
 Use `propose` to design work that will be easy to drive with hack-through-testing later.
@@ -113,6 +157,7 @@ If the user gives a destination file and explicitly asks you to write there, you
    - external dependency safety boundaries
    - logs, outputs, and artifacts worth preserving
    - implementation order that enables incremental validation
+   - design-phase `testplans/` and implemented `autotest/` layout when automatic cases are part of the intended delivery
 4. Structure the output using the bundled checklist so the design is ready to turn into an OpenSpec change later.
 5. Call out open questions that would materially affect safe or useful hack-through-testing.
 
@@ -142,7 +187,13 @@ Typical targets are:
 2. Use the bundled checklist to identify the canonical path and the main HTT-compatibility gaps.
 3. Revise the change artifacts so they encode stable capabilities rather than throwaway workaround details.
 4. Make proposal, design, specs, and tasks point at the same canonical path and safety model.
-5. Validate the change when helpful:
+5. When automatic execution is part of the design, make the artifacts agree on:
+   - design-phase `openspec/changes/<change>/testplans/case-*.md`
+   - Mermaid sequence diagrams in each case plan
+   - implemented `<implementation-root>/autotest/` assets
+   - shared helpers under `<implementation-root>/autotest/helpers/`
+   - a standalone harness under `<implementation-root>/autotest/<project-dependent-harness-script>`
+6. Validate the change when helpful:
 
 ```bash
 openspec validate --type change --strict --json --no-interactive "<change-name>"
@@ -225,5 +276,7 @@ Pointing to a file or directory under `openspec/` counts as the same trigger sig
 - Do not reference workflow files outside this skill directory.
 - Do not present temporary workarounds discovered in `run` mode as the final fix.
 - Do not encode disposable-worktree mechanics as permanent product requirements when using `propose` or `revise`.
+- Do not collapse design-phase OpenSpec `testplans/` and implemented `autotest/` docs into the same artifact role; keep the design-versus-implementation distinction explicit.
+- Do not hide shared helper logic inside unrelated case scripts when the target implementation has multiple automatic cases; direct shared logic into `autotest/helpers/`.
 - Do not keep going silently once the remaining path forward would require high-risk product changes or unsafe external side effects.
 - Do not target CI-style tests (unit, smoke, mock-based integration) as the canonical path. Ask the user for the real production user path if it is not clear from context.
