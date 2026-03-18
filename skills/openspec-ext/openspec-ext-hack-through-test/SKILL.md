@@ -1,6 +1,6 @@
 ---
 name: openspec-ext-hack-through-test
-description: "Manual invocation only. OpenSpec-specific hack-through-testing workflow targeting production-level end-to-end paths using real data and real user workflows — not CI smoke/unit/integration tests. Three subskills: `propose` to propose an HTT-drivable implementation design from chat and repository context without creating an OpenSpec change, `revise` to update an existing OpenSpec change so its artifacts support hack-through-testing-driven implementation and testing, and `run` to exercise an implemented OpenSpec change in a disposable snapshot worktree using the full hack-through-testing loop. Use when the user explicitly asks for `openspec-ext-hack-through-test`, points to `openspec/changes/...` while asking to propose, revise, run, exercise, or prepare work under hack-through-testing principles, or wants OpenSpec work shaped for fast blocker discovery through patch-forward testing."
+description: "Manual invocation only. OpenSpec-specific hack-through-testing workflow targeting production-level end-to-end paths using real data and real user workflows — not CI smoke/unit/integration tests. Three subskills: `propose` to create an OpenSpec change with HTT-ready test cases (automatic scripts and interactive guides) by invoking `openspec-propose` or `openspec-ff-change`, `revise` to update an existing OpenSpec change so its artifacts support hack-through-testing-driven implementation and testing, and `run` to exercise an implemented OpenSpec change in a disposable snapshot worktree using the full hack-through-testing loop. Use when the user explicitly asks for `openspec-ext-hack-through-test`, points to `openspec/changes/...` while asking to propose, revise, run, exercise, or prepare work under hack-through-testing principles, or wants OpenSpec work shaped for fast blocker discovery through patch-forward testing."
 ---
 
 # OpenSpec Extension: Hack Through Test
@@ -11,7 +11,7 @@ Use this skill as the OpenSpec-specific version of hack-through-testing.
 
 It has three subskills:
 
-- `propose`: propose an HTT-friendly implementation design without creating an OpenSpec change
+- `propose`: create an OpenSpec change with HTT-ready test cases (automatic scripts and interactive guides) by invoking `openspec-propose` or `openspec-ff-change`
 - `revise`: revise an existing OpenSpec change so its artifacts support HTT-friendly implementation and testing
 - `run`: drive an implemented OpenSpec change through the full hack-through-testing loop in a disposable snapshot worktree
 
@@ -106,12 +106,26 @@ When the change includes automatic or agent-driven test execution as part of the
 ### Implemented artifacts under the target implementation root
 
 - Choose the implementation root based on the feature's owned directory structure. For example, for a tutorial pack or demo pack, prefer a pack-local directory such as `<implementation-root>/autotest/`.
-- Put implemented automatic-test assets under `<implementation-root>/autotest/`.
-- For each case, create:
-  - `autotest/case-<case-id>.<case-script-ext>` as the executable case implementation
-  - `autotest/case-<case-id>.md` as the operator-facing companion/readme for the implemented case
+- Put implemented test assets under `<implementation-root>/autotest/`.
+- For each case, create two variants:
+
+#### Automatic variant
+
+- `autotest/case-<case-id>.<case-script-ext>` — an executable script that runs unattended and exits with a clear pass/fail signal.
 - Choose `<case-script-ext>` to match the target project, operating system, and execution model. It is not fixed to `.sh`.
-- Do not require the implemented `.md` companion docs to match the design-phase `openspec/.../testplans/` files line by line. They explain the shipped behavior; the change-owned `testplans/` remain the design source of truth.
+
+#### Interactive variant
+
+- `autotest/case-<case-id>.md` — a step-by-step interactive test guide designed for agent-driven execution with user observation.
+- Each interactive guide must contain inline instructions that explain what to do at each step, what to observe, and what success or failure looks like.
+- Do not reduce interactive guides to "run `case-<id>.<ext>`". They are independent test procedures where an agent executes steps on the user's behalf while the user watches results and decides how to proceed.
+- Structure each guide as an ordered sequence of steps. Each step should include:
+  - what the agent should do (command, action, or check)
+  - what the expected outcome is
+  - what to look for to confirm success or detect failure
+  - decision points where the user may choose to continue, retry, or investigate
+
+- Do not require the implemented interactive guides to match the design-phase `openspec/.../testplans/` files line by line. They describe the shipped behavior for interactive testing; the change-owned `testplans/` remain the design source of truth.
 
 ### Shared implementation helpers
 
@@ -131,20 +145,17 @@ When the change includes automatic or agent-driven test execution as part of the
 
 ## Subskill: `propose`
 
-Use `propose` to design work that will be easy to drive with hack-through-testing later.
+Use `propose` to create an OpenSpec change with HTT-ready test cases — both automatic scripts and interactive guides.
 
 ### Goal
 
-Produce a concrete implementation design centered on one canonical **production-level end-to-end user path**: the full flow a real user would perform with real data, from input to output. The design must favor fail-fast behavior, explicit artifact capture, and an implementation order that supports patch-forward discovery.
+Create an OpenSpec change centered on one canonical **production-level end-to-end user path**: the full flow a real user would perform with real data, from input to output. The change must include test case designs (both automatic and interactive variants) that favor fail-fast behavior, explicit artifact capture, and an implementation order that supports patch-forward discovery.
 
 If the feature intent from context does not make the real user path obvious, ask the user to describe it before designing. Do not default to designing a CI-style test harness.
 
 ### Output
 
-By default, return the proposal in the response as a concise markdown design note.
-Do not create an OpenSpec change in this mode.
-
-If the user gives a destination file and explicitly asks you to write there, you may write the proposal there instead.
+An OpenSpec change created by invoking `openspec-propose` or `openspec-ff-change`, with test case artifacts included in the change design.
 
 ### Workflow
 
@@ -157,11 +168,11 @@ If the user gives a destination file and explicitly asks you to write there, you
    - external dependency safety boundaries
    - logs, outputs, and artifacts worth preserving
    - implementation order that enables incremental validation
-   - design-phase `testplans/` and implemented `autotest/` layout when automatic cases are part of the intended delivery
-4. Structure the output using the bundled checklist so the design is ready to turn into an OpenSpec change later.
-5. Call out open questions that would materially affect safe or useful hack-through-testing.
-
-When useful, suggest a follow-up such as `$openspec-propose` or `$openspec-new-change`, but do not invoke those workflows automatically.
+   - design-phase `testplans/` layout with both automatic and interactive case plans
+   - implemented `autotest/` layout: automatic scripts (`case-<id>.<ext>`) and interactive guides (`case-<id>.md`)
+4. Invoke `openspec-propose` (for a single-step proposal) or `openspec-ff-change` (to fast-forward through all artifacts) to create the OpenSpec change. Pass the HTT design context so the change artifacts encode the canonical path, test case variants, and safety model.
+5. After the change is created, verify that the resulting artifacts include test case plans for both automatic and interactive variants.
+6. Call out open questions that would materially affect safe or useful hack-through-testing.
 
 ## Subskill: `revise`
 
@@ -187,10 +198,11 @@ Typical targets are:
 2. Use the bundled checklist to identify the canonical path and the main HTT-compatibility gaps.
 3. Revise the change artifacts so they encode stable capabilities rather than throwaway workaround details.
 4. Make proposal, design, specs, and tasks point at the same canonical path and safety model.
-5. When automatic execution is part of the design, make the artifacts agree on:
-   - design-phase `openspec/changes/<change>/testplans/case-*.md`
+5. When test cases are part of the design, make the artifacts agree on:
+   - design-phase `openspec/changes/<change>/testplans/case-*.md` covering both automatic and interactive variants
    - Mermaid sequence diagrams in each case plan
-   - implemented `<implementation-root>/autotest/` assets
+   - implemented automatic scripts: `<implementation-root>/autotest/case-*.<ext>`
+   - implemented interactive guides: `<implementation-root>/autotest/case-*.md`
    - shared helpers under `<implementation-root>/autotest/helpers/`
    - a standalone harness under `<implementation-root>/autotest/<project-dependent-harness-script>`
 6. Validate the change when helpful:
@@ -261,7 +273,7 @@ If the change is not implemented enough to exercise responsibly, stop and report
 
 ## Example Prompts
 
-- `Use $openspec-ext-hack-through-test in propose mode and design this feature so it can be driven by hack-through-testing later.`
+- `Use $openspec-ext-hack-through-test in propose mode and create an OpenSpec change with HTT-ready test cases for this feature.`
 - `Use $openspec-ext-hack-through-test in revise mode on openspec/changes/<change> and update the artifacts for HTT compatibility.`
 - `Use $openspec-ext-hack-through-test in run mode on openspec/changes/<change> and patch forward through the implemented flow.`
 - `Take this OpenSpec change and either revise or run it under hack-through-testing principles, depending on what the current state supports.`
@@ -270,13 +282,13 @@ Pointing to a file or directory under `openspec/` counts as the same trigger sig
 
 ## Guardrails
 
-- Do not create a new OpenSpec change in `propose` mode.
 - Do not revise change artifacts in `run` mode unless the user explicitly asks to switch modes.
 - Do not assume a fixed OpenSpec artifact layout; use OpenSpec CLI output first.
 - Do not reference workflow files outside this skill directory.
 - Do not present temporary workarounds discovered in `run` mode as the final fix.
 - Do not encode disposable-worktree mechanics as permanent product requirements when using `propose` or `revise`.
-- Do not collapse design-phase OpenSpec `testplans/` and implemented `autotest/` docs into the same artifact role; keep the design-versus-implementation distinction explicit.
+- Do not collapse design-phase OpenSpec `testplans/` and implemented `autotest/` artifacts into the same artifact role; keep the design-versus-implementation distinction explicit.
 - Do not hide shared helper logic inside unrelated case scripts when the target implementation has multiple automatic cases; direct shared logic into `autotest/helpers/`.
+- Do not reduce interactive guides (`autotest/case-*.md`) to wrappers that just say "run the automatic script"; they must be independent step-by-step procedures for agent-driven execution with user observation.
 - Do not keep going silently once the remaining path forward would require high-risk product changes or unsafe external side effects.
 - Do not target CI-style tests (unit, smoke, mock-based integration) as the canonical path. Ask the user for the real production user path if it is not clear from context.

@@ -15,27 +15,26 @@ Use this checklist in `propose` and `revise` mode.
 - What dependency is unsafe to hit directly and therefore needs a stub, redirect, or read-only mode?
 - What part is likely to hang and therefore needs bounded failure behavior?
 - What logs or generated artifacts should survive a failed run?
-- If automatic cases are part of the intended delivery, where should design-phase `testplans/`, implemented `autotest/`, shared `autotest/helpers/`, and the standalone harness live?
+- If test cases are part of the intended delivery, where should design-phase `testplans/`, implemented `autotest/` (both automatic scripts and interactive guides), shared `autotest/helpers/`, and the standalone harness live?
 
 ## `propose` Output Shape
 
-When proposing a design, include these sections unless the user asks for a different shape:
+When creating the OpenSpec change, ensure the design context passed to `openspec-propose` or `openspec-ff-change` covers these concerns unless the user asks for a different shape:
 
-- `# HTT-Ready Design Proposal: <topic>`
-- `## Canonical Path`
-- `## Runner Surface`
-- `## Fixtures, Samples, And Stubs`
-- `## Fail-Fast And Timeout Strategy`
-- `## Logs, Outputs, And Artifacts`
-- `## Implementation Order`
-- `## Risks And Open Questions`
+- Canonical path
+- Runner surface
+- Fixtures, samples, and stubs
+- Fail-fast and timeout strategy
+- Logs, outputs, and artifacts
+- Implementation order
+- Risks and open questions
 
-When automatic cases are in scope, also spell out:
+When test cases are in scope, also spell out:
 
-- design-phase `testplans/case-*.md`
+- design-phase `testplans/case-*.md` covering both automatic and interactive variants
 - Mermaid sequence diagrams for each case plan
-- implemented `autotest/case-*.<case-script-ext>`
-- companion `autotest/case-*.md`
+- implemented automatic scripts: `autotest/case-*.<case-script-ext>`
+- implemented interactive guides: `autotest/case-*.md` with step-by-step agent-driven instructions
 - shared helpers in `autotest/helpers/`
 - standalone harness location and language choice
 - case-script language/extension choice, noting that per-case executables are project/OS dependent and not fixed to `.sh`
@@ -55,7 +54,7 @@ When automatic cases are in scope, also spell out:
 - define preflight checks and bounded failure behavior
 - define output and artifact locations
 - define safe handling for external dependencies
-- define design-phase versus implemented automatic-test artifact roles when both exist
+- define design-phase versus implemented test artifact roles when both exist, distinguishing automatic scripts from interactive guides
 - define where the standalone harness lives and how it dispatches into implemented case scripts
 - define where shared helper functions/scripts live for implemented automatic cases
 
@@ -68,9 +67,11 @@ Prefer concrete requirements such as:
 - `The automation flow SHALL emit machine-detectable success or failure outcomes.`
 - `The automation flow SHALL persist logs or generated artifacts to a deterministic or caller-provided location.`
 - `Unsafe external writes SHALL be disabled, stubbed, or redirected during automated runs.`
-- `The change SHALL store design-phase automatic-case plans under openspec/changes/<change>/testplans/.`
+- `The change SHALL store design-phase test-case plans under openspec/changes/<change>/testplans/, covering both automatic and interactive variants.`
 - `Each design-phase case plan SHALL include a Mermaid sequence diagram for the canonical case flow.`
-- `Implemented automatic cases SHALL live under an owned autotest/ directory under the target implementation root.`
+- `Implemented automatic case scripts SHALL live under an owned autotest/ directory under the target implementation root.`
+- `Implemented interactive case guides SHALL live under the same autotest/ directory as independent step-by-step Markdown procedures.`
+- `Interactive guides SHALL NOT reduce to "run the automatic script" — they SHALL contain inline instructions explaining what to do, what to observe, and what success or failure looks like at each step.`
 - `Implemented per-case executables SHALL use a project- and OS-appropriate file extension rather than defaulting to .sh.`
 - `Shared automatic-test helper functions and scripts SHALL live under autotest/helpers/.`
 - `A standalone autotest harness SHALL dispatch into case implementations without overloading unrelated operator wrappers.`
@@ -88,10 +89,11 @@ Prefer this order:
 1. expose the canonical runner surface
 2. add fixtures, samples, or stub boundaries
 3. add preflight checks and bounded failure behavior
-4. add design-phase `testplans/` and implemented `autotest/` layout decisions
-5. add standalone harness plus shared `autotest/helpers/`
-6. add logging and artifact capture
-7. add automated smoke or integration coverage for the canonical path
+4. add design-phase `testplans/` with both automatic and interactive case plans
+5. add implemented `autotest/` layout: automatic scripts and interactive guides
+6. add standalone harness plus shared `autotest/helpers/`
+7. add logging and artifact capture
+8. add automated smoke or integration coverage for the canonical path
 
 ## Smells
 
@@ -105,3 +107,5 @@ Revise the design or change artifacts if you find any of these:
 - automatic-case plans exist but do not distinguish design-phase `testplans/` from implemented `autotest/`
 - implemented case scripts duplicate shared helper logic instead of using an `autotest/helpers/` location
 - the design bundles HTT case selection into an unrelated operator/demo wrapper instead of a dedicated harness
+- interactive guides (`autotest/case-*.md`) just say "run the automatic script" instead of containing independent step-by-step instructions
+- test case plans do not cover both automatic and interactive variants
