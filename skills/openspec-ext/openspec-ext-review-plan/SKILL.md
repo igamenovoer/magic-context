@@ -148,6 +148,13 @@ When responding to open questions in this review, use paired `PROPOSED` and `DEC
 > Rationale: _To be filled by developer._
 ```
 
+When the review includes actionable findings, add a developer-owned `DECISION` blockquote directly after each finding using the same `DECISION:` label for consistency:
+
+```markdown
+> **DECISION: _(accept / refine / reject / defer this finding)_**
+> Rationale: _To be filled by developer._
+```
+
 Rationale contract:
 
 - Ground the `PROPOSED` rationale in repository evidence (specific paths, symbols, and line numbers when possible).
@@ -165,11 +172,13 @@ Reviewer / developer ownership contract:
 - The reviewing agent must leave the `DECISION` blockquote as a developer-owned placeholder.
 - The reviewing agent must not edit the `DECISION` summary or its rationale placeholder text.
 - The developer fills the `DECISION` blockquote later, after choosing whether to accept, modify, or reject the proposal.
+- For actionable findings, the reviewing agent must add the developer-owned `DECISION` placeholder but must not fill it.
 
 Placement contract:
 
 - Insert both blockquotes directly after the `Options` subsection for that question.
 - Keep any follow-ups after the `DECISION` block so outcomes remain easy to scan.
+- Insert the finding `DECISION` block directly after the finding text it applies to.
 
 ## Summary
 
@@ -179,15 +188,24 @@ Placement contract:
 
 ### Must Fix / Blocking
 
-- ...
+1. **<finding text>**
+
+> **DECISION: _(accept / refine / reject / defer this finding)_**
+> Rationale: _To be filled by developer._
 
 ### Should Fix / Important
 
-- ...
+2. **<finding text>**
+
+> **DECISION: _(accept / refine / reject / defer this finding)_**
+> Rationale: _To be filled by developer._
 
 ### Nice To Have
 
-- ...
+3. **<finding text>**
+
+> **DECISION: _(accept / refine / reject / defer this finding)_**
+> Rationale: _To be filled by developer._
 
 ## Design Alignment With Existing System
 
@@ -303,6 +321,7 @@ External-agent runtime policy:
 - Do not silently switch changes; always confirm the chosen change when selection was ambiguous.
 - Prefer actionable feedback over vague opinions; cite concrete artifacts/paths.
 - Keep “Open Questions” as a separate section and include both a reviewer-filled `PROPOSED` block and a developer-owned `DECISION` placeholder for each question.
+- For actionable findings, include a developer-owned `DECISION` placeholder directly under the finding and keep the label as `DECISION:` rather than introducing a separate response label.
 - Default behavior is in-agent review (no external reviewer) unless the user explicitly requests an external reviewer.
 - Normalize reviewer aliases before dispatch: `claude-<suffix>` -> Claude Code family; `copilot-<suffix>` -> Copilot family.
 - If the user requests Claude (`claude`, `claude code`, or `claude-<suffix>`), require Claude Code + Opus model, and defer exact invocation mechanics to `$claude-code-invoke-once`.
