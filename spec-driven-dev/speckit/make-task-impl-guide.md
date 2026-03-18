@@ -1,5 +1,8 @@
 # Generate Implementation Guides from Speckit Tasks
 
+> Legacy workflow note: this guide applies only to repositories that still use the older Speckit `specs/<feature-id>/`
+> layout. In this repository, prefer `magic-context/spec-driven-dev/openspec-tools/make-task-impl-guide.md`.
+
 Generate concise, visual implementation guides from speckit `tasks.md` files, focused on APIs, file changes, and interaction flows.
 
 In below, `<feature-id>` is the speckit feature directory name with format `<feature-index>-<feature-name>` (e.g., `001-my-feature`, `002-blender-rendering`). You should check `specs/` directory for these feature subdirectories.

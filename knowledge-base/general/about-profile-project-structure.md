@@ -60,7 +60,7 @@ Throughout this guide, placeholder names are shown in angle brackets:
 ├── docs/                                  # Documentation (MkDocs)
 ├── context/                               # Knowledge base, how‑tos, plans
 ├── magic-context/                         # Templates/snippets (prompting context)
-├── specs/                                 # Design docs and tasks
+├── openspec/                              # OpenSpec changes and maintained capability specs
 ├── reports/                               # Generated reports
 ├── tmp/                                   # Run outputs (e.g., tmp/profile-output/<run_id>/)
 └── .specify/                              # Project constitution/templates (optional)

@@ -37,7 +37,7 @@ Use clear, actionable sections. Keep it concise and skimmable.
 8. Usage examples or UX notes (if applicable)
 9. Pitfalls and tips: common mistakes to avoid
 10. Acceptance criteria: checklist to verify completion
-11. References: links to docs/specs/examples
+11. References: links to docs/OpenSpec/examples
 
 ## Code snippet guidelines
 - Include short, focused snippets only; no need to be fully runnable
