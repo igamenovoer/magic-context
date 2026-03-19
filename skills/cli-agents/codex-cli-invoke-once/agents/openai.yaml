@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex CLI Invoke Once"
+  short_description: "Programmatic Codex CLI calls"
+  default_prompt: "Use $codex-cli-invoke-once to show one-shot, JSONL, and resume patterns for the `codex` CLI."
