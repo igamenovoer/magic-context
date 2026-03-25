@@ -1,6 +1,6 @@
 ---
 name: hack-through-testing
-description: "Manual invocation only. Drive a crashy, hanging, or half-broken system forward along a real production user path using real data. Two subskills: `prepare` to analyze the target and create `<htt-home>/autotest/` with automatic scripts and interactive guides, and `run` to drive testing using those artifacts, patching forward through blockers. Run subskill operates in-place by default (stash + test on current branch) or in a disposable snapshot worktree when explicitly requested. Supports automatic and interactive driving. Default when ambiguous: both subskills, in-place, automatic. Not for CI-oriented unit, smoke, or mock-based integration tests."
+description: "Manual invocation only. Drive a crashy, hanging, or half-broken system forward along a real production user path using real data. Two subskills: `prepare` to analyze the target and set up `<htt-home>/` with infrastructure dirs (logs, runs, issues); optionally creates `<htt-home>/autotest/` with automatic scripts and interactive guides only when the developer explicitly requests test-case generation. `run` drives testing — with or without autotest artifacts — patching forward through blockers. Run subskill operates in-place by default (stash + test on current branch) or in a disposable snapshot worktree when explicitly requested. Supports automatic and interactive driving. Default when ambiguous: both subskills, in-place, automatic. Not for CI-oriented unit, smoke, or mock-based integration tests."
 ---
 
 # Hack Through Testing
@@ -31,17 +31,18 @@ Do not invent a CI-style test run and call it hack-through-testing.
 This skill has exactly two subskills.
 
 1. `prepare`
-   Analyze the target and create `<htt-home>/autotest/` with automatic scripts and interactive guides.
+   Analyze the target and set up `<htt-home>/` with infrastructure dirs (logs, runs, issues). If the developer explicitly requests test-case generation (e.g., "prepare test cases", "prepare for auto test", "create autotest", "set up autotest"), also create `<htt-home>/autotest/` with automatic scripts and interactive guides.
    Primary guide: `references/prepare.md`
 
 2. `run`
-   Drive testing using the autotest artifacts, patching forward through blockers. Operates in-place (default) or in a disposable snapshot worktree.
+   Drive testing, patching forward through blockers. Uses autotest artifacts when they exist; otherwise drives testing directly from the target analysis. Operates in-place (default) or in a disposable snapshot worktree.
    Primary guide: `references/run.md`
 
 ## Subskill Selection
 
-- "prepare", "bootstrap", "plan", "create test cases", "set up autotest" → `prepare` only
-- "run", "test", "execute", "drive", "patch forward" with existing autotest artifacts → `run` only
+- "prepare", "bootstrap", "plan", "set up" → `prepare` (infrastructure only, no autotest)
+- "prepare test cases", "prepare for auto test", "create autotest", "set up autotest", "create test cases" → `prepare` with autotest generation
+- "run", "test", "execute", "drive", "patch forward" → `run` only
 - If the developer asks for both, or does not specify → run `prepare` then `run`
 - If autotest artifacts already exist and the developer wants to go straight to driving → `run` only
 
@@ -74,7 +75,7 @@ If this skill creates `.agent-automation/hacktest/`, add it to `.gitignore`. If 
 - Never keep going silently after a workaround invalidates trust in later observations; log the caveat.
 - In worktree mode, never merge the throwaway branch into real work.
 - Never reduce interactive guides (`case-<id>.md`) to wrappers that just say "run the automatic script"; they must be independent step-by-step procedures.
-- Never skip the prepare subskill silently when autotest artifacts are missing and the run subskill needs them.
+- Never skip the prepare subskill silently when the run subskill needs htt-home infrastructure and it is missing.
 
 ## Resources
 
@@ -88,7 +89,8 @@ If this skill creates `.agent-automation/hacktest/`, add it to `.gitignore`. If 
 ## Example Prompts
 
 - `Use $hack-through-testing on this CLI and keep patching forward until the happy path finishes.`
-- `Use $hack-through-testing to prepare autotest cases for the demo under scripts/demo/foo.`
+- `Use $hack-through-testing to prepare for the demo under scripts/demo/foo.` (infrastructure only)
+- `Use $hack-through-testing to prepare autotest cases for the demo under scripts/demo/foo.` (with autotest generation)
 - `Use $hack-through-testing in run mode with interactive driving — I want to watch each step.`
 - `Use $hack-through-testing with a worktree so my checkout stays clean.`
 - `Use $hack-through-testing to exercise the full build-then-launch sequence — build a brain, start a session, send a prompt, stop — and patch through every failure.`

@@ -1,8 +1,8 @@
 # Subskill: Prepare
 
-Analyze the target and create `<htt-home>/autotest/` with automatic scripts and interactive guides. Does not snapshot, patch forward, or modify the system under test.
+Analyze the target, set up `<htt-home>/` with infrastructure dirs for logging and run artifacts. Optionally create `<htt-home>/autotest/` with automatic scripts and interactive guides — but only when the developer explicitly requests test-case generation.
 
-Skip this subskill if autotest artifacts already exist at `<htt-home>/autotest/` and the developer wants to go straight to run.
+Skip this subskill if `<htt-home>/` infrastructure already exists and the developer wants to go straight to run.
 
 ## 1. Resolve The Target
 
@@ -62,15 +62,25 @@ Use OpenSpec tooling first:
 
 When reading files for an OpenSpec change, use the OpenSpec tool output to decide what to inspect next. Do not hard-code or assume the artifact layout inside the directory.
 
-## 3. Create HTT Home And Autotest Directory
+## 3. Create HTT Home Infrastructure
 
 ```bash
-mkdir -p <htt-home>/autotest/helpers
+mkdir -p <htt-home>/logs/issues <htt-home>/runs
 ```
 
 If this creates `.agent-automation/hacktest/`, ensure it is gitignored.
 
-## 4. Create Autotest Artifacts
+Report findings to the developer: summarize the target, testable surface, identified test cases, prerequisites, and success/failure signals.
+
+**If the developer did not request autotest generation, stop here.** The infrastructure is ready for the run subskill to drive testing directly.
+
+## 4. Create Autotest Artifacts (Only When Explicitly Requested)
+
+Only create `<htt-home>/autotest/` when the developer explicitly asks for test-case generation — e.g., "prepare test cases", "prepare for auto test", "create autotest", "set up autotest". Do not create autotest artifacts by default.
+
+```bash
+mkdir -p <htt-home>/autotest/helpers
+```
 
 For each identified case:
 

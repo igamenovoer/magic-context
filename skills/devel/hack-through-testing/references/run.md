@@ -1,6 +1,6 @@
 # Subskill: Run
 
-Drive testing using the autotest artifacts at `<htt-home>/autotest/`, patching forward through blockers. If the prepare subskill was not run separately, run it first.
+Drive testing, patching forward through blockers. Uses autotest artifacts at `<htt-home>/autotest/` when they exist; otherwise drives testing directly from the target analysis performed during prepare. If the prepare subskill was not run separately, run it first.
 
 ## Mode Selection
 
@@ -13,8 +13,8 @@ Determine the isolation mode and driving mode before doing deeper work.
 
 **Driving modes:**
 
-- **automatic**: execute automatic test scripts (`case-<id>.<ext>`) unattended via the harness. The agent runs scripts, captures output, and enters the patch-forward loop on failure.
-- **interactive**: follow interactive guides (`case-<id>.md`) step by step. The agent executes each step, presents results to the user, and waits for the user to say "continue", "next", "retry", "investigate", or "skip" before proceeding.
+- **automatic**: when autotest artifacts exist, execute automatic test scripts (`case-<id>.<ext>`) unattended via the harness. When no autotest artifacts exist, the agent drives the target commands directly — running the identified entrypoints, scripts, or workflow sequences and entering the patch-forward loop on failure.
+- **interactive**: when autotest artifacts exist, follow interactive guides (`case-<id>.md`) step by step. When no autotest artifacts exist, the agent drives the target step by step, presenting each command and its result to the user, and waiting for the user to say "continue", "next", "retry", "investigate", or "skip" before proceeding.
 
 **How to determine from context:**
 
@@ -38,9 +38,11 @@ Determine the isolation mode and driving mode before doing deeper work.
 - **Throwaway worktree**: `<htt-home>/repo` unless `--path` is provided
 - Path references in logs use repo-relative paths on `htt-branch`.
 
-## 1. Verify Autotest Artifacts
+## 1. Verify HTT Home Infrastructure
 
-Confirm that `<htt-home>/autotest/` exists and contains the expected case scripts and guides. If missing, run the prepare subskill first.
+Confirm that `<htt-home>/` exists with the expected infrastructure dirs (logs, runs). If missing, run the prepare subskill first.
+
+Check whether `<htt-home>/autotest/` exists. If it does, autotest artifacts are available for structured driving. If it does not, the run subskill drives testing directly from the target (commands, scripts, entrypoints identified during prepare).
 
 ## 2. Snapshot And Prepare
 
@@ -108,9 +110,9 @@ Keep live notes concise but factual. Save interpretation for the synthesis.
 
 **In-place mode:** remain in the current workspace directory.
 
-**Automatic driving:** Execute the harness or individual `case-<id>.<ext>` scripts from `<htt-home>/autotest/`. The agent runs scripts, captures output, and enters the patch-forward loop on failure. Each iteration uses the autotest artifacts to determine what to run next.
+**Automatic driving:** If autotest artifacts exist, execute the harness or individual `case-<id>.<ext>` scripts from `<htt-home>/autotest/`. If no autotest artifacts exist, drive the target commands directly — run the identified entrypoints, scripts, or workflow sequences. In both cases, the agent captures output and enters the patch-forward loop on failure.
 
-**Interactive driving:** Open the relevant `case-<id>.md` guide from `<htt-home>/autotest/`. Execute each step on the user's behalf, present results, and wait for the user to say "continue", "next", "retry", "investigate", or "skip" before proceeding. Enter the patch-forward loop when the user confirms a blocker needs a workaround.
+**Interactive driving:** If autotest artifacts exist, open the relevant `case-<id>.md` guide from `<htt-home>/autotest/`. If no autotest artifacts exist, work through the target workflow step by step. In both cases, the agent executes each step on the user's behalf, presents results, and waits for the user to say "continue", "next", "retry", "investigate", or "skip" before proceeding. Enter the patch-forward loop when the user confirms a blocker needs a workaround.
 
 For each issue encountered:
 
