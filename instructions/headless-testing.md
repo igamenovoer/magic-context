@@ -10,7 +10,7 @@ Before starting headless testing, find out which platform you are using and foll
 
 - Focus on testing the application's functionality without a graphical user interface.
 - Use automated testing tools that support headless mode.
-- For each test, save the test results in `context/logs/testlog-<date>.md` format, which includes:
+- For each test, save the test results under `context/logs/runs/` using a timestamped name such as `context/logs/runs/<timestamp>-headless-test-<topic>.md`, which includes:
 - - a header, contains the following:
   - **Test Case ID**: Unique identifier for the test case
   - **Test Objective**: Brief description of what the test is verifying

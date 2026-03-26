@@ -4,7 +4,7 @@ you are tasked to review the source with `aider`, which is an AI-powered coding 
 
 ## Creating the report template
 
-- by default, create a report in `context/logs/code-reivew`, name it as `<timestamp>-<what-to-review>.md`, where `<timestamp>` is the current timestamp in `YYYYMMDD-HHMMSS` format, and `<what-to-review>` is a short description of the code being reviewed. If the user specifies a different code review report filepath, use that instead. Denote this as `report-filepath`
+- by default, create a report in `context/logs/code-review`, name it as `<timestamp>-<what-to-review>.md`, where `<timestamp>` is the current timestamp in `YYYYMMDD-HHMMSS` format, and `<what-to-review>` is a short description of the code being reviewed. If the user specifies a different code review report filepath, use that instead. Denote this as `report-filepath`
 - the code report should be created empty at first, and `aider` will fill in the details
 - review instructions is in `.magic-context/instructions/review-code-by-mem.md`, denote this as `review-instructions`
 
