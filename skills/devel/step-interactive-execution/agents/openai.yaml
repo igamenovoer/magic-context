@@ -1,0 +1,7 @@
+interface:
+  display_name: "Step Interactive Execution"
+  short_description: "Inspect first, then run by approval"
+  default_prompt: "Use step-interactive-execution on this file, executable, or directory; inspect it first, then show each CLI command and wait for my confirmation before executing it."
+
+policy:
+  allow_implicit_invocation: false
