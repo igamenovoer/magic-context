@@ -4,6 +4,8 @@
 #
 # Sets HTTP(S) proxy env vars to the first reachable proxy from
 # PROXY_CANDIDATE_LIST (comma-separated URLs).
+# Also sets no_proxy/NO_PROXY so local and private-network traffic bypasses
+# the proxy.
 # You can override PROXY_CANDIDATE_LIST by passing:
 #   source ~/setup-proxy.sh --proxy-candidate-list "proxy1,proxy2"
 #
@@ -13,6 +15,12 @@
 # - Missing port -> assumed 7890.
 #
 # If PROXY_CANDIDATE_LIST is unset/empty, probes only 127.0.0.1:7890.
+#
+# no_proxy behavior:
+# - SETUP_PROXY_NO_PROXY, when set, is merged with the built-in bypass list.
+# - Existing no_proxy/NO_PROXY values are also preserved and merged.
+# - Built-in bypasses cover localhost, loopback, Docker host aliases, and
+#   common private address ranges.
 #
 # Docker behavior:
 # - If PROXY_CANDIDATE_LIST is unset/empty and we detect we're running inside a
@@ -37,6 +45,8 @@ Behavior:
   - If --proxy-candidate-list is provided, it overrides PROXY_CANDIDATE_LIST.
   - Otherwise uses PROXY_CANDIDATE_LIST (comma-separated).
   - If neither is set, probes only 127.0.0.1:7890.
+  - Sets no_proxy/NO_PROXY for localhost, loopback, Docker host aliases, and
+    common private address ranges. Add extra entries with SETUP_PROXY_NO_PROXY.
 
 Docker behavior:
   - If no candidate list is provided and the script detects it's running inside
@@ -58,6 +68,7 @@ EOF
 fi
 
 _default_proxy_port="7890"
+_default_no_proxy="localhost,127.0.0.1,127.0.0.0/8,::1,0.0.0.0,host.docker.internal,.local,*.local,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
 
 _log() {
   echo "[setup-proxy] $*" >&2
@@ -250,6 +261,31 @@ _proxy_reachable_host_port() {
   bash -lc "cat < /dev/null > /dev/tcp/${host}/${port}" >/dev/null 2>&1
 }
 
+_append_unique_csv() {
+  local current="${1}"
+  local additions="${2}"
+  local IFS=','
+  local item
+  for item in ${additions}; do
+    item="${item#${item%%[![:space:]]*}}" # ltrim
+    item="${item%${item##*[![:space:]]}}" # rtrim
+    [[ -z "${item}" ]] && continue
+    if [[ ",${current}," != *",${item},"* ]]; then
+      current+="${current:+,}${item}"
+    fi
+  done
+  printf '%s' "${current}"
+}
+
+_resolved_no_proxy() {
+  local value=""
+  value="$(_append_unique_csv "${value}" "${no_proxy-}")"
+  value="$(_append_unique_csv "${value}" "${NO_PROXY-}")"
+  value="$(_append_unique_csv "${value}" "${SETUP_PROXY_NO_PROXY-}")"
+  value="$(_append_unique_csv "${value}" "${_default_no_proxy}")"
+  printf '%s' "${value}"
+}
+
 _selected_proxy_url=""
 
 while IFS= read -r candidate_url; do
@@ -282,6 +318,11 @@ export HTTPS_PROXY="${_selected_proxy_url}"
 export all_proxy="${_selected_proxy_url}"
 export ALL_PROXY="${_selected_proxy_url}"
 
-echo "Proxy enabled: ${_selected_proxy_url}" >&2
+_selected_no_proxy="$(_resolved_no_proxy)"
+export no_proxy="${_selected_no_proxy}"
+export NO_PROXY="${_selected_no_proxy}"
 
-unset _proxy_candidate_list_arg
+echo "Proxy enabled: ${_selected_proxy_url}" >&2
+echo "Proxy bypass: ${_selected_no_proxy}" >&2
+
+unset _proxy_candidate_list_arg _selected_no_proxy
