@@ -14,16 +14,19 @@ MODE="foreground"
 TMUX_CHILD_MODE=false
 BATCH_AUTH_AVAILABLE=false
 ATTACH_MODE=false
+REMOTE_BIND_ADDR=""
 
 # Function to show usage
 usage() {
-    echo "Usage: $0 --remote-addr <target> --remote-port <port> --local-port <port> [--keep-alive <sec>] [--max-retries <count>] [--ssh-connect-timeout <sec>] [--check-connect-timeout <sec>] [--probe-connect-timeout <sec>] [--retry-delay <sec>] [--status-timeout <sec>] [--background|--tmux] [--attach]"
+    echo "Usage: $0 --remote-addr <target> --remote-port <port> --local-port <port> [--remote-bind-addr <localhost|ip-addr>] [--keep-alive <sec>] [--max-retries <count>] [--ssh-connect-timeout <sec>] [--check-connect-timeout <sec>] [--probe-connect-timeout <sec>] [--retry-delay <sec>] [--status-timeout <sec>] [--background|--tmux] [--attach]"
     echo ""
     echo "  --remote-addr   The remote target. Formats allowed:"
     echo "                  1. User & IP:   user@192.168.1.1"
     echo "                  2. Alias:       myserver (from ~/.ssh/config)"
     echo "  --remote-port   The port on the Remote Server to open"
     echo "  --local-port    The port on your Local Machine to expose"
+    echo "  --remote-bind-addr Bind address for the remote listener: localhost or a literal IP address"
+    echo "                  Omit this option to let the remote SSH server decide (GatewayPorts)"
     echo "  --keep-alive    ServerAliveInterval in seconds (default: 20)"
     echo "  --max-retries   ServerAliveCountMax for ssh keepalive failures (default: 60)"
     echo "  --ssh-connect-timeout SSH ConnectTimeout for the tunnel itself (default: 10)"
@@ -46,6 +49,7 @@ while [[ "$#" -gt 0 ]]; do
         --remote-addr) REMOTE_TARGET="$2"; shift ;;
         --remote-port) REMOTE_PORT="$2"; shift ;;
         --local-port) LOCAL_PORT="$2"; shift ;;
+        --remote-bind-addr) REMOTE_BIND_ADDR="$2"; shift ;;
         --keep-alive) KEEP_ALIVE="$2"; shift ;;
         --max-retries) MAX_RETRIES="$2"; shift ;;
         --ssh-connect-timeout) SSH_CONNECT_TIMEOUT="$2"; shift ;;
@@ -74,8 +78,70 @@ if [ "$MODE" != "tmux" ] && [ "$ATTACH_MODE" = true ]; then
     exit 1
 fi
 
+is_valid_ipv4_address() {
+    local addr="$1"
+    local IFS=.
+    local octets=()
+
+    [[ "$addr" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+
+    read -r -a octets <<<"$addr"
+    [ "${#octets[@]}" -eq 4 ] || return 1
+
+    local octet
+    for octet in "${octets[@]}"; do
+        [ "$octet" -ge 0 ] && [ "$octet" -le 255 ] || return 1
+    done
+}
+
+validate_remote_bind_addr() {
+    local bind_addr="$1"
+
+    if [[ -z "$bind_addr" || "$bind_addr" == "localhost" ]]; then
+        return 0
+    fi
+
+    if is_valid_ipv4_address "$bind_addr"; then
+        return 0
+    fi
+
+    if [[ "$bind_addr" =~ ^\[[0-9A-Fa-f:.]+\]$ ]]; then
+        return 0
+    fi
+
+    if [[ "$bind_addr" == *:* && "$bind_addr" =~ ^[0-9A-Fa-f:.]+$ ]]; then
+        return 0
+    fi
+
+    return 1
+}
+
+format_remote_bind_addr_for_ssh() {
+    local bind_addr="$1"
+
+    if [[ "$bind_addr" == \[*\] || "$bind_addr" != *:* ]]; then
+        printf '%s' "$bind_addr"
+    else
+        printf '[%s]' "$bind_addr"
+    fi
+}
+
+if ! validate_remote_bind_addr "$REMOTE_BIND_ADDR"; then
+    echo "Error: --remote-bind-addr must be localhost or a literal IP address."
+    exit 1
+fi
+
 # Unique signature to identify this tunnel process in 'pgrep'
-TUNNEL_SIG="-R $REMOTE_PORT:127.0.0.1:$LOCAL_PORT $REMOTE_TARGET"
+REMOTE_FORWARD_TARGET="127.0.0.1:$LOCAL_PORT"
+REMOTE_BIND_DISPLAY="${REMOTE_BIND_ADDR:-server default}"
+
+if [[ -n "$REMOTE_BIND_ADDR" ]]; then
+    REMOTE_FORWARD_SPEC="$(format_remote_bind_addr_for_ssh "$REMOTE_BIND_ADDR"):$REMOTE_PORT:$REMOTE_FORWARD_TARGET"
+else
+    REMOTE_FORWARD_SPEC="$REMOTE_PORT:$REMOTE_FORWARD_TARGET"
+fi
+
+TUNNEL_SIG="-R $REMOTE_FORWARD_SPEC $REMOTE_TARGET"
 
 # Common SSH Options
 # - StrictHostKeyChecking=no: Don't ask to confirm fingerprint (crucial for automation)
@@ -152,7 +218,7 @@ report_initial_tmux_status() {
 
         if [ "$BATCH_AUTH_AVAILABLE" = true ] && remote_port_is_listening; then
             echo "✅  Tunnel is up."
-            echo "    Remote Port: $REMOTE_PORT -> Local: $LOCAL_PORT"
+            echo "    Remote Bind: $REMOTE_BIND_DISPLAY | Remote Port: $REMOTE_PORT -> Local: $LOCAL_PORT"
             return 0
         fi
 
@@ -174,7 +240,7 @@ report_initial_tmux_status() {
 run_tunnel_loop() {
     while true; do
         echo "[$(date -Is)] Starting tunnel to '$REMOTE_TARGET'..."
-        echo "    Target: '$REMOTE_TARGET' | Remote Port: $REMOTE_PORT -> Local: $LOCAL_PORT"
+        echo "    Target: '$REMOTE_TARGET' | Remote Bind: $REMOTE_BIND_DISPLAY | Remote Port: $REMOTE_PORT -> Local: $LOCAL_PORT"
         echo "    Session: $SESSION_NAME"
         echo ""
 
@@ -212,7 +278,7 @@ elif [ "$MODE" = "background" ]; then
 
     if ps -p "$NEW_PID" > /dev/null; then
         echo "✅  Tunnel is running (PID: $NEW_PID)."
-        echo "    Target: '$REMOTE_TARGET' | Remote Port: $REMOTE_PORT -> Local: $LOCAL_PORT"
+        echo "    Target: '$REMOTE_TARGET' | Remote Bind: $REMOTE_BIND_DISPLAY | Remote Port: $REMOTE_PORT -> Local: $LOCAL_PORT"
     else
         echo "❌  Tunnel failed to start."
         exit 1
@@ -235,7 +301,11 @@ elif [ "$MODE" = "tmux" ]; then
     fi
 
     echo "🚀  Starting tunnel in tmux session '$SESSION_NAME'..."
-    tmux new-session -d -s "$SESSION_NAME" "$SCRIPT_PATH --tmux-child --remote-addr $(printf '%q' "$REMOTE_TARGET") --remote-port $(printf '%q' "$REMOTE_PORT") --local-port $(printf '%q' "$LOCAL_PORT") --keep-alive $(printf '%q' "$KEEP_ALIVE") --max-retries $(printf '%q' "$MAX_RETRIES") --ssh-connect-timeout $(printf '%q' "$SSH_CONNECT_TIMEOUT") --check-connect-timeout $(printf '%q' "$CHECK_CONNECT_TIMEOUT") --probe-connect-timeout $(printf '%q' "$PROBE_CONNECT_TIMEOUT") --retry-delay $(printf '%q' "$RETRY_DELAY") --status-timeout $(printf '%q' "$STATUS_TIMEOUT")"
+    TMUX_CMD="$SCRIPT_PATH --tmux-child --remote-addr $(printf '%q' "$REMOTE_TARGET") --remote-port $(printf '%q' "$REMOTE_PORT") --local-port $(printf '%q' "$LOCAL_PORT") --keep-alive $(printf '%q' "$KEEP_ALIVE") --max-retries $(printf '%q' "$MAX_RETRIES") --ssh-connect-timeout $(printf '%q' "$SSH_CONNECT_TIMEOUT") --check-connect-timeout $(printf '%q' "$CHECK_CONNECT_TIMEOUT") --probe-connect-timeout $(printf '%q' "$PROBE_CONNECT_TIMEOUT") --retry-delay $(printf '%q' "$RETRY_DELAY") --status-timeout $(printf '%q' "$STATUS_TIMEOUT")"
+    if [[ -n "$REMOTE_BIND_ADDR" ]]; then
+        TMUX_CMD="$TMUX_CMD --remote-bind-addr $(printf '%q' "$REMOTE_BIND_ADDR")"
+    fi
+    tmux new-session -d -s "$SESSION_NAME" "$TMUX_CMD"
 
     echo "✅  tmux session '$SESSION_NAME' created."
     report_initial_tmux_status
